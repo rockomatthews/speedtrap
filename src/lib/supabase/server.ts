@@ -6,7 +6,7 @@ import { env } from '@/lib/supabase/env';
 
 type CookieOptions = {
   domain?: string;
-  expires?: string | Date;
+  expires?: number | Date;
   httpOnly?: boolean;
   maxAge?: number;
   path?: string;
