@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -9,7 +10,19 @@ import Box from '@mui/material/Box';
 
 import { AppShell } from '@/components/AppShell';
 
-export default function HomePage() {
+export default async function HomePage({
+  searchParams
+}: {
+  // Next.js 15.5 types `searchParams` as a Promise in generated PageProps.
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = (await searchParams) ?? {};
+  const code = sp.code;
+  // Safety net: if an auth flow returns to `/` with `?code=...`, forward to our callback handler.
+  if (typeof code === 'string' && code.length > 0) {
+    redirect(`/auth/callback?code=${encodeURIComponent(code)}&redirectTo=${encodeURIComponent('/dashboard')}`);
+  }
+
   return (
     <AppShell>
       <Paper
