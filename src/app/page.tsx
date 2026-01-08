@@ -24,31 +24,67 @@ export default async function HomePage({
   }
 
   return (
-    <AppShell>
-      <Paper
-        elevation={0}
-        sx={{
-          p: { xs: 3, md: 6 },
-          overflow: 'hidden',
-          position: 'relative',
-          border: '1px solid rgba(255,255,255,0.10)',
+    <Box
+      sx={{
+        minHeight: '100vh',
+        backgroundImage: 'url(/brand/blurBackground.jpeg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        position: 'relative',
+        overflow: 'hidden',
+        // Elastic/vignette sides
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'url(/brand/blurBackground.jpeg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          filter: 'blur(22px)',
+          transform: 'scale(1.08)',
+          opacity: 0.9,
+          // show the blur only on the sides
+          maskImage:
+            'linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 10%, rgba(0,0,0,0) 28%, rgba(0,0,0,0) 72%, rgba(0,0,0,1) 90%, rgba(0,0,0,1) 100%)',
+          WebkitMaskImage:
+            'linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 10%, rgba(0,0,0,0) 28%, rgba(0,0,0,0) 72%, rgba(0,0,0,1) 90%, rgba(0,0,0,1) 100%)'
+        },
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          inset: 0,
           background:
-            'radial-gradient(1000px 600px at 50% 0%, rgba(255,210,0,0.18), rgba(0,0,0,0) 60%), linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))'
-        }}
-      >
-        <Box
-          aria-hidden="true"
+            'linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.65)), linear-gradient(90deg, rgba(0,0,0,0.85), rgba(0,0,0,0) 18%, rgba(0,0,0,0) 82%, rgba(0,0,0,0.85))'
+        }
+      }}
+    >
+      <AppShell>
+        <Paper
+          elevation={0}
           sx={{
-            position: 'absolute',
-            inset: 0,
-            opacity: 0.18,
+            p: { xs: 3, md: 6 },
+            overflow: 'hidden',
+            position: 'relative',
+            border: '1px solid rgba(255,255,255,0.10)',
             background:
-              'linear-gradient(90deg, rgba(255,42,42,0.35), rgba(255,210,0,0.35)), radial-gradient(900px 420px at 10% 10%, rgba(255,42,42,0.25), rgba(0,0,0,0) 55%)',
-            filter: 'blur(10px)'
+              'radial-gradient(1000px 600px at 50% 0%, rgba(255,210,0,0.18), rgba(0,0,0,0) 60%), linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.25))',
+            backdropFilter: 'blur(6px)'
           }}
-        />
+        >
+          <Box
+            aria-hidden="true"
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              opacity: 0.18,
+              background:
+                'linear-gradient(90deg, rgba(255,42,42,0.35), rgba(255,210,0,0.35)), radial-gradient(900px 420px at 10% 10%, rgba(255,42,42,0.25), rgba(0,0,0,0) 55%)',
+              filter: 'blur(10px)'
+            }}
+          />
 
-        <Stack spacing={3} sx={{ position: 'relative' }}>
+          <Stack spacing={3} sx={{ position: 'relative' }}>
           <Stack direction="row" spacing={1} alignItems="center">
             <Chip
               label="Website Under Construction"
@@ -89,26 +125,10 @@ export default async function HomePage({
               Book a Race
             </Button>
           </Stack>
-
-          <Box sx={{ pt: 2 }}>
-            <Typography
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 1,
-                fontWeight: 900,
-                letterSpacing: 1
-              }}
-            >
-              <span style={{ color: '#FFD200' }}>RACES START IN</span>
-            </Typography>
-            <Typography variant="h3" sx={{ fontWeight: 900, mt: 1 }}>
-              0d 0h 0m 0s
-            </Typography>
-          </Box>
         </Stack>
-      </Paper>
-    </AppShell>
+        </Paper>
+      </AppShell>
+    </Box>
   );
 }
 

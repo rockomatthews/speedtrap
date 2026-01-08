@@ -8,7 +8,6 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Toolbar from '@mui/material/Toolbar';
-import Typography from '@mui/material/Typography';
 
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 
@@ -45,19 +44,13 @@ export function NavBar() {
     >
       <Toolbar sx={{ gap: 2 }}>
         <Link href="/" style={{ color: 'inherit', textDecoration: 'none' }} aria-label="Home">
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-            {/* Put your svg at /public/brand/logo.svg */}
-            <Box
-              component="img"
-              src="/brand/logo.svg"
-              alt="Speed Trap Racing"
-              sx={{ height: 28, width: 'auto', display: { xs: 'none', sm: 'block' } }}
-            />
-            <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: 0.5 }}>
-              <span style={{ color: '#FFD200' }}>SPEED</span> <span style={{ color: '#FFFFFF' }}>TRAP</span>{' '}
-              <span style={{ color: '#FF2A2A' }}>RACING</span>
-            </Typography>
-          </Box>
+          {/* Put your svg at /public/brand/logo.svg */}
+          <Box
+            component="img"
+            src="/brand/logo.svg"
+            alt="Speed Trap Racing"
+            sx={{ height: 30, width: 'auto', display: 'block' }}
+          />
         </Link>
 
         <Box sx={{ flexGrow: 1 }} />
