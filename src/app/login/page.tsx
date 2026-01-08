@@ -1,11 +1,13 @@
 import { LoginClient } from '@/app/login/ui/LoginClient';
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  // Next.js 15.5 types `searchParams` as a Promise in generated PageProps.
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const redirectToParam = searchParams?.redirectTo;
+  const sp = (await searchParams) ?? {};
+  const redirectToParam = sp.redirectTo;
   const redirectTo =
     (typeof redirectToParam === 'string' ? redirectToParam : undefined) ?? '/dashboard';
 
