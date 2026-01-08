@@ -13,9 +13,11 @@ import Typography from '@mui/material/Typography';
 
 import { AppShell } from '@/components/AppShell';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
+import { env } from '@/lib/supabase/env';
 
 export function LoginClient({ redirectTo }: { redirectTo: string }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const siteUrl = env.NEXT_PUBLIC_SITE_URL ?? (typeof window !== 'undefined' ? window.location.origin : '');
 
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent'>('idle');
@@ -57,11 +59,10 @@ export function LoginClient({ redirectTo }: { redirectTo: string }) {
                 onClick={async () => {
                   setError(null);
                   try {
-                    const origin = window.location.origin;
                     const { error } = await supabase.auth.signInWithOAuth({
                       provider: 'google',
                       options: {
-                        redirectTo: `${origin}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`
+                        redirectTo: `${siteUrl}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`
                       }
                     });
                     if (error) throw error;
@@ -92,11 +93,10 @@ export function LoginClient({ redirectTo }: { redirectTo: string }) {
                   setError(null);
                   setStatus('loading');
                   try {
-                    const origin = window.location.origin;
                     const { error } = await supabase.auth.signInWithOtp({
                       email: email.trim(),
                       options: {
-                        emailRedirectTo: `${origin}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`
+                        emailRedirectTo: `${siteUrl}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`
                       }
                     });
                     if (error) throw error;

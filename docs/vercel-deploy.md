@@ -10,6 +10,7 @@
 Add these (from `docs/env.example`):
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_SITE_URL` (e.g. `https://yourapp.vercel.app`)
 - `SUPABASE_SERVICE_ROLE_KEY` (server-only)
 - `VMS_API_KEY` (server-only; keep it secret)
 - `VMS_HOME_VENUE_ID` (your venue id in VMS)
