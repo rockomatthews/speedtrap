@@ -15,7 +15,7 @@ type CookieOptions = {
 };
 
 /**
- * For Route Handlers (`app/**/route.ts`) where we need to write auth cookies.
+ * For Next.js Route Handlers (files named `route.ts`) where we need to write auth cookies.
  */
 export async function createRouteHandlerClient() {
   const cookieStore = await cookies();
