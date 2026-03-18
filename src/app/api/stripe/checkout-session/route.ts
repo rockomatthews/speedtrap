@@ -2,7 +2,7 @@ import Stripe from 'stripe';
 
 import { env } from '@/lib/supabase/env';
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
-import { stripeEnv } from '@/lib/stripe/env';
+import { getStripeEnv } from '@/lib/stripe/env';
 
 import { NextResponse } from 'next/server';
 
@@ -52,6 +52,7 @@ export async function POST(request: Request) {
   const origin = env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin;
 
   try {
+    const stripeEnv = getStripeEnv();
     const stripe = new Stripe(stripeEnv.STRIPE_SECRET_KEY);
 
     const session = await stripe.checkout.sessions.create({

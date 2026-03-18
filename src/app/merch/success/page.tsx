@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography';
 
 import Stripe from 'stripe';
 
-import { stripeEnv } from '@/lib/stripe/env';
+import { getStripeEnv } from '@/lib/stripe/env';
 
 import { AppShell } from '@/components/AppShell';
 
@@ -35,6 +35,7 @@ export default async function MerchSuccessPage({
     );
   }
 
+  const stripeEnv = getStripeEnv();
   const stripe = new Stripe(stripeEnv.STRIPE_SECRET_KEY);
   const session = await stripe.checkout.sessions.retrieve(sessionId, {
     expand: ['line_items', 'line_items.data.price.product']

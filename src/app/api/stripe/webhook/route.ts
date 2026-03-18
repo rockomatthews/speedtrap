@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
 
-import { stripeEnv } from '@/lib/stripe/env';
+import { getStripeEnv } from '@/lib/stripe/env';
 
 import { NextResponse } from 'next/server';
 
@@ -14,6 +14,7 @@ export async function POST(request: Request) {
 
   const rawBody = await request.text();
 
+  const stripeEnv = getStripeEnv();
   const stripe = new Stripe(stripeEnv.STRIPE_SECRET_KEY);
 
   let event: Stripe.Event;
