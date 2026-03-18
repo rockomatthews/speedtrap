@@ -65,6 +65,9 @@ export function NavBar() {
           <Button component={Link} href="/race-radar" color="inherit">
             Race Radar
           </Button>
+          <Button component={Link} href="/merch" color="inherit">
+            Merch
+          </Button>
           <Divider flexItem orientation="vertical" sx={{ borderColor: 'rgba(255,255,255,0.12)', mx: 1 }} />
           {isAuthed ? (
             <>

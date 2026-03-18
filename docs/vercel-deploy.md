@@ -14,6 +14,9 @@ Add these (from `docs/env.example`):
 - `SUPABASE_SERVICE_ROLE_KEY` (server-only)
 - `VMS_API_KEY` (server-only; keep it secret)
 - `VMS_HOME_VENUE_ID` (your venue id in VMS)
+- `STRIPE_SECRET_KEY` (server-only)
+- `STRIPE_WEBHOOK_SECRET` (server-only)
+- `STRIPE_PRICE_HOODIE` / `STRIPE_PRICE_TSHIRT` / `STRIPE_PRICE_KEYCHAIN`
 
 ### 3) Configure Supabase Auth (Supabase → Authentication → URL Configuration)
 Set **Site URL** to your Vercel domain (e.g. `https://yourapp.vercel.app`).
@@ -31,6 +34,12 @@ Trigger a deployment (push to `main` or click Deploy in Vercel).
 ### 6) Smoke check
 - Open the deployed site and verify `/` loads.
 - Verify `/login` works (once implemented) and that protected routes redirect to login when signed out.
+
+### 7) Configure Stripe webhook (Merch)
+- In Stripe Dashboard → Developers → Webhooks:
+  - Add an endpoint with URL: `https://<your-vercel-domain>/api/stripe/webhook`
+  - Select at least: `checkout.session.completed`
+- Ensure the endpoint secret from Stripe is saved to `STRIPE_WEBHOOK_SECRET` in Vercel.
 
 ### Troubleshooting: "This site can't be reached" / DNS_PROBE_FINISHED_NXDOMAIN on Google sign-in
 
