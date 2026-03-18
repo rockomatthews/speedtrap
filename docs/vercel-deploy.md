@@ -16,7 +16,6 @@ Add these (from `docs/env.example`):
 - `VMS_HOME_VENUE_ID` (your venue id in VMS)
 - `STRIPE_SECRET_KEY` (server-only)
 - `STRIPE_WEBHOOK_SECRET` (server-only)
-- `STRIPE_PRICE_HOODIE` / `STRIPE_PRICE_TSHIRT` / `STRIPE_PRICE_KEYCHAIN`
 
 ### 3) Configure Supabase Auth (Supabase → Authentication → URL Configuration)
 Set **Site URL** to your Vercel domain (e.g. `https://yourapp.vercel.app`).

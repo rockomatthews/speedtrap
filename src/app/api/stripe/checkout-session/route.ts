@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 
 import { env } from '@/lib/supabase/env';
+import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
 import { stripeEnv } from '@/lib/stripe/env';
 
 import { NextResponse } from 'next/server';
@@ -19,19 +20,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing priceId' }, { status: 400 });
   }
 
-  const allowedPriceIds = new Set<string>([
-    stripeEnv.STRIPE_PRICE_HOODIE,
-    stripeEnv.STRIPE_PRICE_TSHIRT,
-    stripeEnv.STRIPE_PRICE_KEYCHAIN
-  ]);
-
-  if (!allowedPriceIds.has(body.priceId)) {
-    return NextResponse.json({ error: 'Invalid priceId' }, { status: 400 });
-  }
-
   const quantityRaw = body.quantity;
   const quantity =
     typeof quantityRaw === 'number' && Number.isFinite(quantityRaw) ? Math.min(10, Math.max(1, Math.floor(quantityRaw))) : 1;
+
+  const supabase = await createRouteHandlerClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Prevent priceId tampering by validating it against the authenticated user's accessible merch catalog.
+  const { data: item, error: itemError } = await supabase
+    .from('merch_items')
+    .select('id,stripe_price_id')
+    .eq('active', true)
+    .eq('stripe_price_id', body.priceId)
+    .maybeSingle();
+
+  if (itemError) {
+    return NextResponse.json({ error: 'Failed to validate merch item.' }, { status: 500 });
+  }
+
+  if (!item) {
+    return NextResponse.json({ error: 'Invalid priceId' }, { status: 400 });
+  }
 
   const origin = env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin;
 
@@ -45,7 +61,8 @@ export async function POST(request: Request) {
       cancel_url: `${origin}/merch/cancel`,
       metadata: {
         merch_price_id: body.priceId,
-        merch_quantity: String(quantity)
+        merch_quantity: String(quantity),
+        merch_item_id: String(item.id)
       }
     });
 
