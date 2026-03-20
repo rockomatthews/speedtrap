@@ -3,12 +3,12 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
 import { AppShell } from '@/components/AppShell';
-import { getAuthedProfile } from '@/lib/supabase/profile';
+import { getCurrentUserAndAdminRole } from '@/lib/supabase/admin-role';
 
 import { AdminMerchClient } from './ui/AdminMerchClient';
 
 export default async function AdminMerchPage() {
-  const { profile } = await getAuthedProfile();
+  const { role, serviceRoleAvailable } = await getCurrentUserAndAdminRole();
 
   return (
     <AppShell>
@@ -17,8 +17,10 @@ export default async function AdminMerchPage() {
           Admin Merch
         </Typography>
 
-        {profile?.role !== 'admin' ? (
-          <Alert severity="error">Admin role required.</Alert>
+        {role !== 'admin' ? (
+          <Alert severity="error">
+            Admin role required. {serviceRoleAvailable ? '' : 'SUPABASE_SERVICE_ROLE_KEY is missing in this environment.'}
+          </Alert>
         ) : (
           <AdminMerchClient />
         )}

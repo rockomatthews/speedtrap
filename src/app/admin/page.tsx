@@ -6,10 +6,10 @@ import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 
 import { AppShell } from '@/components/AppShell';
-import { getAuthedProfile } from '@/lib/supabase/profile';
+import { getCurrentUserAndAdminRole } from '@/lib/supabase/admin-role';
 
 export default async function AdminPage() {
-  const { user, profile } = await getAuthedProfile();
+  const { user, role, serviceRoleAvailable } = await getCurrentUserAndAdminRole();
 
   return (
     <AppShell>
@@ -17,14 +17,14 @@ export default async function AdminPage() {
         <Typography variant="h4" sx={{ fontWeight: 900 }}>
           Admin
         </Typography>
-        {profile?.role !== 'admin' ? (
+        {role !== 'admin' ? (
           <Stack spacing={1}>
             <Alert severity="warning">
               You are signed in as <b>{user?.email ?? 'unknown'}</b> but your role is not admin yet. Promote yourself in
               Supabase per <code>docs/supabase-setup.md</code>.
             </Alert>
             <Typography color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: 12 }}>
-              user_id={user?.id ?? 'none'} role={profile?.role ?? 'none'}
+              user_id={user?.id ?? 'none'} role={role ?? 'none'} service_role={serviceRoleAvailable ? 'ok' : 'missing'}
             </Typography>
           </Stack>
         ) : (

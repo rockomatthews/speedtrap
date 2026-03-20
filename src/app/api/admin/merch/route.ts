@@ -3,8 +3,8 @@ import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-import { getAuthedProfile } from '@/lib/supabase/profile';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getStripeEnv } from '@/lib/stripe/env';
 
 export const runtime = 'nodejs';
@@ -31,12 +31,26 @@ function parseInventoryCount(value: string) {
 }
 
 async function requireAdmin() {
-  const { user, profile } = await getAuthedProfile();
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
   if (!user) return { ok: false as const, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  if (profile?.role !== 'admin') {
+
+  try {
+    const admin = createSupabaseAdminClient();
+    const { data } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle<{ role: string }>();
+    if (data?.role === 'admin') return { ok: true as const };
+  } catch {
+    return {
+      ok: false as const,
+      response: NextResponse.json({ error: 'Server misconfigured: missing service role key.' }, { status: 500 })
+    };
+  }
+
+  {
     return { ok: false as const, response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
   }
-  return { ok: true as const };
 }
 
 export async function GET() {
