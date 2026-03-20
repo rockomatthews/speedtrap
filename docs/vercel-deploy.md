@@ -33,6 +33,8 @@ Trigger a deployment (push to `main` or click Deploy in Vercel).
 ### 6) Smoke check
 - Open the deployed site and verify `/` loads.
 - Verify `/login` works (once implemented) and that protected routes redirect to login when signed out.
+- Verify `/merch` is publicly visible and checkout opens Stripe.
+- Verify `/admin/merch` works for an admin user (create item with image + price).
 
 ### 7) Configure Stripe webhook (Merch)
 - In Stripe Dashboard → Developers → Webhooks:

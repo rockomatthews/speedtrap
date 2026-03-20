@@ -3,8 +3,12 @@
 ### 1) Run the DB migration
 In Supabase Dashboard → SQL Editor, run:
 - `supabase/migrations/0001_profiles.sql`
+- `supabase/migrations/0002_merch_items.sql`
+- `supabase/migrations/0003_merch_items_public_read.sql`
+- `supabase/migrations/0004_merch_admin_fields_and_storage.sql`
 
 This creates `public.profiles`, enables RLS, and creates an `auth.users` trigger to auto-create a profile row for each new user.
+It also creates `public.merch_items` and the public `merch` storage bucket for merch images.
 
 ### 2) Enable Auth providers
 Supabase Dashboard → Authentication → Providers:
@@ -26,5 +30,15 @@ update public.profiles
 set role = 'admin'
 where id = 'YOUR_AUTH_USER_UUID';
 ```
+
+### 5) Manage merch catalog
+- Sign in as your admin user and go to `/admin/merch`.
+- Create/update merch entries with:
+  - title
+  - description
+  - price
+  - image upload
+  - active toggle
+- The admin flow creates/updates Stripe product pricing and stores rows in `public.merch_items`.
 
 

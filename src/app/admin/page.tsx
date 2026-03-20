@@ -1,6 +1,9 @@
+import Link from 'next/link';
+
 import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
 import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
 
 import { AppShell } from '@/components/AppShell';
 import { getAuthedProfile } from '@/lib/supabase/profile';
@@ -20,7 +23,12 @@ export default async function AdminPage() {
             Supabase per <code>docs/supabase-setup.md</code>.
           </Alert>
         ) : (
-          <Typography color="text.secondary">Admin portal coming next: customers + bookings management.</Typography>
+          <Stack spacing={1}>
+            <Typography color="text.secondary">Admin portal controls for merch management are now available.</Typography>
+            <Button component={Link} href="/admin/merch" variant="contained">
+              Manage Merch
+            </Button>
+          </Stack>
         )}
       </Stack>
     </AppShell>

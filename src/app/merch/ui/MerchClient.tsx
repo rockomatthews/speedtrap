@@ -9,6 +9,7 @@ import Card from '@mui/material/Card';
 import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
 import CircularProgress from '@mui/material/CircularProgress';
+import CardMedia from '@mui/material/CardMedia';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
@@ -32,6 +33,9 @@ export function MerchClient({ items }: { items: MerchItem[] }) {
               background: 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))'
             }}
           >
+            {item.imageUrl ? (
+              <CardMedia component="img" image={item.imageUrl} alt={item.name} sx={{ height: 220, objectFit: 'cover' }} />
+            ) : null}
             <CardContent>
               <Typography variant="h6" sx={{ fontWeight: 900 }}>
                 {item.name}
@@ -39,6 +43,11 @@ export function MerchClient({ items }: { items: MerchItem[] }) {
               <Typography color="text.secondary" sx={{ mt: 0.5 }}>
                 {item.description}
               </Typography>
+              {typeof item.priceCents === 'number' ? (
+                <Typography sx={{ mt: 1, fontWeight: 900 }}>
+                  {(item.currency ?? 'usd').toUpperCase()} {(item.priceCents / 100).toFixed(2)}
+                </Typography>
+              ) : null}
             </CardContent>
             <CardActions sx={{ px: 2, pb: 2 }}>
               <Button

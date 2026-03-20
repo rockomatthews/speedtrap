@@ -3,4 +3,7 @@ export type MerchItem = {
   name: string;
   description: string;
   priceId: string;
+  imageUrl?: string | null;
+  priceCents?: number | null;
+  currency?: string | null;
 };

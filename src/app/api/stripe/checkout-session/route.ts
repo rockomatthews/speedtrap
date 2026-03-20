@@ -25,15 +25,8 @@ export async function POST(request: Request) {
     typeof quantityRaw === 'number' && Number.isFinite(quantityRaw) ? Math.min(10, Math.max(1, Math.floor(quantityRaw))) : 1;
 
   const supabase = await createRouteHandlerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
 
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // Prevent priceId tampering by validating it against the authenticated user's accessible merch catalog.
+  // Prevent priceId tampering by validating it against the active merch catalog.
   const { data: item, error: itemError } = await supabase
     .from('merch_items')
     .select('id,stripe_price_id')
