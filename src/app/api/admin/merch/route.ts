@@ -24,6 +24,12 @@ function parsePriceToCents(value: string) {
   return Math.round(n * 100);
 }
 
+function parseInventoryCount(value: string) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.floor(n);
+}
+
 async function requireAdmin() {
   const { user, profile } = await getAuthedProfile();
   if (!user) return { ok: false as const, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
@@ -40,7 +46,7 @@ export async function GET() {
   const supabaseAdmin = createSupabaseAdminClient();
   const { data, error } = await supabaseAdmin
     .from('merch_items')
-    .select('id,name,description,image_url,price_cents,currency,stripe_price_id,stripe_product_id,active,created_at')
+    .select('id,name,description,image_url,price_cents,currency,inventory_count,stripe_price_id,stripe_product_id,active,created_at')
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -59,6 +65,7 @@ export async function POST(request: Request) {
   const title = String(form.get('title') ?? '').trim();
   const description = String(form.get('description') ?? '').trim();
   const price = String(form.get('price') ?? '').trim();
+  const inventory = String(form.get('inventory') ?? '').trim();
   const currency = String(form.get('currency') ?? 'usd')
     .trim()
     .toLowerCase();
@@ -68,6 +75,8 @@ export async function POST(request: Request) {
   if (!title) return NextResponse.json({ error: 'Title is required.' }, { status: 400 });
   const priceCents = parsePriceToCents(price);
   if (!priceCents) return NextResponse.json({ error: 'Valid price is required.' }, { status: 400 });
+  const inventoryCount = parseInventoryCount(inventory);
+  if (inventoryCount === null) return NextResponse.json({ error: 'Valid inventory is required.' }, { status: 400 });
 
   const itemId = `${toSlug(title) || 'item'}-${randomUUID().slice(0, 8)}`;
   let imageUrl: string | null = null;
@@ -115,6 +124,7 @@ export async function POST(request: Request) {
       stripe_product_id: product.id,
       image_url: imageUrl,
       price_cents: priceCents,
+      inventory_count: inventoryCount,
       currency,
       active
     });
@@ -142,6 +152,7 @@ export async function PATCH(request: Request) {
   const title = String(form.get('title') ?? '').trim();
   const description = String(form.get('description') ?? '').trim();
   const price = String(form.get('price') ?? '').trim();
+  const inventory = String(form.get('inventory') ?? '').trim();
   const currency = String(form.get('currency') ?? 'usd')
     .trim()
     .toLowerCase();
@@ -151,7 +162,7 @@ export async function PATCH(request: Request) {
   const supabaseAdmin = createSupabaseAdminClient();
   const { data: existing, error: existingError } = await supabaseAdmin
     .from('merch_items')
-    .select('id,stripe_product_id,price_cents,currency')
+    .select('id,stripe_product_id,price_cents,currency,inventory_count')
     .eq('id', id)
     .maybeSingle();
   if (existingError || !existing) {
@@ -177,6 +188,11 @@ export async function PATCH(request: Request) {
   if (title) updates.name = title;
   updates.description = description || null;
   if (imageUrl !== undefined) updates.image_url = imageUrl;
+  const parsedInventoryCount = parseInventoryCount(inventory);
+  if (parsedInventoryCount === null) {
+    return NextResponse.json({ error: 'Valid inventory is required.' }, { status: 400 });
+  }
+  updates.inventory_count = parsedInventoryCount;
 
   const parsedPriceCents = parsePriceToCents(price);
   const priceChanged = Boolean(parsedPriceCents && parsedPriceCents !== existing.price_cents);
@@ -210,5 +226,22 @@ export async function PATCH(request: Request) {
       { status: 500 }
     );
   }
+}
+
+export async function DELETE(request: Request) {
+  const adminCheck = await requireAdmin();
+  if (!adminCheck.ok) return adminCheck.response;
+
+  const body = (await request.json().catch(() => null)) as { id?: string } | null;
+  const id = body?.id?.trim();
+  if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
+
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { error } = await supabaseAdmin.from('merch_items').delete().eq('id', id);
+  if (error) {
+    return NextResponse.json({ error: `Failed to delete merch item: ${error.message}` }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
 }
 

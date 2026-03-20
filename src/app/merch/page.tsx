@@ -11,7 +11,7 @@ export default async function MerchPage() {
 
   const { data: items, error } = await supabase
     .from('merch_items')
-    .select('id,name,description,stripe_price_id,image_url,price_cents,currency')
+    .select('id,name,description,stripe_price_id,image_url,price_cents,currency,inventory_count')
     .eq('active', true)
     .order('created_at', { ascending: true });
 
@@ -38,7 +38,8 @@ export default async function MerchPage() {
     priceId: String(it.stripe_price_id),
     imageUrl: it.image_url ? String(it.image_url) : null,
     priceCents: typeof it.price_cents === 'number' ? it.price_cents : null,
-    currency: it.currency ? String(it.currency) : null
+    currency: it.currency ? String(it.currency) : null,
+    inventoryCount: typeof it.inventory_count === 'number' ? it.inventory_count : null
   }));
 
   return (

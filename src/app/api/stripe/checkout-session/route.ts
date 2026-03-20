@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   // Prevent priceId tampering by validating it against the active merch catalog.
   const { data: item, error: itemError } = await supabase
     .from('merch_items')
-    .select('id,stripe_price_id')
+    .select('id,stripe_price_id,inventory_count')
     .eq('active', true)
     .eq('stripe_price_id', body.priceId)
     .maybeSingle();
@@ -40,6 +40,9 @@ export async function POST(request: Request) {
 
   if (!item) {
     return NextResponse.json({ error: 'Invalid priceId' }, { status: 400 });
+  }
+  if (typeof item.inventory_count === 'number' && item.inventory_count < quantity) {
+    return NextResponse.json({ error: 'Item is out of stock.' }, { status: 409 });
   }
 
   const origin = env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin;

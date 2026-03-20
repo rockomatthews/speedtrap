@@ -24,64 +24,72 @@ export function MerchClient({ items }: { items: MerchItem[] }) {
       {error ? <Alert severity="error">{error}</Alert> : null}
 
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' } }}>
-        {items.map((item) => (
-          <Card
-            key={item.id}
-            variant="outlined"
-            sx={{
-              borderColor: 'rgba(255,255,255,0.12)',
-              background: 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))'
-            }}
-          >
-            {item.imageUrl ? (
-              <CardMedia component="img" image={item.imageUrl} alt={item.name} sx={{ height: 220, objectFit: 'cover' }} />
-            ) : null}
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 900 }}>
-                {item.name}
-              </Typography>
-              <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                {item.description}
-              </Typography>
-              {typeof item.priceCents === 'number' ? (
-                <Typography sx={{ mt: 1, fontWeight: 900 }}>
-                  {(item.currency ?? 'usd').toUpperCase()} {(item.priceCents / 100).toFixed(2)}
-                </Typography>
+        {items.map((item) => {
+          const stock = item.inventoryCount ?? 0;
+          const inStock = stock > 0;
+
+          return (
+            <Card
+              key={item.id}
+              variant="outlined"
+              sx={{
+                borderColor: 'rgba(255,255,255,0.12)',
+                background: 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))'
+              }}
+            >
+              {item.imageUrl ? (
+                <CardMedia component="img" image={item.imageUrl} alt={item.name} sx={{ height: 220, objectFit: 'cover' }} />
               ) : null}
-            </CardContent>
-            <CardActions sx={{ px: 2, pb: 2 }}>
-              <Button
-                variant="contained"
-                size="large"
-                disabled={loadingId !== null}
-                onClick={async () => {
-                  setError(null);
-                  setLoadingId(item.id);
+              <CardContent>
+                <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                  {item.name}
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                  {item.description}
+                </Typography>
+                {typeof item.priceCents === 'number' ? (
+                  <Typography sx={{ mt: 1, fontWeight: 900 }}>
+                    {(item.currency ?? 'usd').toUpperCase()} {(item.priceCents / 100).toFixed(2)}
+                  </Typography>
+                ) : null}
+                <Typography color={inStock ? 'text.secondary' : 'error'} sx={{ mt: 0.5 }}>
+                  {inStock ? `In stock: ${stock}` : 'Out of stock'}
+                </Typography>
+              </CardContent>
+              <CardActions sx={{ px: 2, pb: 2 }}>
+                <Button
+                  variant="contained"
+                  size="large"
+                  disabled={loadingId !== null || !inStock}
+                  onClick={async () => {
+                    setError(null);
+                    setLoadingId(item.id);
 
-                  try {
-                    const res = await fetch('/api/stripe/checkout-session', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ priceId: item.priceId, quantity: 1 })
-                    });
+                    try {
+                      const res = await fetch('/api/stripe/checkout-session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ priceId: item.priceId, quantity: 1 })
+                      });
 
-                    const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
-                    if (!res.ok || !data?.url) {
-                      throw new Error(data?.error ?? 'Failed to start checkout.');
+                      const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+                      if (!res.ok || !data?.url) {
+                        throw new Error(data?.error ?? 'Failed to start checkout.');
+                      }
+
+                      window.location.href = data.url;
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : 'Failed to start checkout.');
+                      setLoadingId(null);
                     }
-
-                    window.location.href = data.url;
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : 'Failed to start checkout.');
-                    setLoadingId(null);
-                  }
-                }}
-              >
-                {loadingId === item.id ? <CircularProgress size={18} /> : 'Buy'}
-              </Button>
-            </CardActions>
-          </Card>
-        ))}
+                  }}
+                >
+                  {loadingId === item.id ? <CircularProgress size={18} /> : 'Buy'}
+                </Button>
+              </CardActions>
+            </Card>
+          );
+        })}
       </Box>
     </Stack>
   );

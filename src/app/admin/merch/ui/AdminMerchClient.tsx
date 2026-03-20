@@ -20,6 +20,7 @@ type AdminMerchItem = {
   description: string | null;
   image_url: string | null;
   price_cents: number;
+  inventory_count: number;
   currency: string;
   active: boolean;
 };
@@ -38,6 +39,7 @@ export function AdminMerchClient() {
   const [createDescription, setCreateDescription] = useState('');
   const [createPrice, setCreatePrice] = useState('');
   const [createCurrency, setCreateCurrency] = useState('usd');
+  const [createInventory, setCreateInventory] = useState('0');
   const [createActive, setCreateActive] = useState(true);
   const [createImage, setCreateImage] = useState<File | null>(null);
   const [submittingCreate, setSubmittingCreate] = useState(false);
@@ -47,6 +49,7 @@ export function AdminMerchClient() {
   const [editDescription, setEditDescription] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [editCurrency, setEditCurrency] = useState('usd');
+  const [editInventory, setEditInventory] = useState('0');
   const [editActive, setEditActive] = useState(true);
   const [editImage, setEditImage] = useState<File | null>(null);
   const [submittingEdit, setSubmittingEdit] = useState(false);
@@ -110,6 +113,13 @@ export function AdminMerchClient() {
               onChange={(e) => setCreateCurrency(e.target.value)}
               placeholder="usd"
             />
+            <TextField
+              label="Inventory count"
+              value={createInventory}
+              onChange={(e) => setCreateInventory(e.target.value)}
+              placeholder="10"
+              inputMode="numeric"
+            />
             <Button variant="outlined" component="label">
               {createImage ? `Image: ${createImage.name}` : 'Upload image'}
               <input
@@ -137,6 +147,7 @@ export function AdminMerchClient() {
                   form.set('description', createDescription);
                   form.set('price', createPrice);
                   form.set('currency', createCurrency || 'usd');
+                  form.set('inventory', createInventory);
                   form.set('active', String(createActive));
                   if (createImage) form.set('image', createImage);
 
@@ -148,6 +159,7 @@ export function AdminMerchClient() {
                   setCreateDescription('');
                   setCreatePrice('');
                   setCreateCurrency('usd');
+                  setCreateInventory('0');
                   setCreateImage(null);
                   setCreateActive(true);
                   setMessage('Merch item created.');
@@ -193,6 +205,7 @@ export function AdminMerchClient() {
                         setEditDescription(item.description ?? '');
                         setEditPrice(centsToDisplay(item.price_cents));
                         setEditCurrency(item.currency);
+                        setEditInventory(String(item.inventory_count));
                         setEditActive(item.active);
                         setEditImage(null);
                       }}
@@ -212,7 +225,7 @@ export function AdminMerchClient() {
 
                   <Typography color="text.secondary">
                     {item.description || 'No description'} | {item.currency.toUpperCase()} {centsToDisplay(item.price_cents)} |{' '}
-                    {item.active ? 'Active' : 'Inactive'}
+                    Stock: {item.inventory_count} | {item.active ? 'Active' : 'Inactive'}
                   </Typography>
 
                   {editingId === item.id && editingItem ? (
@@ -235,6 +248,12 @@ export function AdminMerchClient() {
                         label="Currency"
                         value={editCurrency}
                         onChange={(e) => setEditCurrency(e.target.value)}
+                      />
+                      <TextField
+                        label="Inventory count"
+                        value={editInventory}
+                        onChange={(e) => setEditInventory(e.target.value)}
+                        inputMode="numeric"
                       />
                       <Button variant="outlined" component="label">
                         {editImage ? `New image: ${editImage.name}` : 'Upload new image'}
@@ -264,6 +283,7 @@ export function AdminMerchClient() {
                             form.set('description', editDescription);
                             form.set('price', editPrice);
                             form.set('currency', editCurrency || 'usd');
+                            form.set('inventory', editInventory);
                             form.set('active', String(editActive));
                             if (editImage) form.set('image', editImage);
 
@@ -281,6 +301,37 @@ export function AdminMerchClient() {
                         }}
                       >
                         {submittingEdit ? <CircularProgress size={18} /> : 'Save changes'}
+                      </Button>
+
+                      <Button
+                        color="error"
+                        variant="outlined"
+                        disabled={submittingEdit}
+                        onClick={async () => {
+                          const confirmed = window.confirm(`Delete "${item.name}"? This cannot be undone.`);
+                          if (!confirmed) return;
+                          setSubmittingEdit(true);
+                          setError(null);
+                          setMessage(null);
+                          try {
+                            const res = await fetch('/api/admin/merch', {
+                              method: 'DELETE',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ id: item.id })
+                            });
+                            const json = (await res.json().catch(() => null)) as { error?: string } | null;
+                            if (!res.ok) throw new Error(json?.error ?? 'Failed to delete merch item.');
+                            setMessage('Merch item deleted.');
+                            setEditingId(null);
+                            await loadItems();
+                          } catch (e) {
+                            setError(e instanceof Error ? e.message : 'Failed to delete merch item.');
+                          } finally {
+                            setSubmittingEdit(false);
+                          }
+                        }}
+                      >
+                        Delete item
                       </Button>
                     </Stack>
                   ) : null}

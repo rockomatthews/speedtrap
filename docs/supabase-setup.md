@@ -6,6 +6,7 @@ In Supabase Dashboard → SQL Editor, run:
 - `supabase/migrations/0002_merch_items.sql`
 - `supabase/migrations/0003_merch_items_public_read.sql`
 - `supabase/migrations/0004_merch_admin_fields_and_storage.sql`
+- `supabase/migrations/0005_merch_inventory.sql`
 
 This creates `public.profiles`, enables RLS, and creates an `auth.users` trigger to auto-create a profile row for each new user.
 It also creates `public.merch_items` and the public `merch` storage bucket for merch images.
@@ -37,8 +38,10 @@ where id = 'YOUR_AUTH_USER_UUID';
   - title
   - description
   - price
+  - inventory count
   - image upload
   - active toggle
+- You can delete items from the admin merch page.
 - The admin flow creates/updates Stripe product pricing and stores rows in `public.merch_items`.
 
 

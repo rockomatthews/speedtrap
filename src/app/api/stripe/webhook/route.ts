@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getStripeEnv } from '@/lib/stripe/env';
 
 import { NextResponse } from 'next/server';
@@ -28,6 +29,23 @@ export async function POST(request: Request) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
+        const merchItemId = session.metadata?.merch_item_id ?? null;
+        const qtyRaw = session.metadata?.merch_quantity ?? '1';
+        const qty = Number.isFinite(Number(qtyRaw)) ? Math.max(1, Math.floor(Number(qtyRaw))) : 1;
+
+        if (merchItemId) {
+          const supabaseAdmin = createSupabaseAdminClient();
+          const { data: existing } = await supabaseAdmin
+            .from('merch_items')
+            .select('id,inventory_count')
+            .eq('id', merchItemId)
+            .maybeSingle();
+          if (existing && typeof existing.inventory_count === 'number') {
+            const nextInventory = Math.max(0, existing.inventory_count - qty);
+            await supabaseAdmin.from('merch_items').update({ inventory_count: nextInventory }).eq('id', merchItemId);
+          }
+        }
+
         console.log('[stripe webhook] checkout.session.completed', {
           id: session.id,
           status: session.status,
