@@ -45,7 +45,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Item is out of stock.' }, { status: 409 });
   }
 
-  const origin = env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin;
+  // Prefer incoming request origin so custom domains remain the canonical redirect host.
+  const origin = new URL(request.url).origin || env.NEXT_PUBLIC_SITE_URL;
 
   try {
     const stripeEnv = getStripeEnv();

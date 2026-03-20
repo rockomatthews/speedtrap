@@ -13,11 +13,11 @@ import Typography from '@mui/material/Typography';
 
 import { AppShell } from '@/components/AppShell';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
-import { env } from '@/lib/supabase/env';
 
 export function LoginClient({ redirectTo }: { redirectTo: string }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const siteUrl = env.NEXT_PUBLIC_SITE_URL ?? (typeof window !== 'undefined' ? window.location.origin : '');
+  // Always use the current browser origin so auth stays on the active domain (custom domain vs vercel.app).
+  const siteUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent'>('idle');
