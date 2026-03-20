@@ -15,23 +15,40 @@ export default async function MerchPage() {
     .eq('active', true)
     .order('created_at', { ascending: true });
 
+  let rows: any[] | null = items ?? null;
   if (error) {
-    // If the table/RLS isn't set up, show a failure rather than an empty merch UI.
-    return (
-      <AppShell>
-        <Stack spacing={2}>
-          <Typography variant="h4" sx={{ fontWeight: 900 }}>
-            Merch
-          </Typography>
-          <Typography color="error">
-            Failed to load merch catalog. Please contact support.
-          </Typography>
-        </Stack>
-      </AppShell>
-    );
+    // Backward compatibility: older schema before image/price/inventory columns.
+    const { data: fallbackRows, error: fallbackError } = await supabase
+      .from('merch_items')
+      .select('id,name,description,stripe_price_id')
+      .eq('active', true)
+      .order('created_at', { ascending: true });
+
+    if (fallbackError) {
+      return (
+        <AppShell>
+          <Stack spacing={2}>
+            <Typography variant="h4" sx={{ fontWeight: 900 }}>
+              Merch
+            </Typography>
+            <Typography color="error">
+              Failed to load merch catalog: {fallbackError.message}. Run migrations 0002-0005 in Supabase SQL Editor.
+            </Typography>
+          </Stack>
+        </AppShell>
+      );
+    }
+
+    rows = (fallbackRows ?? []).map((it: any) => ({
+      ...it,
+      image_url: null,
+      price_cents: 0,
+      currency: 'usd',
+      inventory_count: 0
+    }));
   }
 
-  const merch = (items ?? []).map((it: any) => ({
+  const merch = (rows ?? []).map((it: any) => ({
     id: String(it.id),
     name: String(it.name ?? ''),
     description: String(it.description ?? ''),

@@ -63,11 +63,35 @@ export async function GET() {
     .select('id,name,description,image_url,price_cents,currency,inventory_count,stripe_price_id,stripe_product_id,active,created_at')
     .order('created_at', { ascending: true });
 
-  if (error) {
-    return NextResponse.json({ error: 'Failed to load merch items.' }, { status: 500 });
+  if (!error) {
+    return NextResponse.json({ items: data ?? [] });
   }
 
-  return NextResponse.json({ items: data ?? [] });
+  // Backward compatibility: if newer columns don't exist yet, fall back to base schema.
+  const { data: fallbackData, error: fallbackError } = await supabaseAdmin
+    .from('merch_items')
+    .select('id,name,description,stripe_price_id,active,created_at')
+    .order('created_at', { ascending: true });
+
+  if (fallbackError) {
+    return NextResponse.json(
+      {
+        error: `Failed to load merch items: ${fallbackError.message}. Run migrations 0002-0005 in Supabase SQL Editor.`
+      },
+      { status: 500 }
+    );
+  }
+
+  const normalized = (fallbackData ?? []).map((it: any) => ({
+    ...it,
+    image_url: null,
+    price_cents: 0,
+    currency: 'usd',
+    inventory_count: 0,
+    stripe_product_id: null
+  }));
+
+  return NextResponse.json({ items: normalized });
 }
 
 export async function POST(request: Request) {
