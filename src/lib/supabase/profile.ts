@@ -45,8 +45,22 @@ export async function getAuthedProfile() {
       .select('id, role, display_name, phone, vms_customer_id')
       .eq('id', user.id)
       .maybeSingle<Profile>();
+    if (repairedProfile) {
+      return { supabase, user, profile: repairedProfile } as const;
+    }
 
-    return { supabase, user, profile: repairedProfile ?? null } as const;
+    // Final fallback: bypass RLS for this exact user profile lookup.
+    try {
+      const admin = createSupabaseAdminClient();
+      const { data: adminProfile } = await admin
+        .from('profiles')
+        .select('id, role, display_name, phone, vms_customer_id')
+        .eq('id', user.id)
+        .maybeSingle<Profile>();
+      return { supabase, user, profile: adminProfile ?? null } as const;
+    } catch {
+      return { supabase, user, profile: null } as const;
+    }
   }
 
   return { supabase, user, profile } as const;
