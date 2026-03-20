@@ -18,10 +18,15 @@ export default async function AdminPage() {
           Admin
         </Typography>
         {profile?.role !== 'admin' ? (
-          <Alert severity="warning">
-            You are signed in as <b>{user?.email ?? 'unknown'}</b> but your role is not admin yet. Promote yourself in
-            Supabase per <code>docs/supabase-setup.md</code>.
-          </Alert>
+          <Stack spacing={1}>
+            <Alert severity="warning">
+              You are signed in as <b>{user?.email ?? 'unknown'}</b> but your role is not admin yet. Promote yourself in
+              Supabase per <code>docs/supabase-setup.md</code>.
+            </Alert>
+            <Typography color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: 12 }}>
+              user_id={user?.id ?? 'none'} role={profile?.role ?? 'none'}
+            </Typography>
+          </Stack>
         ) : (
           <Stack spacing={1}>
             <Typography color="text.secondary">Admin portal controls for merch management are now available.</Typography>
