@@ -48,6 +48,18 @@ type CartPreview = {
 
 const CART_STORAGE_KEY = 'speedtrap_merch_cart_v1';
 
+function isCartPreview(value: unknown): value is CartPreview {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.subtotalCents === 'number' &&
+    typeof v.shippingCents === 'number' &&
+    typeof v.taxCents === 'number' &&
+    typeof v.totalCents === 'number' &&
+    typeof v.currency === 'string'
+  );
+}
+
 export function MerchClient({ items }: { items: MerchItem[] }) {
   const [checkingOut, setCheckingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +106,7 @@ export function MerchClient({ items }: { items: MerchItem[] }) {
           signal: controller.signal
         });
         const data = (await res.json().catch(() => null)) as CartPreview | { error?: string } | null;
-        if (!res.ok || !data || 'error' in data) return;
+        if (!res.ok || !data || !isCartPreview(data)) return;
         setPreview(data);
       } catch {
         // silent preview failure; checkout validation still happens server-side
