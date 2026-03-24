@@ -11,7 +11,7 @@ export default async function MerchPage() {
 
   const { data: items, error } = await supabase
     .from('merch_items')
-    .select('id,name,description,stripe_price_id,image_url,price_cents,currency,inventory_count')
+    .select('id,name,description,stripe_price_id,image_url,price_cents,currency,inventory_count,sizes,size_inventory')
     .eq('active', true)
     .order('created_at', { ascending: true });
 
@@ -32,7 +32,7 @@ export default async function MerchPage() {
               Merch
             </Typography>
             <Typography color="error">
-              Failed to load merch catalog: {fallbackError.message}. Run migrations 0002-0005 in Supabase SQL Editor.
+              Failed to load merch catalog: {fallbackError.message}. Run migrations 0002-0007 in Supabase SQL Editor.
             </Typography>
           </Stack>
         </AppShell>
@@ -44,7 +44,9 @@ export default async function MerchPage() {
       image_url: null,
       price_cents: 0,
       currency: 'usd',
-      inventory_count: 0
+      inventory_count: 0,
+      sizes: [],
+      size_inventory: {}
     }));
   }
 
@@ -56,7 +58,17 @@ export default async function MerchPage() {
     imageUrl: it.image_url ? String(it.image_url) : null,
     priceCents: typeof it.price_cents === 'number' ? it.price_cents : null,
     currency: it.currency ? String(it.currency) : null,
-    inventoryCount: typeof it.inventory_count === 'number' ? it.inventory_count : null
+    inventoryCount: typeof it.inventory_count === 'number' ? it.inventory_count : null,
+    sizes: Array.isArray(it.sizes) ? it.sizes.map((s: unknown) => String(s)) : [],
+    sizeInventory:
+      it.size_inventory && typeof it.size_inventory === 'object'
+        ? Object.fromEntries(
+            Object.entries(it.size_inventory as Record<string, unknown>).map(([k, v]) => [
+              String(k).toUpperCase(),
+              Number.isFinite(Number(v)) ? Math.max(0, Math.floor(Number(v))) : 0
+            ])
+          )
+        : {}
   }));
 
   return (

@@ -9,10 +9,12 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import FormGroup from '@mui/material/FormGroup';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import Checkbox from '@mui/material/Checkbox';
 
 type AdminMerchItem = {
   id: string;
@@ -21,9 +23,12 @@ type AdminMerchItem = {
   image_url: string | null;
   price_cents: number;
   inventory_count: number;
+  sizes?: string[] | null;
+  size_inventory?: Record<string, number> | null;
   currency: string;
   active: boolean;
 };
+const SIZES = ['XS', 'S', 'M', 'L', 'XL'] as const;
 
 function centsToDisplay(cents: number) {
   return (cents / 100).toFixed(2);
@@ -41,6 +46,8 @@ export function AdminMerchClient() {
   const [createCurrency, setCreateCurrency] = useState('usd');
   const [createInventory, setCreateInventory] = useState('0');
   const [createActive, setCreateActive] = useState(true);
+  const [createSizes, setCreateSizes] = useState<string[]>([]);
+  const [createSizeInventory, setCreateSizeInventory] = useState<Record<string, string>>({});
   const [createImage, setCreateImage] = useState<File | null>(null);
   const [submittingCreate, setSubmittingCreate] = useState(false);
 
@@ -51,6 +58,8 @@ export function AdminMerchClient() {
   const [editCurrency, setEditCurrency] = useState('usd');
   const [editInventory, setEditInventory] = useState('0');
   const [editActive, setEditActive] = useState(true);
+  const [editSizes, setEditSizes] = useState<string[]>([]);
+  const [editSizeInventory, setEditSizeInventory] = useState<Record<string, string>>({});
   const [editImage, setEditImage] = useState<File | null>(null);
   const [submittingEdit, setSubmittingEdit] = useState(false);
 
@@ -133,6 +142,47 @@ export function AdminMerchClient() {
               control={<Switch checked={createActive} onChange={(_, v) => setCreateActive(v)} />}
               label="Active (visible on merch page)"
             />
+            <FormGroup row>
+              {SIZES.map((size) => (
+                <FormControlLabel
+                  key={size}
+                  control={
+                    <Checkbox
+                      checked={createSizes.includes(size)}
+                      onChange={(_, checked) =>
+                        setCreateSizes((prev) =>
+                          checked ? Array.from(new Set([...prev, size])) : prev.filter((s) => s !== size)
+                        )
+                      }
+                    />
+                  }
+                  label={size}
+                />
+              ))}
+            </FormGroup>
+            {createSizes.length > 0 ? (
+              <Stack spacing={1}>
+                <Typography color="text.secondary">Per-size inventory</Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {createSizes.map((size) => (
+                    <TextField
+                      key={size}
+                      size="small"
+                      label={size}
+                      value={createSizeInventory[size] ?? '0'}
+                      onChange={(e) =>
+                        setCreateSizeInventory((prev) => ({
+                          ...prev,
+                          [size]: e.target.value
+                        }))
+                      }
+                      inputMode="numeric"
+                      sx={{ width: 110 }}
+                    />
+                  ))}
+                </Stack>
+              </Stack>
+            ) : null}
 
             <Button
               variant="contained"
@@ -149,6 +199,8 @@ export function AdminMerchClient() {
                   form.set('currency', createCurrency || 'usd');
                   form.set('inventory', createInventory);
                   form.set('active', String(createActive));
+                  createSizes.forEach((s) => form.append('sizes', s));
+                  createSizes.forEach((s) => form.set(`size_inventory_${s.toLowerCase()}`, createSizeInventory[s] ?? '0'));
                   if (createImage) form.set('image', createImage);
 
                   const res = await fetch('/api/admin/merch', { method: 'POST', body: form });
@@ -162,6 +214,8 @@ export function AdminMerchClient() {
                   setCreateInventory('0');
                   setCreateImage(null);
                   setCreateActive(true);
+                  setCreateSizes([]);
+                  setCreateSizeInventory({});
                   setMessage('Merch item created.');
                   await loadItems();
                 } catch (e) {
@@ -207,6 +261,13 @@ export function AdminMerchClient() {
                         setEditCurrency(item.currency);
                         setEditInventory(String(item.inventory_count));
                         setEditActive(item.active);
+                        setEditSizes(Array.isArray(item.sizes) ? item.sizes.map((s) => String(s).toUpperCase()) : []);
+                        const sizeInv = item.size_inventory && typeof item.size_inventory === 'object' ? item.size_inventory : {};
+                        setEditSizeInventory(
+                          Object.fromEntries(
+                            Object.entries(sizeInv).map(([k, v]) => [String(k).toUpperCase(), String(v ?? '0')])
+                          )
+                        );
                         setEditImage(null);
                       }}
                     >
@@ -227,6 +288,9 @@ export function AdminMerchClient() {
                     {item.description || 'No description'} | {item.currency.toUpperCase()} {centsToDisplay(item.price_cents)} |{' '}
                     Stock: {item.inventory_count} | {item.active ? 'Active' : 'Inactive'}
                   </Typography>
+                  {Array.isArray(item.sizes) && item.sizes.length > 0 ? (
+                    <Typography color="text.secondary">Sizes: {item.sizes.join(', ')}</Typography>
+                  ) : null}
 
                   {editingId === item.id && editingItem ? (
                     <Stack spacing={1.25} sx={{ pt: 1 }}>
@@ -268,6 +332,47 @@ export function AdminMerchClient() {
                         control={<Switch checked={editActive} onChange={(_, v) => setEditActive(v)} />}
                         label="Active"
                       />
+                      <FormGroup row>
+                        {SIZES.map((size) => (
+                          <FormControlLabel
+                            key={size}
+                            control={
+                              <Checkbox
+                                checked={editSizes.includes(size)}
+                                onChange={(_, checked) =>
+                                  setEditSizes((prev) =>
+                                    checked ? Array.from(new Set([...prev, size])) : prev.filter((s) => s !== size)
+                                  )
+                                }
+                              />
+                            }
+                            label={size}
+                          />
+                        ))}
+                      </FormGroup>
+                      {editSizes.length > 0 ? (
+                        <Stack spacing={1}>
+                          <Typography color="text.secondary">Per-size inventory</Typography>
+                          <Stack direction="row" spacing={1} flexWrap="wrap">
+                            {editSizes.map((size) => (
+                              <TextField
+                                key={size}
+                                size="small"
+                                label={size}
+                                value={editSizeInventory[size] ?? '0'}
+                                onChange={(e) =>
+                                  setEditSizeInventory((prev) => ({
+                                    ...prev,
+                                    [size]: e.target.value
+                                  }))
+                                }
+                                inputMode="numeric"
+                                sx={{ width: 110 }}
+                              />
+                            ))}
+                          </Stack>
+                        </Stack>
+                      ) : null}
 
                       <Button
                         variant="contained"
@@ -285,6 +390,8 @@ export function AdminMerchClient() {
                             form.set('currency', editCurrency || 'usd');
                             form.set('inventory', editInventory);
                             form.set('active', String(editActive));
+                            editSizes.forEach((s) => form.append('sizes', s));
+                            editSizes.forEach((s) => form.set(`size_inventory_${s.toLowerCase()}`, editSizeInventory[s] ?? '0'));
                             if (editImage) form.set('image', editImage);
 
                             const res = await fetch('/api/admin/merch', { method: 'PATCH', body: form });

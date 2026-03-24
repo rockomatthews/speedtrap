@@ -7,4 +7,6 @@ export type MerchItem = {
   priceCents?: number | null;
   currency?: string | null;
   inventoryCount?: number | null;
+  sizes?: string[] | null;
+  sizeInventory?: Record<string, number> | null;
 };

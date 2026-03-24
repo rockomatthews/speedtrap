@@ -30,6 +30,34 @@ function parseInventoryCount(value: string) {
   return Math.floor(n);
 }
 
+const ALLOWED_SIZES = new Set(['XS', 'S', 'M', 'L', 'XL']);
+const SIZE_KEYS = ['XS', 'S', 'M', 'L', 'XL'] as const;
+
+function parseSizes(form: FormData) {
+  const values = form
+    .getAll('sizes')
+    .map((v) => String(v).trim().toUpperCase())
+    .filter((v) => ALLOWED_SIZES.has(v));
+  return Array.from(new Set(values));
+}
+
+function parseSizeInventory(form: FormData, selectedSizes: string[]) {
+  const out: Record<string, number> = {};
+  for (const size of selectedSizes) {
+    const key = `size_inventory_${size.toLowerCase()}`;
+    const raw = String(form.get(key) ?? '0').trim();
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) return null;
+    out[size] = Math.floor(n);
+  }
+  // Normalize keys so we only store supported sizes.
+  const normalized: Record<string, number> = {};
+  for (const size of SIZE_KEYS) {
+    if (typeof out[size] === 'number') normalized[size] = out[size];
+  }
+  return normalized;
+}
+
 async function requireAdmin() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -60,7 +88,9 @@ export async function GET() {
   const supabaseAdmin = createSupabaseAdminClient();
   const { data, error } = await supabaseAdmin
     .from('merch_items')
-    .select('id,name,description,image_url,price_cents,currency,inventory_count,stripe_price_id,stripe_product_id,active,created_at')
+    .select(
+      'id,name,description,image_url,price_cents,currency,inventory_count,sizes,size_inventory,stripe_price_id,stripe_product_id,active,created_at'
+    )
     .order('created_at', { ascending: true });
 
   if (!error) {
@@ -76,7 +106,7 @@ export async function GET() {
   if (fallbackError) {
     return NextResponse.json(
       {
-        error: `Failed to load merch items: ${fallbackError.message}. Run migrations 0002-0005 in Supabase SQL Editor.`
+        error: `Failed to load merch items: ${fallbackError.message}. Run migrations 0002-0007 in Supabase SQL Editor.`
       },
       { status: 500 }
     );
@@ -88,6 +118,8 @@ export async function GET() {
     price_cents: 0,
     currency: 'usd',
     inventory_count: 0,
+    sizes: [],
+    size_inventory: {},
     stripe_product_id: null
   }));
 
@@ -108,7 +140,12 @@ export async function POST(request: Request) {
     .trim()
     .toLowerCase();
   const active = String(form.get('active') ?? 'true') !== 'false';
+  const sizes = parseSizes(form);
+  const sizeInventory = parseSizeInventory(form, sizes);
   const image = form.get('image');
+  if (sizeInventory === null) {
+    return NextResponse.json({ error: 'Invalid per-size inventory values.' }, { status: 400 });
+  }
 
   if (!title) return NextResponse.json({ error: 'Title is required.' }, { status: 400 });
   const priceCents = parsePriceToCents(price);
@@ -163,6 +200,8 @@ export async function POST(request: Request) {
       image_url: imageUrl,
       price_cents: priceCents,
       inventory_count: inventoryCount,
+      sizes,
+      size_inventory: sizeInventory,
       currency,
       active
     });
@@ -195,7 +234,12 @@ export async function PATCH(request: Request) {
     .trim()
     .toLowerCase();
   const active = String(form.get('active') ?? 'true') !== 'false';
+  const sizes = parseSizes(form);
+  const sizeInventory = parseSizeInventory(form, sizes);
   const image = form.get('image');
+  if (sizeInventory === null) {
+    return NextResponse.json({ error: 'Invalid per-size inventory values.' }, { status: 400 });
+  }
 
   const supabaseAdmin = createSupabaseAdminClient();
   const { data: existing, error: existingError } = await supabaseAdmin
@@ -231,6 +275,8 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Valid inventory is required.' }, { status: 400 });
   }
   updates.inventory_count = parsedInventoryCount;
+  updates.sizes = sizes;
+  updates.size_inventory = sizeInventory;
 
   const parsedPriceCents = parsePriceToCents(price);
   const priceChanged = Boolean(parsedPriceCents && parsedPriceCents !== existing.price_cents);

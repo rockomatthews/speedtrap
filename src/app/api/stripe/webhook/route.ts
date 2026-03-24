@@ -29,20 +29,61 @@ export async function POST(request: Request) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        const merchItemId = session.metadata?.merch_item_id ?? null;
-        const qtyRaw = session.metadata?.merch_quantity ?? '1';
-        const qty = Number.isFinite(Number(qtyRaw)) ? Math.max(1, Math.floor(Number(qtyRaw))) : 1;
+        const supabaseAdmin = createSupabaseAdminClient();
+        const merchCartMeta = session.metadata?.merch_cart ?? '';
 
-        if (merchItemId) {
-          const supabaseAdmin = createSupabaseAdminClient();
-          const { data: existing } = await supabaseAdmin
-            .from('merch_items')
-            .select('id,inventory_count')
-            .eq('id', merchItemId)
-            .maybeSingle();
-          if (existing && typeof existing.inventory_count === 'number') {
+        if (merchCartMeta) {
+          // Format: itemId:qty:size|itemId:qty:size
+          const entries = merchCartMeta.split('|').map((s) => s.trim()).filter(Boolean);
+          for (const entry of entries) {
+            const [itemId, qtyRaw, sizeRaw] = entry.split(':');
+            const qty = Number.isFinite(Number(qtyRaw)) ? Math.max(1, Math.floor(Number(qtyRaw))) : 1;
+            if (!itemId) continue;
+
+            const { data: existing } = await supabaseAdmin
+              .from('merch_items')
+              .select('id,inventory_count,size_inventory,sizes')
+              .eq('id', itemId)
+              .maybeSingle();
+            if (!existing) continue;
+
+            const size = sizeRaw && sizeRaw !== '-' ? sizeRaw.toUpperCase() : null;
+            const sizes = Array.isArray(existing.sizes) ? existing.sizes.map((s: unknown) => String(s).toUpperCase()) : [];
+
+            if (size && sizes.includes(size)) {
+              const currentObj =
+                existing.size_inventory && typeof existing.size_inventory === 'object'
+                  ? (existing.size_inventory as Record<string, unknown>)
+                  : {};
+              const current = Number(currentObj[size]);
+              const currentQty = Number.isFinite(current) ? Math.max(0, Math.floor(current)) : 0;
+              const nextQty = Math.max(0, currentQty - qty);
+              await supabaseAdmin
+                .from('merch_items')
+                .update({ size_inventory: { ...currentObj, [size]: nextQty } })
+                .eq('id', itemId);
+            } else if (typeof existing.inventory_count === 'number') {
+              const nextInventory = Math.max(0, existing.inventory_count - qty);
+              await supabaseAdmin.from('merch_items').update({ inventory_count: nextInventory }).eq('id', itemId);
+            }
+          }
+        } else {
+          // Backward compatibility fallback for older sessions without metadata.
+          const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100 });
+          for (const li of lineItems.data) {
+            const priceId = typeof li.price?.id === 'string' ? li.price.id : null;
+            const qty = typeof li.quantity === 'number' ? Math.max(1, Math.floor(li.quantity)) : 1;
+            if (!priceId) continue;
+
+            const { data: existing } = await supabaseAdmin
+              .from('merch_items')
+              .select('id,inventory_count')
+              .eq('stripe_price_id', priceId)
+              .maybeSingle();
+            if (!existing || typeof existing.inventory_count !== 'number') continue;
+
             const nextInventory = Math.max(0, existing.inventory_count - qty);
-            await supabaseAdmin.from('merch_items').update({ inventory_count: nextInventory }).eq('id', merchItemId);
+            await supabaseAdmin.from('merch_items').update({ inventory_count: nextInventory }).eq('id', existing.id);
           }
         }
 
