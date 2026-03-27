@@ -9,6 +9,7 @@ In Supabase Dashboard → SQL Editor, run:
 - `supabase/migrations/0005_merch_inventory.sql`
 - `supabase/migrations/0006_merch_sizes.sql`
 - `supabase/migrations/0007_merch_size_inventory_and_cart_preview.sql`
+- `supabase/migrations/0008_merch_multiple_images.sql`
 
 This creates `public.profiles`, enables RLS, and creates an `auth.users` trigger to auto-create a profile row for each new user.
 It also creates `public.merch_items` and the public `merch` storage bucket for merch images.
@@ -43,7 +44,7 @@ where id = 'YOUR_AUTH_USER_UUID';
   - inventory count
   - sizes (XS/S/M/L/XL)
   - per-size inventory (for apparel)
-  - image upload
+  - multiple image upload
   - active toggle
 - You can delete items from the admin merch page.
 - The admin flow creates/updates Stripe product pricing and stores rows in `public.merch_items`.

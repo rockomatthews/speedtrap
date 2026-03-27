@@ -64,6 +64,7 @@ export function MerchClient({ items }: { items: MerchItem[] }) {
   const [checkingOut, setCheckingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
+  const [selectedImageIndex, setSelectedImageIndex] = useState<Record<string, number>>({});
   const [cart, setCart] = useState<CartLine[]>([]);
   const [preview, setPreview] = useState<CartPreview | null>(null);
 
@@ -161,9 +162,42 @@ export function MerchClient({ items }: { items: MerchItem[] }) {
                 background: 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))'
               }}
             >
-              {item.imageUrl ? (
-                <CardMedia component="img" image={item.imageUrl} alt={item.name} sx={{ height: 220, objectFit: 'cover' }} />
-              ) : null}
+              {(() => {
+                const imgs = Array.isArray(item.imageUrls) && item.imageUrls.length > 0 ? item.imageUrls : item.imageUrl ? [item.imageUrl] : [];
+                if (imgs.length === 0) return null;
+                const idx = Math.min(selectedImageIndex[item.id] ?? 0, imgs.length - 1);
+                return (
+                  <>
+                    <CardMedia component="img" image={imgs[idx] ?? ''} alt={item.name} sx={{ height: 220, objectFit: 'cover' }} />
+                    {imgs.length > 1 ? (
+                      <Stack direction="row" spacing={0.5} sx={{ px: 1.5, pt: 1, flexWrap: 'wrap' }}>
+                        {imgs.map((url, i) => (
+                          <Box
+                            key={`${item.id}-${i}`}
+                            component="img"
+                            src={url}
+                            alt={`${item.name} ${i + 1}`}
+                            onClick={() =>
+                              setSelectedImageIndex((prev) => ({
+                                ...prev,
+                                [item.id]: i
+                              }))
+                            }
+                            sx={{
+                              width: 48,
+                              height: 48,
+                              objectFit: 'cover',
+                              borderRadius: 0.75,
+                              cursor: 'pointer',
+                              border: i === idx ? '2px solid #FFD200' : '1px solid rgba(255,255,255,0.15)'
+                            }}
+                          />
+                        ))}
+                      </Stack>
+                    ) : null}
+                  </>
+                );
+              })()}
               <CardContent>
                 <Typography variant="h6" sx={{ fontWeight: 900 }}>
                   {item.name}

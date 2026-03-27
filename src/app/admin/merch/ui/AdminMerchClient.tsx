@@ -21,6 +21,7 @@ type AdminMerchItem = {
   name: string;
   description: string | null;
   image_url: string | null;
+  image_urls?: string[] | null;
   price_cents: number;
   inventory_count: number;
   sizes?: string[] | null;
@@ -48,7 +49,7 @@ export function AdminMerchClient() {
   const [createActive, setCreateActive] = useState(true);
   const [createSizes, setCreateSizes] = useState<string[]>([]);
   const [createSizeInventory, setCreateSizeInventory] = useState<Record<string, string>>({});
-  const [createImage, setCreateImage] = useState<File | null>(null);
+  const [createImages, setCreateImages] = useState<File[]>([]);
   const [submittingCreate, setSubmittingCreate] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -60,7 +61,8 @@ export function AdminMerchClient() {
   const [editActive, setEditActive] = useState(true);
   const [editSizes, setEditSizes] = useState<string[]>([]);
   const [editSizeInventory, setEditSizeInventory] = useState<Record<string, string>>({});
-  const [editImage, setEditImage] = useState<File | null>(null);
+  const [editImages, setEditImages] = useState<File[]>([]);
+  const [editKeepImageUrls, setEditKeepImageUrls] = useState<string[]>([]);
   const [submittingEdit, setSubmittingEdit] = useState(false);
 
   async function loadItems() {
@@ -130,12 +132,13 @@ export function AdminMerchClient() {
               inputMode="numeric"
             />
             <Button variant="outlined" component="label">
-              {createImage ? `Image: ${createImage.name}` : 'Upload image'}
+              {createImages.length > 0 ? `${createImages.length} image(s) selected` : 'Upload images'}
               <input
                 hidden
+                multiple
                 type="file"
                 accept="image/*"
-                onChange={(e) => setCreateImage(e.target.files?.[0] ?? null)}
+                onChange={(e) => setCreateImages(Array.from(e.target.files ?? []))}
               />
             </Button>
             <FormControlLabel
@@ -201,7 +204,7 @@ export function AdminMerchClient() {
                   form.set('active', String(createActive));
                   createSizes.forEach((s) => form.append('sizes', s));
                   createSizes.forEach((s) => form.set(`size_inventory_${s.toLowerCase()}`, createSizeInventory[s] ?? '0'));
-                  if (createImage) form.set('image', createImage);
+                  createImages.forEach((img) => form.append('images', img));
 
                   const res = await fetch('/api/admin/merch', { method: 'POST', body: form });
                   const json = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -212,7 +215,7 @@ export function AdminMerchClient() {
                   setCreatePrice('');
                   setCreateCurrency('usd');
                   setCreateInventory('0');
-                  setCreateImage(null);
+                  setCreateImages([]);
                   setCreateActive(true);
                   setCreateSizes([]);
                   setCreateSizeInventory({});
@@ -268,14 +271,27 @@ export function AdminMerchClient() {
                             Object.entries(sizeInv).map(([k, v]) => [String(k).toUpperCase(), String(v ?? '0')])
                           )
                         );
-                        setEditImage(null);
+                        setEditImages([]);
+                        setEditKeepImageUrls(Array.isArray(item.image_urls) ? item.image_urls.map((u) => String(u)) : []);
                       }}
                     >
                       {editingId === item.id ? 'Close' : 'Edit'}
                     </Button>
                   </Stack>
 
-                  {item.image_url ? (
+                  {Array.isArray(item.image_urls) && item.image_urls.length > 0 ? (
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                      {item.image_urls.map((u) => (
+                        <Box
+                          key={u}
+                          component="img"
+                          src={u}
+                          alt={item.name}
+                          sx={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 1 }}
+                        />
+                      ))}
+                    </Stack>
+                  ) : item.image_url ? (
                     <Box
                       component="img"
                       src={item.image_url}
@@ -320,14 +336,34 @@ export function AdminMerchClient() {
                         inputMode="numeric"
                       />
                       <Button variant="outlined" component="label">
-                        {editImage ? `New image: ${editImage.name}` : 'Upload new image'}
+                        {editImages.length > 0 ? `${editImages.length} new image(s)` : 'Upload new images'}
                         <input
                           hidden
+                          multiple
                           type="file"
                           accept="image/*"
-                          onChange={(e) => setEditImage(e.target.files?.[0] ?? null)}
+                          onChange={(e) => setEditImages(Array.from(e.target.files ?? []))}
                         />
                       </Button>
+                      <Typography color="text.secondary">Keep existing images</Typography>
+                      <FormGroup row>
+                        {(Array.isArray(item.image_urls) ? item.image_urls : []).map((u) => (
+                          <FormControlLabel
+                            key={u}
+                            control={
+                              <Checkbox
+                                checked={editKeepImageUrls.includes(u)}
+                                onChange={(_, checked) =>
+                                  setEditKeepImageUrls((prev) =>
+                                    checked ? Array.from(new Set([...prev, u])) : prev.filter((x) => x !== u)
+                                  )
+                                }
+                              />
+                            }
+                            label="Keep"
+                          />
+                        ))}
+                      </FormGroup>
                       <FormControlLabel
                         control={<Switch checked={editActive} onChange={(_, v) => setEditActive(v)} />}
                         label="Active"
@@ -392,7 +428,8 @@ export function AdminMerchClient() {
                             form.set('active', String(editActive));
                             editSizes.forEach((s) => form.append('sizes', s));
                             editSizes.forEach((s) => form.set(`size_inventory_${s.toLowerCase()}`, editSizeInventory[s] ?? '0'));
-                            if (editImage) form.set('image', editImage);
+                            editKeepImageUrls.forEach((u) => form.append('keep_image_urls', u));
+                            editImages.forEach((img) => form.append('images', img));
 
                             const res = await fetch('/api/admin/merch', { method: 'PATCH', body: form });
                             const json = (await res.json().catch(() => null)) as { error?: string } | null;

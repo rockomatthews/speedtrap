@@ -4,6 +4,7 @@ export type MerchItem = {
   description: string;
   priceId: string;
   imageUrl?: string | null;
+  imageUrls?: string[] | null;
   priceCents?: number | null;
   currency?: string | null;
   inventoryCount?: number | null;

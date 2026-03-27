@@ -89,7 +89,7 @@ export async function GET() {
   const { data, error } = await supabaseAdmin
     .from('merch_items')
     .select(
-      'id,name,description,image_url,price_cents,currency,inventory_count,sizes,size_inventory,stripe_price_id,stripe_product_id,active,created_at'
+      'id,name,description,image_url,image_urls,price_cents,currency,inventory_count,sizes,size_inventory,stripe_price_id,stripe_product_id,active,created_at'
     )
     .order('created_at', { ascending: true });
 
@@ -115,6 +115,7 @@ export async function GET() {
   const normalized = (fallbackData ?? []).map((it: any) => ({
     ...it,
     image_url: null,
+    image_urls: [],
     price_cents: 0,
     currency: 'usd',
     inventory_count: 0,
@@ -142,7 +143,7 @@ export async function POST(request: Request) {
   const active = String(form.get('active') ?? 'true') !== 'false';
   const sizes = parseSizes(form);
   const sizeInventory = parseSizeInventory(form, sizes);
-  const image = form.get('image');
+  const images = form.getAll('images');
   if (sizeInventory === null) {
     return NextResponse.json({ error: 'Invalid per-size inventory values.' }, { status: 400 });
   }
@@ -155,11 +156,13 @@ export async function POST(request: Request) {
 
   const itemId = `${toSlug(title) || 'item'}-${randomUUID().slice(0, 8)}`;
   let imageUrl: string | null = null;
+  const imageUrls: string[] = [];
 
   const supabaseAdmin = createSupabaseAdminClient();
-  if (image instanceof File && image.size > 0) {
+  for (const image of images) {
+    if (!(image instanceof File) || image.size <= 0) continue;
     const ext = (image.name.split('.').pop() ?? 'jpg').toLowerCase();
-    const path = `${itemId}/${Date.now()}.${ext}`;
+    const path = `${itemId}/${Date.now()}-${randomUUID().slice(0, 6)}.${ext}`;
     const bytes = Buffer.from(await image.arrayBuffer());
 
     const upload = await supabaseAdmin.storage.from('merch').upload(path, bytes, {
@@ -171,8 +174,9 @@ export async function POST(request: Request) {
     }
 
     const pub = supabaseAdmin.storage.from('merch').getPublicUrl(path);
-    imageUrl = pub.data.publicUrl;
+    imageUrls.push(pub.data.publicUrl);
   }
+  imageUrl = imageUrls[0] ?? null;
 
   try {
     const stripeEnv = getStripeEnv();
@@ -181,7 +185,7 @@ export async function POST(request: Request) {
     const product = await stripe.products.create({
       name: title,
       description: description || undefined,
-      images: imageUrl ? [imageUrl] : undefined,
+      images: imageUrls.length > 0 ? imageUrls.slice(0, 8) : undefined,
       metadata: { app_merch_item_id: itemId }
     });
 
@@ -198,6 +202,7 @@ export async function POST(request: Request) {
       stripe_price_id: createdPrice.id,
       stripe_product_id: product.id,
       image_url: imageUrl,
+      image_urls: imageUrls,
       price_cents: priceCents,
       inventory_count: inventoryCount,
       sizes,
@@ -236,7 +241,8 @@ export async function PATCH(request: Request) {
   const active = String(form.get('active') ?? 'true') !== 'false';
   const sizes = parseSizes(form);
   const sizeInventory = parseSizeInventory(form, sizes);
-  const image = form.get('image');
+  const images = form.getAll('images');
+  const keepImageUrls = form.getAll('keep_image_urls').map((v) => String(v));
   if (sizeInventory === null) {
     return NextResponse.json({ error: 'Invalid per-size inventory values.' }, { status: 400 });
   }
@@ -244,17 +250,20 @@ export async function PATCH(request: Request) {
   const supabaseAdmin = createSupabaseAdminClient();
   const { data: existing, error: existingError } = await supabaseAdmin
     .from('merch_items')
-    .select('id,stripe_product_id,price_cents,currency,inventory_count')
+    .select('id,stripe_product_id,price_cents,currency,inventory_count,image_urls')
     .eq('id', id)
     .maybeSingle();
   if (existingError || !existing) {
     return NextResponse.json({ error: 'Merch item not found.' }, { status: 404 });
   }
 
-  let imageUrl: string | null | undefined = undefined;
-  if (image instanceof File && image.size > 0) {
+  const existingImages = Array.isArray(existing.image_urls) ? existing.image_urls.map((u: unknown) => String(u)) : [];
+  const keptSet = new Set(keepImageUrls.filter((u) => existingImages.includes(u)));
+  const finalImageUrls: string[] = [...keptSet];
+  for (const image of images) {
+    if (!(image instanceof File) || image.size <= 0) continue;
     const ext = (image.name.split('.').pop() ?? 'jpg').toLowerCase();
-    const path = `${id}/${Date.now()}.${ext}`;
+    const path = `${id}/${Date.now()}-${randomUUID().slice(0, 6)}.${ext}`;
     const bytes = Buffer.from(await image.arrayBuffer());
     const upload = await supabaseAdmin.storage.from('merch').upload(path, bytes, {
       contentType: image.type || 'application/octet-stream',
@@ -263,13 +272,14 @@ export async function PATCH(request: Request) {
     if (upload.error) {
       return NextResponse.json({ error: `Image upload failed: ${upload.error.message}` }, { status: 500 });
     }
-    imageUrl = supabaseAdmin.storage.from('merch').getPublicUrl(path).data.publicUrl;
+    finalImageUrls.push(supabaseAdmin.storage.from('merch').getPublicUrl(path).data.publicUrl);
   }
 
   const updates: Record<string, unknown> = { active };
   if (title) updates.name = title;
   updates.description = description || null;
-  if (imageUrl !== undefined) updates.image_url = imageUrl;
+  updates.image_urls = finalImageUrls;
+  updates.image_url = finalImageUrls[0] ?? null;
   const parsedInventoryCount = parseInventoryCount(inventory);
   if (parsedInventoryCount === null) {
     return NextResponse.json({ error: 'Valid inventory is required.' }, { status: 400 });
@@ -296,6 +306,16 @@ export async function PATCH(request: Request) {
       updates.stripe_price_id = newPrice.id;
       updates.price_cents = parsedPriceCents ?? existing.price_cents;
       updates.currency = currencyChanged ? currency : existing.currency;
+    }
+
+    if (existing.stripe_product_id) {
+      const stripeEnv = getStripeEnv();
+      const stripe = new Stripe(stripeEnv.STRIPE_SECRET_KEY);
+      await stripe.products.update(existing.stripe_product_id, {
+        name: title || undefined,
+        description: description || undefined,
+        images: finalImageUrls.length > 0 ? finalImageUrls.slice(0, 8) : []
+      });
     }
 
     const { error } = await supabaseAdmin.from('merch_items').update(updates).eq('id', id);
