@@ -54,6 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        <meta name="google-site-verification" content="GkNUGFLmikgRzESUfPPJewlH4f44dMz3K1YRZizwReM" />
         <script
           type="application/ld+json"
           // eslint-disable-next-line react/no-danger
