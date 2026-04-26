@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Speed Trap Racing">
+  <rect width="256" height="256" rx="48" fill="#000000"/>
+  <rect x="32" y="40" width="192" height="28" rx="8" fill="#FFD200"/>
+  <rect x="32" y="84" width="150" height="20" rx="6" fill="#FFFFFF"/>
+  <rect x="32" y="118" width="192" height="20" rx="6" fill="#FF2A2A"/>
+  <rect x="32" y="152" width="140" height="18" rx="6" fill="#FFFFFF"/>
+  <text x="32" y="220" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700">STR</text>
+</svg>

@@ -6,23 +6,24 @@ import './globals.css';
 
 const siteUrl = 'https://speedtrapracing.com';
 const logoUrl = `${siteUrl}/brand/logo.svg`;
+const brandDescription = 'Advanced Sim Racing Center and Bar';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: 'Speed Trap Racing',
-  description: 'Speed Trap Racing sim racing center website.',
+  description: brandDescription,
   applicationName: 'Speed Trap Racing',
   alternates: {
     canonical: '/'
   },
   icons: {
-    icon: [{ url: '/brand/logo.svg', type: 'image/svg+xml' }],
-    shortcut: ['/brand/logo.svg'],
-    apple: [{ url: '/brand/logo.svg', type: 'image/svg+xml' }]
+    icon: [{ url: '/icon', type: 'image/png' }],
+    shortcut: ['/icon'],
+    apple: [{ url: '/apple-icon', type: 'image/png' }]
   },
   openGraph: {
     title: 'Speed Trap Racing',
-    description: 'Speed Trap Racing sim racing center website.',
+    description: brandDescription,
     url: siteUrl,
     siteName: 'Speed Trap Racing',
     type: 'website',
@@ -31,7 +32,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary',
     title: 'Speed Trap Racing',
-    description: 'Speed Trap Racing sim racing center website.',
+    description: brandDescription,
     images: ['/brand/logo.svg']
   }
 };
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: 'Speed Trap Racing',
+    description: brandDescription,
     url: siteUrl,
     logo: logoUrl
   };
@@ -48,6 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     name: 'Speed Trap Racing',
+    description: brandDescription,
     url: siteUrl
   };
 
