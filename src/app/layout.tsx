@@ -44,6 +44,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     url: siteUrl,
     logo: logoUrl
   };
+  const webSiteSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Speed Trap Racing',
+    url: siteUrl
+  };
 
   return (
     <html lang="en">
@@ -51,7 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script
           type="application/ld+json"
           // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify([organizationSchema, webSiteSchema]) }}
         />
       </head>
       <body>
