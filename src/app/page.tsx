@@ -81,6 +81,32 @@ export default async function HomePage({
           />
 
           <Typography
+            component="h1"
+            variant="h3"
+            sx={{
+              position: 'relative',
+              mb: 1,
+              fontWeight: 800,
+              letterSpacing: -0.5,
+              color: 'rgba(255,255,255,0.92)',
+              textShadow: '0 6px 30px rgba(0,0,0,0.45)'
+            }}
+          >
+            Speed Trap Racing
+          </Typography>
+          <Typography
+            component="p"
+            variant="body1"
+            sx={{
+              position: 'relative',
+              mb: 3,
+              maxWidth: 560,
+              color: 'rgba(255,255,255,0.72)'
+            }}
+          >
+            Advanced Sim Racing Center and Bar
+          </Typography>
+          <Typography
             variant="h2"
             sx={{
               position: 'relative',

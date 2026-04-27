@@ -10,7 +10,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate:brand-assets": "node scripts/generate-brand-assets.mjs"
   },
   "dependencies": {
     "@emotion/cache": "^11.11.0",
@@ -22,10 +23,10 @@
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.1",
     "fast-xml-parser": "^4.5.1",
-    "stripe": "latest",
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "stripe": "latest",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -34,8 +35,8 @@
     "@types/react-dom": "^19.0.3",
     "eslint": "^9.17.0",
     "eslint-config-next": "^15.1.6",
+    "sharp": "^0.34.5",
+    "to-ico": "^1.1.5",
     "typescript": "^5.7.3"
   }
 }
-
-
