@@ -18,12 +18,6 @@ const featureCards = [
   { title: 'Live leaderboard chase', body: 'Link your VMS driver profile, join a challenge, then come back to see where your clean laps landed.' }
 ];
 
-const pricingTeasers = [
-  ['Single Race Session', '$25'],
-  ['Driver Pack', '$90'],
-  ['Group Racing', 'From $250']
-];
-
 export default async function HomePage({
   searchParams
 }: {
@@ -92,8 +86,8 @@ export default async function HomePage({
                 <Button component={Link} href="/login?redirectTo=/dashboard" variant="contained" size="large">
                   Join a Hotlap
                 </Button>
-                <Button component={Link} href="/pricing" variant="outlined" size="large">
-                  See Pricing
+                <Button component={Link} href="/how-it-works" variant="outlined" size="large">
+                  How It Works
                 </Button>
               </Stack>
             </Stack>
@@ -116,47 +110,23 @@ export default async function HomePage({
             ))}
           </Grid>
 
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, md: 7 }}>
-              <Card variant="outlined" sx={{ height: '100%', borderColor: 'rgba(255,210,0,0.35)' }}>
-                <CardContent>
-                  <Stack spacing={1.5}>
-                    <Chip label="Featured challenge" color="primary" sx={{ alignSelf: 'flex-start' }} />
-                    <Typography variant="h4" sx={{ fontWeight: 900 }}>
-                      Hotlap nights are built for repeat attempts.
-                    </Typography>
-                    <Typography color="text.secondary">
-                      Sign in, link your VMS driver profile, join the active challenge, then run laps on the connected rigs. Your best eligible
-                      laps come from VMS and your place shows on the leaderboard.
-                    </Typography>
-                    <Button component={Link} href="/how-it-works" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
-                      How It Works
-                    </Button>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid size={{ xs: 12, md: 5 }}>
-              <Card variant="outlined" sx={{ height: '100%', borderColor: 'rgba(255,255,255,0.12)' }}>
-                <CardContent>
-                  <Typography variant="h5" sx={{ fontWeight: 900 }}>
-                    Draft Pricing
-                  </Typography>
-                  <Stack spacing={1.25} sx={{ mt: 2 }}>
-                    {pricingTeasers.map(([name, price]) => (
-                      <Stack key={name} direction="row" justifyContent="space-between">
-                        <Typography>{name}</Typography>
-                        <Typography sx={{ fontWeight: 900 }}>{price}</Typography>
-                      </Stack>
-                    ))}
-                  </Stack>
-                  <Button component={Link} href="/pricing" variant="contained" sx={{ mt: 2 }}>
-                    View Table
-                  </Button>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
+          <Card variant="outlined" sx={{ borderColor: 'rgba(255,210,0,0.35)' }}>
+            <CardContent>
+              <Stack spacing={1.5}>
+                <Chip label="Featured challenge" color="primary" sx={{ alignSelf: 'flex-start' }} />
+                <Typography variant="h4" sx={{ fontWeight: 900 }}>
+                  Hotlap nights are built for repeat attempts.
+                </Typography>
+                <Typography color="text.secondary" sx={{ maxWidth: 880 }}>
+                  Sign in, link your VMS driver profile, join the active challenge, then run laps on the connected rigs. Your best eligible
+                  laps come from VMS and your place shows on the leaderboard.
+                </Typography>
+                <Button component={Link} href="/how-it-works" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
+                  How It Works
+                </Button>
+              </Stack>
+            </CardContent>
+          </Card>
 
           <Grid container spacing={2} sx={{ pb: 5 }}>
             <Grid size={{ xs: 12, md: 6 }}>
