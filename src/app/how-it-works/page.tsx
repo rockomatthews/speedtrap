@@ -11,7 +11,7 @@ import Typography from '@mui/material/Typography';
 import { AppShell } from '@/components/AppShell';
 
 const steps = [
-  ['Create your handle', 'Sign in and choose the racing username people will see on Speed Trap challenge screens.'],
+  ['Link your VMS profile', 'Sign in and the portal connects your account to the driver profile VMS uses at the venue.'],
   ['Join a hotlap challenge', 'Pick an active or upcoming challenge from the portal. Signup is saved on the site; staff-run timing stays in VMS.'],
   ['Race on the connected sims', 'At the venue, run laps on the rigs assigned to the challenge. Clean laps become eligible for the board.'],
   ['Track your place', 'Leaderboards pull results from VMS and highlight your row when your customer profile matches the timing data.']

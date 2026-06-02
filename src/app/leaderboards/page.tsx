@@ -4,11 +4,8 @@ import Typography from '@mui/material/Typography';
 import { AppShell } from '@/components/AppShell';
 import { EnsureVmsCustomer } from '@/components/EnsureVmsCustomer';
 import { ChallengeList } from '@/components/portal/ChallengeList';
-import { getAuthedProfile } from '@/lib/supabase/profile';
 
 export default async function LeaderboardsPage() {
-  const { profile } = await getAuthedProfile();
-
   return (
     <AppShell>
       <Stack spacing={2}>
@@ -19,7 +16,7 @@ export default async function LeaderboardsPage() {
           <Typography color="text.secondary">Fastest-lap challenges recorded by the venue sims through VMS.</Typography>
         </Stack>
         <EnsureVmsCustomer />
-        <ChallengeList username={profile?.username ?? null} />
+        <ChallengeList />
       </Stack>
     </AppShell>
   );

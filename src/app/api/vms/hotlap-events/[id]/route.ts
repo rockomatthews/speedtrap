@@ -17,7 +17,11 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   if (!localEvent) return NextResponse.json({ error: 'Hotlap event not found.' }, { status: 404 });
 
   try {
-    const detail = await VmsClient.fromEnv().getHotlapEvent(localEvent.vms_hotlap_event_id, { invalid: 1 });
+    const vms = VmsClient.fromEnv();
+    const [detail, viewerCustomer] = await Promise.all([
+      vms.getHotlapEvent(localEvent.vms_hotlap_event_id, { invalid: 1 }),
+      profile?.vms_customer_id ? vms.getCustomer(profile.vms_customer_id) : Promise.resolve(null)
+    ]);
     const { data: entry } = await supabase
       .from('vms_hotlap_event_entries')
       .select('id,joined_at')
@@ -27,7 +31,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({
       localEvent,
       viewerCustomerId: profile?.vms_customer_id ?? null,
-      viewerUsername: profile?.username ?? null,
+      viewerCustomerName: viewerCustomer?.name ?? null,
       joined: Boolean(entry),
       entry: entry ?? null,
       event: detail.event,

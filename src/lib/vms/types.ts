@@ -54,6 +54,43 @@ export type VmsCatalog = {
   venues: VmsVenue[];
 };
 
+export type VmsCustomerProfile = {
+  id: number;
+  name: string;
+  tel: string | null;
+  cell: string | null;
+  email: string | null;
+  emailOptin: boolean | null;
+  postalCode: string | null;
+  homeVenue: string | null;
+  className: string | null;
+  classId: number | null;
+  memberships: string[];
+  lapsRecorded: number | null;
+  lastVisit: string | null;
+  lastVehicle: string | null;
+  lastCircuit: string | null;
+  lastGroupEvent: string | null;
+  lastRaceEvent: string | null;
+  customerUri: string | null;
+  venueUri: string | null;
+  classUri: string | null;
+  lapTimesUri: string | null;
+  vehicleUri: string | null;
+  circuitUri: string | null;
+  raceEventUri: string | null;
+};
+
+export type VmsCustomerUpdateInput = {
+  name?: string;
+  tel?: string | null;
+  cell?: string | null;
+  email?: string | null;
+  emailOptin?: boolean | null;
+  postalCode?: string | null;
+  classId?: number | null;
+};
+
 export type VmsHotlapSubEventInput = {
   id?: number | null;
   name: string;

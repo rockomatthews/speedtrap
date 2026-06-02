@@ -7,13 +7,12 @@ import Grid from '@mui/material/Grid2';
 import Link from 'next/link';
 
 import { AppShell } from '@/components/AppShell';
-import { EnsureVmsCustomer } from '@/components/EnsureVmsCustomer';
 import { ChallengeList } from '@/components/portal/ChallengeList';
-import { UsernameCard } from '@/components/portal/UsernameCard';
+import { VmsDriverProfileCard } from '@/components/portal/VmsDriverProfileCard';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 
 export default async function DashboardPage() {
-  const { user, profile } = await getAuthedProfile();
+  const { user } = await getAuthedProfile();
 
   return (
     <AppShell>
@@ -25,8 +24,7 @@ export default async function DashboardPage() {
           <Typography color="text.secondary">Signed in as {user?.email ?? 'unknown'}.</Typography>
         </Stack>
 
-        <EnsureVmsCustomer />
-        <UsernameCard initialUsername={profile?.username ?? null} />
+        <VmsDriverProfileCard />
 
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, md: 4 }}>
@@ -44,7 +42,7 @@ export default async function DashboardPage() {
               <CardContent>
                 <Typography sx={{ fontWeight: 900 }}>2. Race at the venue</Typography>
                 <Typography color="text.secondary" sx={{ mt: 1 }}>
-                  Run clean laps on the connected rigs. Staff can help you get into the right sim and challenge.
+                  Run clean laps on the connected rigs. VMS connects your driver profile to the recorded lap data.
                 </Typography>
               </CardContent>
             </Card>
@@ -74,7 +72,7 @@ export default async function DashboardPage() {
           <Typography variant="h5" sx={{ fontWeight: 900 }}>
             Hotlap Challenges
           </Typography>
-          <ChallengeList username={profile?.username ?? null} />
+          <ChallengeList />
         </Stack>
       </Stack>
     </AppShell>

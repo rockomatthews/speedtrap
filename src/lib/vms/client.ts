@@ -3,6 +3,8 @@ import {
   type VmsCatalog,
   type VmsCircuit,
   type VmsClass,
+  type VmsCustomerProfile,
+  type VmsCustomerUpdateInput,
   type VmsHotlapEventDetail,
   type VmsHotlapEventInput,
   type VmsHotlapEventSummary,
@@ -66,6 +68,21 @@ function toStringOrNull(value: unknown): string | null {
   return s.length > 0 ? s : null;
 }
 
+function toBooleanOrNull(value: unknown): boolean | null {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === 'true' || normalized === '1') return true;
+  if (normalized === 'false' || normalized === '0') return false;
+  return null;
+}
+
+function idFromUri(uri: string | null): number | null {
+  if (!uri) return null;
+  const match = uri.match(/\/(\d+)(?:\?.*)?$/);
+  return match ? toNumber(match[1]) : null;
+}
+
 function compactQuery(params: Record<string, string | number | null | undefined>) {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -101,6 +118,58 @@ function normalizeVenue(raw: any): VmsVenue | null {
   const name = toStringOrNull(raw?.name ?? raw?.venue_name);
   if (!id || !name) return null;
   return { id, name };
+}
+
+function normalizeMemberships(raw: any): string[] {
+  const memberships = asArray(raw?.membership ?? raw);
+  return memberships
+    .map((membership: any) => toStringOrNull(membership?.name ?? membership))
+    .filter(Boolean) as string[];
+}
+
+function normalizeCustomer(raw: any): VmsCustomerProfile | null {
+  const id = toNumber(raw?.id ?? raw?.customer_id);
+  const name = toStringOrNull(raw?.name ?? raw?.customer_name);
+  if (!id || !name) return null;
+  const classUri = toStringOrNull(raw?.class_uri);
+  return {
+    id,
+    name,
+    tel: toStringOrNull(raw?.tel),
+    cell: toStringOrNull(raw?.cell),
+    email: toStringOrNull(raw?.email),
+    emailOptin: toBooleanOrNull(raw?.email_optin),
+    postalCode: toStringOrNull(raw?.postal_code),
+    homeVenue: toStringOrNull(raw?.home_venue ?? raw?.venue_name),
+    className: toStringOrNull(raw?.class ?? raw?.class_name),
+    classId: toNumber(raw?.class_id) ?? idFromUri(classUri),
+    memberships: normalizeMemberships(raw?.memberships),
+    lapsRecorded: toNumber(raw?.laps_recorded),
+    lastVisit: toStringOrNull(raw?.last_visit),
+    lastVehicle: toStringOrNull(raw?.last_vehicle),
+    lastCircuit: toStringOrNull(raw?.last_circuit),
+    lastGroupEvent: toStringOrNull(raw?.last_group_event),
+    lastRaceEvent: toStringOrNull(raw?.last_race_event),
+    customerUri: toStringOrNull(raw?.customer_uri),
+    venueUri: toStringOrNull(raw?.venue_uri),
+    classUri,
+    lapTimesUri: toStringOrNull(raw?.lap_times_uri),
+    vehicleUri: toStringOrNull(raw?.vehicle_uri),
+    circuitUri: toStringOrNull(raw?.circuit_uri),
+    raceEventUri: toStringOrNull(raw?.race_event_uri)
+  };
+}
+
+function buildCustomerUpdateXml(input: VmsCustomerUpdateInput) {
+  const value: Record<string, unknown> = {};
+  if (input.name !== undefined) value.name = input.name;
+  if (input.tel !== undefined) value.tel = input.tel ?? '';
+  if (input.cell !== undefined) value.cell = input.cell ?? '';
+  if (input.email !== undefined) value.email = input.email ?? '';
+  if (input.emailOptin !== undefined) value.email_optin = input.emailOptin ?? false;
+  if (input.postalCode !== undefined) value.postal_code = input.postalCode ?? '';
+  if (input.classId !== undefined) value.class_id = input.classId ?? '';
+  return buildXml('customer', value);
 }
 
 function normalizeHotlapSummary(raw: any): VmsHotlapEventSummary | null {
@@ -275,6 +344,21 @@ export class VmsClient {
       this.getVenues()
     ]);
     return { circuits, vehicles, classes, venues };
+  }
+
+  async getCustomer(id: number): Promise<VmsCustomerProfile | null> {
+    const obj = await this.getParsed<any>(`/customers/${id}`);
+    return normalizeCustomer(obj?.customer ?? obj);
+  }
+
+  async updateCustomer(id: number, input: VmsCustomerUpdateInput): Promise<VmsCustomerProfile | null> {
+    const updatedXml = await this.request(`/customers/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
+      body: buildCustomerUpdateXml(input)
+    });
+    const obj = parseXml<any>(updatedXml);
+    return normalizeCustomer(obj?.customer ?? obj);
   }
 
   async listHotlapEvents(params?: {

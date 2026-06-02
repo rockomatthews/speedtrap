@@ -13,8 +13,8 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   const { id } = await context.params;
   const { supabase, user, profile } = await getAuthedProfile();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!profile?.username) {
-    return NextResponse.json({ error: 'Create a racing username before joining a challenge.' }, { status: 412 });
+  if (!profile?.vms_customer_id) {
+    return NextResponse.json({ error: 'Link your VMS driver profile before joining a challenge.' }, { status: 412 });
   }
 
   const { data: event, error: eventError } = await findLocalHotlapEvent(supabase, id);

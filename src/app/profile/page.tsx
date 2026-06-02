@@ -2,11 +2,12 @@ import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
 
 import { AppShell } from '@/components/AppShell';
-import { UsernameCard } from '@/components/portal/UsernameCard';
+import { VmsDriverProfileCard } from '@/components/portal/VmsDriverProfileCard';
+import { VmsProfileForm } from '@/components/portal/VmsProfileForm';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 
 export default async function ProfilePage() {
-  const { user, profile } = await getAuthedProfile();
+  const { user } = await getAuthedProfile();
 
   return (
     <AppShell>
@@ -15,11 +16,11 @@ export default async function ProfilePage() {
           <Typography variant="h4" sx={{ fontWeight: 900 }}>
             Profile
           </Typography>
-          <Typography color="text.secondary">Manage your Speed Trap racing identity for {user?.email ?? 'your account'}.</Typography>
+          <Typography color="text.secondary">Manage your VMS driver profile for {user?.email ?? 'your account'}.</Typography>
         </Stack>
-        <UsernameCard initialUsername={profile?.username ?? null} />
+        <VmsDriverProfileCard />
+        <VmsProfileForm />
       </Stack>
     </AppShell>
   );
 }
-

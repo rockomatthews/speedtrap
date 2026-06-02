@@ -15,7 +15,7 @@ import { AppShell } from '@/components/AppShell';
 const featureCards = [
   { title: 'Connected racing rigs', body: 'Four venue sims feed VMS timing so hotlap challenges feel official, not scribbled on a whiteboard.' },
   { title: 'Arcade bar energy', body: 'Drop in for laps, bring friends, watch the board move, and make it a night instead of a spreadsheet.' },
-  { title: 'Live leaderboard chase', body: 'Create a racing username, join a challenge, then come back to see where your clean laps landed.' }
+  { title: 'Live leaderboard chase', body: 'Link your VMS driver profile, join a challenge, then come back to see where your clean laps landed.' }
 ];
 
 const pricingTeasers = [
@@ -126,7 +126,7 @@ export default async function HomePage({
                       Hotlap nights are built for repeat attempts.
                     </Typography>
                     <Typography color="text.secondary">
-                      Sign in, create your racing username, join the active challenge, then run laps on the connected rigs. Your best eligible
+                      Sign in, link your VMS driver profile, join the active challenge, then run laps on the connected rigs. Your best eligible
                       laps come from VMS and your place shows on the leaderboard.
                     </Typography>
                     <Button component={Link} href="/how-it-works" variant="outlined" sx={{ alignSelf: 'flex-start' }}>

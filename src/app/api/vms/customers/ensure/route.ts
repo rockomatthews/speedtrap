@@ -32,14 +32,15 @@ export async function POST() {
     const { supabase, user, profile } = await getAuthedProfile();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    if (profile?.vms_customer_id) {
-      return NextResponse.json({ vms_customer_id: profile.vms_customer_id });
-    }
-
     const email = user.email;
     if (!email) return NextResponse.json({ error: 'User has no email' }, { status: 400 });
 
     const vms = VmsClient.fromEnv();
+
+    if (profile?.vms_customer_id) {
+      const customer = await vms.getCustomer(profile.vms_customer_id);
+      return NextResponse.json({ vms_customer_id: profile.vms_customer_id, customer });
+    }
 
     // Try search first to avoid duplicates
     const searchXml = await vms.request(`/customers?email=${encodeURIComponent(email)}`, { method: 'GET' });
@@ -47,7 +48,7 @@ export async function POST() {
     let customerId = extractCustomerId(searchObj);
 
     if (!customerId) {
-      const name = profile?.username ?? (user.user_metadata?.full_name as string | undefined) ?? inferName(email);
+      const name = (user.user_metadata?.full_name as string | undefined) ?? inferName(email);
       const homeVenueId = env.VMS_HOME_VENUE_ID ?? 1;
 
       const customerXml = buildXml('customer', {
@@ -78,9 +79,9 @@ export async function POST() {
     const { error } = await supabase.from('profiles').update({ vms_customer_id: customerId }).eq('id', user.id);
     if (error) return NextResponse.json({ error: `VMS customer linked, but profile update failed: ${error.message}` }, { status: 500 });
 
-    return NextResponse.json({ vms_customer_id: customerId });
+    const customer = await vms.getCustomer(customerId);
+    return NextResponse.json({ vms_customer_id: customerId, customer });
   } catch (error) {
     return vmsErrorResponse(error);
   }
 }
-

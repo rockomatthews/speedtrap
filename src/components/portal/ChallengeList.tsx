@@ -24,7 +24,7 @@ function statusColor(status: string) {
   return 'warning';
 }
 
-export function ChallengeList({ username }: { username?: string | null }) {
+export function ChallengeList() {
   const [events, setEvents] = useState<LocalEventWithStatus[]>([]);
   const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -68,6 +68,10 @@ export function ChallengeList({ username }: { username?: string | null }) {
     setError(null);
     setMessage(null);
     try {
+      const ensureRes = await fetch('/api/vms/customers/ensure', { method: 'POST' });
+      const ensureJson = (await ensureRes.json().catch(() => null)) as { error?: string } | null;
+      if (!ensureRes.ok) throw new Error(ensureJson?.error ?? 'Failed to link VMS driver profile.');
+
       const res = await fetch(`/api/vms/hotlap-events/${encodeURIComponent(event.slug)}/join`, { method: 'POST' });
       const json = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(json?.error ?? 'Failed to join challenge.');
@@ -121,10 +125,10 @@ export function ChallengeList({ username }: { username?: string | null }) {
                     </Button>
                     <Button
                       variant="contained"
-                      disabled={!username || joined || joining === event.id || status === 'completed' || status === 'cancelled'}
+                      disabled={joined || joining === event.id || status === 'completed' || status === 'cancelled'}
                       onClick={() => join(event)}
                     >
-                      {!username ? 'Set username first' : joined ? 'Joined' : joining === event.id ? 'Joining...' : 'Join challenge'}
+                      {joined ? 'Joined' : joining === event.id ? 'Joining...' : 'Join challenge'}
                     </Button>
                   </Stack>
                 </Stack>

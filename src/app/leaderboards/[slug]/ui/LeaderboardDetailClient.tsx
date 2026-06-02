@@ -20,6 +20,7 @@ import Typography from '@mui/material/Typography';
 
 import {
   type LocalHotlapEvent,
+  type VmsCustomerProfile,
   type VmsHotlapEventSummary,
   type VmsHotlapSubEvent
 } from '@/lib/vms/types';
@@ -27,7 +28,7 @@ import {
 type LeaderboardResponse = {
   localEvent: LocalHotlapEvent;
   viewerCustomerId: number | null;
-  viewerUsername: string | null;
+  viewerCustomerName: string | null;
   joined: boolean;
   entry: { id: string; joined_at: string } | null;
   event: VmsHotlapEventSummary | null;
@@ -72,10 +73,28 @@ export function LeaderboardDetailClient({ slug }: { slug: string }) {
     setJoining(true);
     setError(null);
     try {
+      const ensureRes = await fetch('/api/vms/customers/ensure', { method: 'POST' });
+      const ensureJson = (await ensureRes.json().catch(() => null)) as {
+        vms_customer_id?: number;
+        customer?: VmsCustomerProfile;
+        error?: string;
+      } | null;
+      if (!ensureRes.ok) throw new Error(ensureJson?.error ?? 'Failed to link VMS driver profile.');
+
       const res = await fetch(`/api/vms/hotlap-events/${encodeURIComponent(slug)}/join`, { method: 'POST' });
       const json = (await res.json().catch(() => null)) as { error?: string; entry?: { id: string; joined_at: string } } | null;
       if (!res.ok) throw new Error(json?.error ?? 'Failed to join challenge.');
-      setData((prev) => (prev ? { ...prev, joined: true, entry: json?.entry ?? prev.entry } : prev));
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              viewerCustomerId: prev.viewerCustomerId ?? ensureJson?.vms_customer_id ?? ensureJson?.customer?.id ?? null,
+              viewerCustomerName: prev.viewerCustomerName ?? ensureJson?.customer?.name ?? null,
+              joined: true,
+              entry: json?.entry ?? prev.entry
+            }
+          : prev
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to join challenge.');
     } finally {
@@ -95,8 +114,8 @@ export function LeaderboardDetailClient({ slug }: { slug: string }) {
               {data.localEvent.start_date} to {data.localEvent.end_date}
             </Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 1.5 }}>
-              <Button variant="contained" disabled={!data.viewerUsername || data.joined || joining} onClick={joinChallenge}>
-                {!data.viewerUsername ? 'Set username first' : data.joined ? 'Joined' : joining ? 'Joining...' : 'Join challenge'}
+              <Button variant="contained" disabled={data.joined || joining} onClick={joinChallenge}>
+                {data.joined ? 'Joined' : joining ? 'Joining...' : 'Join challenge'}
               </Button>
               {data.joined ? <Chip label="Run laps at the venue sims to post a time" color="primary" /> : null}
             </Stack>
@@ -104,11 +123,12 @@ export function LeaderboardDetailClient({ slug }: { slug: string }) {
         </CardContent>
       </Card>
 
-      {!data.viewerUsername ? (
-        <Alert severity="warning">Create a racing username in the portal before joining this challenge.</Alert>
+      {!data.viewerCustomerId ? (
+        <Alert severity="warning">Link your VMS driver profile before joining this challenge.</Alert>
       ) : data.joined ? (
         <Alert severity="success">
-          You are signed up as {data.viewerUsername}. VMS records the laps; this page shows your place when your customer ID appears in results.
+          You are signed up as {data.viewerCustomerName ?? 'your VMS driver profile'}. VMS records the laps; this page shows your place
+          when your customer ID appears in results.
         </Alert>
       ) : (
         <Alert severity="info">Join this challenge, then race on the connected sims at Speed Trap to get ranked.</Alert>
