@@ -10,7 +10,8 @@ export const theme = createTheme({
     },
     secondary: {
       // Brand red
-      main: '#FF2A2A'
+      main: '#FF161F',
+      contrastText: '#FFFFFF'
     },
     background: {
       default: '#0B0B0B',
@@ -52,16 +53,32 @@ export const theme = createTheme({
           }
         },
         outlinedPrimary: {
-          borderColor: '#FFD200',
-          color: '#FFD200',
+          borderColor: '#FF161F',
+          backgroundColor: '#FF161F',
+          color: '#FFFFFF',
           '&:hover': {
-            borderColor: '#FFDF4D',
-            backgroundColor: 'rgba(255,210,0,0.08)'
+            borderColor: '#E00012',
+            backgroundColor: '#E00012'
+          }
+        },
+        containedSecondary: {
+          backgroundColor: '#FF161F',
+          color: '#FFFFFF',
+          '&:hover': {
+            backgroundColor: '#E00012'
+          }
+        },
+        outlinedSecondary: {
+          borderColor: '#FF161F',
+          backgroundColor: '#FF161F',
+          color: '#FFFFFF',
+          '&:hover': {
+            borderColor: '#E00012',
+            backgroundColor: '#E00012'
           }
         }
       }
     }
   }
 });
-
 

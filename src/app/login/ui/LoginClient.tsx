@@ -21,6 +21,7 @@ export function LoginClient({ redirectTo }: { redirectTo: string }) {
 
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent'>('idle');
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -56,22 +57,28 @@ export function LoginClient({ redirectTo }: { redirectTo: string }) {
                 variant="contained"
                 color="primary"
                 size="large"
+                disabled={googleLoading}
                 onClick={async () => {
                   setError(null);
+                  setGoogleLoading(true);
                   try {
-                    const { error } = await supabase.auth.signInWithOAuth({
+                    const { data, error } = await supabase.auth.signInWithOAuth({
                       provider: 'google',
                       options: {
-                        redirectTo: `${siteUrl}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`
+                        redirectTo: `${siteUrl}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`,
+                        skipBrowserRedirect: true
                       }
                     });
                     if (error) throw error;
+                    if (!data.url) throw new Error('Supabase did not return a Google sign-in URL.');
+                    window.location.assign(data.url);
                   } catch (e) {
                     setError(e instanceof Error ? e.message : 'Failed to start Google sign-in.');
+                    setGoogleLoading(false);
                   }
                 }}
               >
-                Continue with Google
+                {googleLoading ? <CircularProgress size={18} /> : 'Continue with Google'}
               </Button>
 
               <Typography sx={{ opacity: 0.7, textAlign: 'center' }}>or</Typography>
@@ -117,5 +124,4 @@ export function LoginClient({ redirectTo }: { redirectTo: string }) {
     </AppShell>
   );
 }
-
 

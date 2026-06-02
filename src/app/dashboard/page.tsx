@@ -1,43 +1,82 @@
 import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
-import Paper from '@mui/material/Paper';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Grid from '@mui/material/Grid2';
+import Link from 'next/link';
 
 import { AppShell } from '@/components/AppShell';
 import { EnsureVmsCustomer } from '@/components/EnsureVmsCustomer';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { ChallengeList } from '@/components/portal/ChallengeList';
+import { UsernameCard } from '@/components/portal/UsernameCard';
+import { getAuthedProfile } from '@/lib/supabase/profile';
 
 export default async function DashboardPage() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getAuthedProfile();
 
   return (
     <AppShell>
-      <Stack spacing={2}>
-        <Typography variant="h4" sx={{ fontWeight: 900 }}>
-          Dashboard
-        </Typography>
-        <EnsureVmsCustomer />
-        <Typography color="text.secondary">Signed in as {user?.email ?? 'unknown'}.</Typography>
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            border: '1px solid rgba(255,255,255,0.10)',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))'
-          }}
-        >
-          <Typography sx={{ fontWeight: 900 }}>Next steps</Typography>
-          <Typography color="text.secondary" sx={{ mt: 1 }}>
-            - Your VMS customer mapping will be created automatically.
-            <br />- Bookings: `/api/vms/bookings`
-            <br />- Lap times: `/api/vms/lap-times`
+      <Stack spacing={3}>
+        <Stack spacing={0.5}>
+          <Typography variant="h4" sx={{ fontWeight: 900 }}>
+            Driver Portal
           </Typography>
-        </Paper>
+          <Typography color="text.secondary">Signed in as {user?.email ?? 'unknown'}.</Typography>
+        </Stack>
+
+        <EnsureVmsCustomer />
+        <UsernameCard initialUsername={profile?.username ?? null} />
+
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Card variant="outlined" sx={{ height: '100%', borderColor: 'rgba(255,255,255,0.12)' }}>
+              <CardContent>
+                <Typography sx={{ fontWeight: 900 }}>1. Join a challenge</Typography>
+                <Typography color="text.secondary" sx={{ mt: 1 }}>
+                  Pick an active hotlap event. Your signup lives here; the actual laps are scored by VMS at the sims.
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Card variant="outlined" sx={{ height: '100%', borderColor: 'rgba(255,255,255,0.12)' }}>
+              <CardContent>
+                <Typography sx={{ fontWeight: 900 }}>2. Race at the venue</Typography>
+                <Typography color="text.secondary" sx={{ mt: 1 }}>
+                  Run clean laps on the connected rigs. Staff can help you get into the right sim and challenge.
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Card variant="outlined" sx={{ height: '100%', borderColor: 'rgba(255,255,255,0.12)' }}>
+              <CardContent>
+                <Typography sx={{ fontWeight: 900 }}>3. Track your place</Typography>
+                <Typography color="text.secondary" sx={{ mt: 1 }}>
+                  Watch the leaderboard update from VMS and look for your highlighted driver row.
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          <Button component={Link} href="/leaderboards" variant="contained">
+            View Leaderboards
+          </Button>
+          <Button component={Link} href="/stats" variant="outlined">
+            My Lap History
+          </Button>
+        </Stack>
+
+        <Stack spacing={1}>
+          <Typography variant="h5" sx={{ fontWeight: 900 }}>
+            Hotlap Challenges
+          </Typography>
+          <ChallengeList username={profile?.username ?? null} />
+        </Stack>
       </Stack>
     </AppShell>
   );
 }
-
-
