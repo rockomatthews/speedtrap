@@ -2,10 +2,18 @@ export type VmsBooking = {
   id: number;
   eventName?: string | null;
   customerId?: number | null;
+  customerName?: string | null;
   startDate?: string;
   endDate?: string;
   status?: string;
   venueId?: number | null;
+  venueName?: string | null;
+  eventActivity?: string | null;
+  groupSize?: number | null;
+  numberOfPods?: number | null;
+  specificPods?: string | null;
+  paymentNotes?: string | null;
+  notes?: string | null;
 };
 
 export type VmsLap = {
@@ -89,6 +97,36 @@ export type VmsCustomerUpdateInput = {
   emailOptin?: boolean | null;
   postalCode?: string | null;
   classId?: number | null;
+};
+
+export type VmsCustomerCreateInput = {
+  name: string;
+  email?: string | null;
+  homeVenueId: number;
+  classId?: number | null;
+  emailOptin?: boolean | null;
+  source?: string | null;
+  sourceOther?: string | null;
+  ifDuplicateEmailMakeSecondary?: boolean | null;
+};
+
+export type VmsBookingInput = {
+  eventName: string;
+  customerId: number;
+  startDate: string;
+  endDate: string;
+  status: 'Booked' | 'Holding' | 'Cancelled';
+  venueId: number;
+  eventActivity?: string | null;
+  groupSize?: number | null;
+  numberOfPods?: number | null;
+  specificPods?: string | null;
+  requestedVehicleIds?: number[];
+  requestedCircuitIds?: number[];
+  participantIds?: number[];
+  staffingNotes?: string | null;
+  notes?: string | null;
+  paymentNotes?: string | null;
 };
 
 export type VmsHotlapSubEventInput = {

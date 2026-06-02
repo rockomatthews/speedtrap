@@ -1,8 +1,11 @@
 import { env } from '@/lib/supabase/env';
 import {
   type VmsCatalog,
+  type VmsBooking,
+  type VmsBookingInput,
   type VmsCircuit,
   type VmsClass,
+  type VmsCustomerCreateInput,
   type VmsCustomerProfile,
   type VmsCustomerUpdateInput,
   type VmsHotlapEventDetail,
@@ -169,6 +172,41 @@ function normalizeCustomer(raw: any): VmsCustomerProfile | null {
   };
 }
 
+function normalizeBooking(raw: any): VmsBooking | null {
+  const id = toNumber(raw?.id ?? raw?.booking_id);
+  if (!id) return null;
+  return {
+    id,
+    eventName: toStringOrNull(raw?.event_name),
+    customerId: toNumber(raw?.customer_id),
+    customerName: toStringOrNull(raw?.customer_name),
+    startDate: toStringOrNull(raw?.start_date) ?? undefined,
+    endDate: toStringOrNull(raw?.end_date) ?? undefined,
+    status: toStringOrNull(raw?.status) ?? undefined,
+    venueId: toNumber(raw?.venue_id),
+    venueName: toStringOrNull(raw?.venue_name),
+    eventActivity: toStringOrNull(raw?.event_activity),
+    groupSize: toNumber(raw?.group_size),
+    numberOfPods: toNumber(raw?.number_of_pods),
+    specificPods: toStringOrNull(raw?.specific_pods),
+    paymentNotes: toStringOrNull(raw?.payment_notes),
+    notes: toStringOrNull(raw?.notes)
+  };
+}
+
+function buildCustomerCreateXml(input: VmsCustomerCreateInput) {
+  return buildXml('customer', {
+    name: input.name,
+    ...(input.email ? { email: input.email } : {}),
+    home_venue_id: input.homeVenueId,
+    ...(input.classId ? { class_id: input.classId } : {}),
+    email_optin: input.emailOptin ?? false,
+    source: input.source ?? 'Google/Web',
+    source_other: input.sourceOther ?? '',
+    if_duplicate_email_make_secondary: input.ifDuplicateEmailMakeSecondary ?? false
+  });
+}
+
 function buildCustomerUpdateXml(input: VmsCustomerUpdateInput) {
   const value: Record<string, unknown> = {};
   if (input.name !== undefined) value.name = input.name;
@@ -179,6 +217,30 @@ function buildCustomerUpdateXml(input: VmsCustomerUpdateInput) {
   if (input.postalCode !== undefined) value.postal_code = input.postalCode ?? '';
   if (input.classId !== undefined) value.class_id = input.classId ?? '';
   return buildXml('customer', value);
+}
+
+function buildBookingXml(input: VmsBookingInput) {
+  const value: Record<string, unknown> = {
+    event_name: input.eventName,
+    customer_id: input.customerId,
+    start_date: input.startDate,
+    end_date: input.endDate,
+    status: input.status,
+    venue_id: input.venueId
+  };
+
+  if (input.eventActivity) value.event_activity = input.eventActivity;
+  if (input.groupSize) value.group_size = input.groupSize;
+  if (input.numberOfPods) value.number_of_pods = input.numberOfPods;
+  if (input.specificPods) value.specific_pods = input.specificPods;
+  if (input.requestedVehicleIds?.length) value.requested_vehicles = { vehicle_id: input.requestedVehicleIds };
+  if (input.requestedCircuitIds?.length) value.requested_circuits = { circuit_id: input.requestedCircuitIds };
+  if (input.participantIds?.length) value.participants = { customer_id: input.participantIds };
+  if (input.staffingNotes) value.staffing_notes = input.staffingNotes;
+  if (input.notes) value.notes = input.notes;
+  if (input.paymentNotes) value.payment_notes = input.paymentNotes;
+
+  return buildXml('booking', value);
 }
 
 function normalizeHotlapSummary(raw: any): VmsHotlapEventSummary | null {
@@ -361,6 +423,22 @@ export class VmsClient {
     return normalizeCustomer(obj?.customer ?? obj);
   }
 
+  async findCustomerByEmail(email: string): Promise<VmsCustomerProfile | null> {
+    const obj = await this.getParsed<any>(`/customers?email=${encodeURIComponent(email)}`);
+    const first = asArray(obj?.customers?.customer).map(normalizeCustomer).filter(Boolean)[0];
+    return first ?? null;
+  }
+
+  async createCustomer(input: VmsCustomerCreateInput): Promise<VmsCustomerProfile | null> {
+    const createdXml = await this.request('/customers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
+      body: buildCustomerCreateXml(input)
+    });
+    const obj = parseXml<any>(createdXml);
+    return normalizeCustomer(obj?.customer ?? obj);
+  }
+
   async updateCustomer(id: number, input: VmsCustomerUpdateInput): Promise<VmsCustomerProfile | null> {
     const updatedXml = await this.request(`/customers/${id}`, {
       method: 'PATCH',
@@ -369,6 +447,16 @@ export class VmsClient {
     });
     const obj = parseXml<any>(updatedXml);
     return normalizeCustomer(obj?.customer ?? obj);
+  }
+
+  async createBooking(input: VmsBookingInput): Promise<VmsBooking | null> {
+    const createdXml = await this.request('/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
+      body: buildBookingXml(input)
+    });
+    const obj = parseXml<any>(createdXml);
+    return normalizeBooking(obj?.booking ?? obj);
   }
 
   async listHotlapEvents(params?: {

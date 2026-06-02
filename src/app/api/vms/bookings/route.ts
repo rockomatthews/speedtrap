@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { env } from '@/lib/supabase/env';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 import { VmsClient } from '@/lib/vms/client';
-import { buildXml, parseXml } from '@/lib/vms/xml';
+import { parseXml } from '@/lib/vms/xml';
 
 function toBool01(v: string | null) {
   if (v === null) return null;
@@ -55,24 +55,16 @@ export async function POST(request: Request) {
   const status = body.status ?? 'Booked';
   const eventName = body.event_name ?? 'Booking';
 
-  const bookingXml = buildXml('booking', {
-    event_name: eventName,
-    customer_id: profile.vms_customer_id,
-    start_date: body.start_date,
-    end_date: body.end_date,
-    status,
-    venue_id: venueId
-  });
-
   const vms = VmsClient.fromEnv();
-  const createdXml = await vms.request('/bookings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
-    body: bookingXml
+  const booking = await vms.createBooking({
+    eventName,
+    customerId: profile.vms_customer_id,
+    startDate: body.start_date,
+    endDate: body.end_date,
+    status: status as 'Booked' | 'Holding' | 'Cancelled',
+    venueId
   });
-  const createdObj = parseXml<any>(createdXml);
 
-  return NextResponse.json({ booking: createdObj?.booking ?? createdObj });
+  return NextResponse.json({ booking });
 }
-
 

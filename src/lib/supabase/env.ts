@@ -17,7 +17,16 @@ const envSchema = z.object({
   CONTENTFUL_FIELD_EXCERPT: z.string().min(1).optional(),
   CONTENTFUL_FIELD_COVER_IMAGE: z.string().min(1).optional(),
   CONTENTFUL_FIELD_BODY: z.string().min(1).optional(),
-  CONTENTFUL_FIELD_TAGS: z.string().min(1).optional()
+  CONTENTFUL_FIELD_TAGS: z.string().min(1).optional(),
+  TOAST_API_BASE_URL: z.string().url().optional(),
+  TOAST_CLIENT_ID: z.string().min(1).optional(),
+  TOAST_CLIENT_SECRET: z.string().min(1).optional(),
+  TOAST_RESTAURANT_GUID: z.string().min(1).optional(),
+  TOAST_WEBHOOK_SECRET: z.string().min(1).optional(),
+  TOAST_RACING_ITEM_GUIDS: z.string().min(1).optional(),
+  TOAST_RACING_CATEGORY_GUIDS: z.string().min(1).optional(),
+  TOAST_DEFAULT_SESSION_MINUTES: z.coerce.number().int().positive().optional(),
+  TOAST_DEFAULT_SESSION_PODS: z.coerce.number().int().positive().optional()
 });
 
 type Env = z.infer<typeof envSchema>;
@@ -40,7 +49,16 @@ function readEnv(): Env {
     CONTENTFUL_FIELD_EXCERPT: process.env.CONTENTFUL_FIELD_EXCERPT,
     CONTENTFUL_FIELD_COVER_IMAGE: process.env.CONTENTFUL_FIELD_COVER_IMAGE,
     CONTENTFUL_FIELD_BODY: process.env.CONTENTFUL_FIELD_BODY,
-    CONTENTFUL_FIELD_TAGS: process.env.CONTENTFUL_FIELD_TAGS
+    CONTENTFUL_FIELD_TAGS: process.env.CONTENTFUL_FIELD_TAGS,
+    TOAST_API_BASE_URL: process.env.TOAST_API_BASE_URL,
+    TOAST_CLIENT_ID: process.env.TOAST_CLIENT_ID,
+    TOAST_CLIENT_SECRET: process.env.TOAST_CLIENT_SECRET,
+    TOAST_RESTAURANT_GUID: process.env.TOAST_RESTAURANT_GUID,
+    TOAST_WEBHOOK_SECRET: process.env.TOAST_WEBHOOK_SECRET,
+    TOAST_RACING_ITEM_GUIDS: process.env.TOAST_RACING_ITEM_GUIDS,
+    TOAST_RACING_CATEGORY_GUIDS: process.env.TOAST_RACING_CATEGORY_GUIDS,
+    TOAST_DEFAULT_SESSION_MINUTES: process.env.TOAST_DEFAULT_SESSION_MINUTES,
+    TOAST_DEFAULT_SESSION_PODS: process.env.TOAST_DEFAULT_SESSION_PODS
   });
 }
 
