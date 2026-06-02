@@ -1,11 +1,22 @@
 import { NextResponse } from 'next/server';
 
+import { listContentfulRaceRadarPosts } from '@/lib/race-radar/contentful';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 const POST_SELECT =
   'id,slug,title,excerpt,cover_image_url,body,body_json,tags,published,published_at,created_by,created_at,updated_at';
 
 export async function GET() {
+  try {
+    const contentfulPosts = await listContentfulRaceRadarPosts();
+    if (contentfulPosts) return NextResponse.json({ posts: contentfulPosts });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? `Failed to load Contentful Race Radar posts: ${error.message}` : 'Failed to load Contentful posts.' },
+      { status: 500 }
+    );
+  }
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from('race_radar_posts')

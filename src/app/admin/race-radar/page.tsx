@@ -8,9 +8,11 @@ import Typography from '@mui/material/Typography';
 import { AppShell } from '@/components/AppShell';
 import { AdminRaceRadarClient } from '@/app/admin/race-radar/ui/AdminRaceRadarClient';
 import { getCurrentUserAndAdminRole } from '@/lib/supabase/admin-role';
+import { env } from '@/lib/supabase/env';
 
 export default async function AdminRaceRadarPage() {
   const { user, role, serviceRoleAvailable } = await getCurrentUserAndAdminRole();
+  const contentfulConfigured = Boolean(env.CONTENTFUL_SPACE_ID && env.CONTENTFUL_DELIVERY_TOKEN);
 
   return (
     <AppShell>
@@ -20,7 +22,9 @@ export default async function AdminRaceRadarPage() {
             <Typography variant="h4" sx={{ fontWeight: 900 }}>
               Race Radar
             </Typography>
-            <Typography color="text.secondary">Create and publish Speed Trap blog posts.</Typography>
+            <Typography color="text.secondary">
+              {contentfulConfigured ? 'Race Radar is managed in Contentful.' : 'Create and publish fallback Speed Trap blog posts.'}
+            </Typography>
           </Stack>
           <Button component={Link} href="/admin" variant="outlined">
             Admin
@@ -31,6 +35,10 @@ export default async function AdminRaceRadarPage() {
           <Alert severity="warning">
             You are signed in as <b>{user?.email ?? 'unknown'}</b>, but your role is not admin. service_role=
             {serviceRoleAvailable ? 'ok' : 'missing'}
+          </Alert>
+        ) : contentfulConfigured ? (
+          <Alert severity="info">
+            Public Race Radar pages are now reading published posts from Contentful. Use Contentful to edit posts, images, and rich text.
           </Alert>
         ) : (
           <AdminRaceRadarClient />
