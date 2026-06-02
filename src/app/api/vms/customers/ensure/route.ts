@@ -27,6 +27,16 @@ function extractCustomerId(xmlObj: any): number | null {
   return null;
 }
 
+async function getRookieClassId(vms: VmsClient) {
+  try {
+    const classes = await vms.getClasses();
+    const rookie = classes.find((driverClass) => /rookie/i.test(driverClass.name));
+    return rookie?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST() {
   try {
     const { supabase, user, profile } = await getAuthedProfile();
@@ -50,11 +60,13 @@ export async function POST() {
     if (!customerId) {
       const name = (user.user_metadata?.full_name as string | undefined) ?? inferName(email);
       const homeVenueId = env.VMS_HOME_VENUE_ID ?? 1;
+      const rookieClassId = await getRookieClassId(vms);
 
       const customerXml = buildXml('customer', {
         name,
         home_venue_id: homeVenueId,
         email,
+        ...(rookieClassId ? { class_id: rookieClassId } : {}),
         email_optin: false,
         source: 'Google/Web',
         source_other: 'Speed Trap Racing website',

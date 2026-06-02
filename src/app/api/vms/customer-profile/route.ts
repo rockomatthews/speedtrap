@@ -59,8 +59,9 @@ export async function PATCH(request: Request) {
 
   try {
     const vms = VmsClient.fromEnv();
-    const customer = await vms.updateCustomer(profile.vms_customer_id, parsed.data);
-    if (!customer) return NextResponse.json({ error: 'VMS did not return the updated customer profile.' }, { status: 502 });
+    let customer = await vms.updateCustomer(profile.vms_customer_id, parsed.data);
+    customer ??= await vms.getCustomer(profile.vms_customer_id);
+    if (!customer) return NextResponse.json({ error: 'VMS updated the profile but did not return readable customer data.' }, { status: 502 });
     return NextResponse.json({ customer });
   } catch (error) {
     return vmsErrorResponse(error);
