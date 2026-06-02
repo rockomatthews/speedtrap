@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 const POST_SELECT =
-  'id,slug,title,excerpt,cover_image_url,body,tags,published,published_at,created_by,created_at,updated_at';
+  'id,slug,title,excerpt,cover_image_url,body,body_json,tags,published,published_at,created_by,created_at,updated_at';
 
 export async function GET(_request: Request, context: { params: Promise<{ slug: string }> }) {
   const { slug } = await context.params;

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -16,6 +17,14 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
 import { type RaceRadarPost } from '@/lib/race-radar/types';
+
+const RaceRadarBlockEditor = dynamic(
+  () => import('./RaceRadarBlockEditor').then((mod) => mod.RaceRadarBlockEditor),
+  {
+    ssr: false,
+    loading: () => <CircularProgress size={22} />
+  }
+);
 
 function slugify(value: string) {
   return (
@@ -48,6 +57,8 @@ export function AdminRaceRadarClient() {
   const [excerpt, setExcerpt] = useState('');
   const [coverImageUrl, setCoverImageUrl] = useState('');
   const [body, setBody] = useState('');
+  const [bodyJson, setBodyJson] = useState<unknown>(null);
+  const [editorVersion, setEditorVersion] = useState(0);
   const [tags, setTags] = useState('');
   const [published, setPublished] = useState(false);
 
@@ -79,6 +90,8 @@ export function AdminRaceRadarClient() {
     setExcerpt('');
     setCoverImageUrl('');
     setBody('');
+    setBodyJson(null);
+    setEditorVersion((version) => version + 1);
     setTags('');
     setPublished(false);
   }
@@ -90,6 +103,8 @@ export function AdminRaceRadarClient() {
     setExcerpt(post.excerpt);
     setCoverImageUrl(post.cover_image_url ?? '');
     setBody(post.body);
+    setBodyJson(post.body_json);
+    setEditorVersion((version) => version + 1);
     setTags(post.tags.join(', '));
     setPublished(post.published);
   }
@@ -105,6 +120,7 @@ export function AdminRaceRadarClient() {
         excerpt,
         coverImageUrl,
         body,
+        bodyJson,
         tags: splitTags(tags),
         published
       };
@@ -162,7 +178,15 @@ export function AdminRaceRadarClient() {
             />
             <TextField label="Excerpt" value={excerpt} onChange={(e) => setExcerpt(e.target.value)} multiline minRows={2} />
             <TextField label="Cover image URL" value={coverImageUrl} onChange={(e) => setCoverImageUrl(e.target.value)} />
-            <TextField label="Body" value={body} onChange={(e) => setBody(e.target.value)} multiline minRows={8} />
+            <RaceRadarBlockEditor
+              key={`${editingId ?? 'new'}-${editorVersion}`}
+              initialBlocks={bodyJson}
+              legacyBody={body}
+              onChange={({ blocks, html }) => {
+                setBodyJson(blocks);
+                setBody(html);
+              }}
+            />
             <TextField label="Tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="hotlap, setup, recap" />
             <FormControlLabel
               control={<Checkbox checked={published} onChange={(_, checked) => setPublished(checked)} />}

@@ -5,7 +5,7 @@ import { requireAdmin } from '@/lib/auth/require-admin';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const POST_SELECT =
-  'id,slug,title,excerpt,cover_image_url,body,tags,published,published_at,created_by,created_at,updated_at';
+  'id,slug,title,excerpt,cover_image_url,body,body_json,tags,published,published_at,created_by,created_at,updated_at';
 
 const postSchema = z.object({
   title: z.string().trim().min(3),
@@ -13,6 +13,7 @@ const postSchema = z.object({
   excerpt: z.string().trim().optional().default(''),
   coverImageUrl: z.string().trim().url().optional().or(z.literal('')).default(''),
   body: z.string().trim().optional().default(''),
+  bodyJson: z.unknown().optional().nullable(),
   tags: z.array(z.string()).optional().default([]),
   published: z.boolean().optional().default(false)
 });
@@ -56,6 +57,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       excerpt: input.excerpt,
       cover_image_url: input.coverImageUrl || null,
       body: input.body,
+      body_json: input.bodyJson ?? null,
       tags: cleanTags(input.tags),
       published: input.published,
       published_at: publishedAt

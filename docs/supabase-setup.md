@@ -13,11 +13,13 @@ In Supabase Dashboard → SQL Editor, run:
 - `supabase/migrations/0009_vms_hotlap_events.sql`
 - `supabase/migrations/0010_site_completion_portal_blog.sql`
 - `supabase/migrations/0011_fix_recursive_admin_policies.sql`
+- `supabase/migrations/0012_race_radar_rich_editor.sql`
 
 This creates `public.profiles`, enables RLS, and creates an `auth.users` trigger to auto-create a profile row for each new user.
 It also creates `public.merch_items`, the public `merch` storage bucket for merch images, VMS hotlap metadata tables,
 customer challenge entries, profile usernames, and Race Radar posts.
 The final migration repairs admin RLS checks so public reads do not trigger recursive `profiles` policy errors.
+It also adds rich editor storage for Race Radar posts and a public image bucket for blog uploads.
 
 ### 2) Enable Auth providers
 Supabase Dashboard → Authentication → Providers:

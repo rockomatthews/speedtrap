@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 
 import { Providers } from '@/components/Providers';
 
+import '@blocknote/core/fonts/inter.css';
+import '@blocknote/react/style.css';
 import './globals.css';
 
 const siteUrl = 'https://speedtrapracing.com';
@@ -89,5 +91,3 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
-
-

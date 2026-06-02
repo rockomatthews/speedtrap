@@ -5,6 +5,7 @@ export type RaceRadarPost = {
   excerpt: string;
   cover_image_url: string | null;
   body: string;
+  body_json: unknown | null;
   tags: string[];
   published: boolean;
   published_at: string | null;

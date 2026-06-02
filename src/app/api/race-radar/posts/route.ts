@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 const POST_SELECT =
-  'id,slug,title,excerpt,cover_image_url,body,tags,published,published_at,created_by,created_at,updated_at';
+  'id,slug,title,excerpt,cover_image_url,body,body_json,tags,published,published_at,created_by,created_at,updated_at';
 
 export async function GET() {
   const supabase = await createSupabaseServerClient();
@@ -15,7 +15,7 @@ export async function GET() {
 
   if (error) {
     return NextResponse.json(
-      { error: `Failed to load Race Radar posts: ${error.message}. Run migration 0010 in Supabase.` },
+      { error: `Failed to load Race Radar posts: ${error.message}. Run migrations 0010 through 0012 in Supabase.` },
       { status: 500 }
     );
   }
