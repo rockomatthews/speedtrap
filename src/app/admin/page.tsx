@@ -29,7 +29,13 @@ export default async function AdminPage() {
           </Stack>
         ) : (
           <Stack spacing={1}>
-            <Typography color="text.secondary">Admin portal controls for merch management are now available.</Typography>
+            <Typography color="text.secondary">Admin portal controls for race events and merch management are now available.</Typography>
+            <Button component={Link} href="/admin/race-events" variant="contained">
+              Manage Race Events
+            </Button>
+            <Button component={Link} href="/admin/race-radar" variant="contained">
+              Manage Race Radar
+            </Button>
             <Button component={Link} href="/admin/merch" variant="contained">
               Manage Merch
             </Button>
@@ -39,5 +45,3 @@ export default async function AdminPage() {
     </AppShell>
   );
 }
-
-

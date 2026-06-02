@@ -10,9 +10,12 @@ In Supabase Dashboard → SQL Editor, run:
 - `supabase/migrations/0006_merch_sizes.sql`
 - `supabase/migrations/0007_merch_size_inventory_and_cart_preview.sql`
 - `supabase/migrations/0008_merch_multiple_images.sql`
+- `supabase/migrations/0009_vms_hotlap_events.sql`
+- `supabase/migrations/0010_site_completion_portal_blog.sql`
 
 This creates `public.profiles`, enables RLS, and creates an `auth.users` trigger to auto-create a profile row for each new user.
-It also creates `public.merch_items` and the public `merch` storage bucket for merch images.
+It also creates `public.merch_items`, the public `merch` storage bucket for merch images, VMS hotlap metadata tables,
+customer challenge entries, profile usernames, and Race Radar posts.
 
 ### 2) Enable Auth providers
 Supabase Dashboard → Authentication → Providers:
@@ -49,5 +52,4 @@ where id = 'YOUR_AUTH_USER_UUID';
 - You can delete items from the admin merch page.
 - The admin flow creates/updates Stripe product pricing and stores rows in `public.merch_items`.
 - Storefront now supports a shopping cart with multi-item checkout and estimated shipping/tax preview.
-
 

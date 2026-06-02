@@ -65,6 +65,11 @@ export function NavBar() {
           <Button component={Link} href="/race-radar" color="inherit">
             Race Radar
           </Button>
+          {isAuthed ? (
+            <Button component={Link} href="/leaderboards" color="inherit">
+              Leaderboards
+            </Button>
+          ) : null}
           <Button component={Link} href="/merch" color="inherit">
             Merch
           </Button>
@@ -73,6 +78,9 @@ export function NavBar() {
             <>
               <Button component={Link} href="/dashboard" color="inherit">
                 Portal
+              </Button>
+              <Button component={Link} href="/profile" color="inherit">
+                Profile
               </Button>
               <Button
                 variant="outlined"
@@ -100,5 +108,3 @@ export function NavBar() {
     </AppBar>
   );
 }
-
-

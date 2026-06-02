@@ -4,10 +4,18 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 export type Profile = {
   id: string;
   role: 'customer' | 'admin';
+  username: string | null;
   display_name: string | null;
   phone: string | null;
   vms_customer_id: number | null;
 };
+
+const PROFILE_SELECT = 'id, role, username, display_name, phone, vms_customer_id';
+const LEGACY_PROFILE_SELECT = 'id, role, display_name, phone, vms_customer_id';
+
+function withDefaultUsername(profile: Omit<Profile, 'username'> & { username?: string | null }): Profile {
+  return { ...profile, username: profile.username ?? null };
+}
 
 export async function getAuthedProfile() {
   const supabase = await createSupabaseServerClient();
@@ -19,12 +27,17 @@ export async function getAuthedProfile() {
 
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('id, role, display_name, phone, vms_customer_id')
+    .select(PROFILE_SELECT)
     .eq('id', user.id)
     .maybeSingle<Profile>();
 
   if (error) {
-    return { supabase, user, profile: null } as const;
+    const { data: legacyProfile } = await supabase
+      .from('profiles')
+      .select(LEGACY_PROFILE_SELECT)
+      .eq('id', user.id)
+      .maybeSingle<Omit<Profile, 'username'>>();
+    return { supabase, user, profile: legacyProfile ? withDefaultUsername(legacyProfile) : null } as const;
   }
 
   if (!profile) {
@@ -42,7 +55,7 @@ export async function getAuthedProfile() {
 
     const { data: repairedProfile } = await supabase
       .from('profiles')
-      .select('id, role, display_name, phone, vms_customer_id')
+      .select(PROFILE_SELECT)
       .eq('id', user.id)
       .maybeSingle<Profile>();
     if (repairedProfile) {
@@ -54,7 +67,7 @@ export async function getAuthedProfile() {
       const admin = createSupabaseAdminClient();
       const { data: adminProfile } = await admin
         .from('profiles')
-        .select('id, role, display_name, phone, vms_customer_id')
+        .select(PROFILE_SELECT)
         .eq('id', user.id)
         .maybeSingle<Profile>();
       return { supabase, user, profile: adminProfile ?? null } as const;
@@ -65,5 +78,3 @@ export async function getAuthedProfile() {
 
   return { supabase, user, profile } as const;
 }
-
-
