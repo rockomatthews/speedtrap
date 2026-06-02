@@ -8,7 +8,16 @@ export function vmsErrorResponse(error: unknown) {
     return NextResponse.json(
       {
         error: error.message,
-        upstreamStatus: error.status
+        upstreamStatus: error.status,
+        ...(error.status === 403
+          ? {
+              requiredPermissions: [
+                'Global Write Access',
+                'Access Customer Personally Identifiable Information',
+                'Customer Read Access'
+              ]
+            }
+          : {})
       },
       { status }
     );

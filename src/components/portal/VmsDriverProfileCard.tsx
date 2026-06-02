@@ -51,12 +51,8 @@ export function VmsDriverProfileCard() {
         const ensureRes = await fetch('/api/vms/customers/ensure', { method: 'POST' });
         const ensureJson = (await ensureRes.json().catch(() => null)) as { customer?: VmsCustomerProfile; error?: string } | null;
         if (!ensureRes.ok) throw new Error(ensureJson?.error ?? `Failed (${ensureRes.status})`);
-        if (!cancelled && ensureJson?.customer) setCustomer(ensureJson.customer);
-
-        const profileRes = await fetch('/api/vms/customer-profile');
-        const profileJson = (await profileRes.json().catch(() => null)) as { customer?: VmsCustomerProfile; error?: string } | null;
-        if (!profileRes.ok) throw new Error(profileJson?.error ?? `Failed (${profileRes.status})`);
-        if (!cancelled) setCustomer(profileJson?.customer ?? ensureJson?.customer ?? null);
+        if (!ensureJson?.customer) throw new Error('VMS did not return a driver profile.');
+        if (!cancelled) setCustomer(ensureJson.customer);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load VMS profile.');
       } finally {

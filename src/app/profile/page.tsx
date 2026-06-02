@@ -2,7 +2,6 @@ import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
 
 import { AppShell } from '@/components/AppShell';
-import { VmsDriverProfileCard } from '@/components/portal/VmsDriverProfileCard';
 import { VmsProfileForm } from '@/components/portal/VmsProfileForm';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 
@@ -18,7 +17,6 @@ export default async function ProfilePage() {
           </Typography>
           <Typography color="text.secondary">Manage your VMS driver profile for {user?.email ?? 'your account'}.</Typography>
         </Stack>
-        <VmsDriverProfileCard />
         <VmsProfileForm />
       </Stack>
     </AppShell>

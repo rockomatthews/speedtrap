@@ -301,7 +301,7 @@ export class VmsClient {
         res.status === 401
           ? 'VMS authentication failed.'
           : res.status === 403
-            ? 'VMS API key permissions do not allow this request.'
+            ? 'VMS API key is missing customer/PII permissions for this request. Enable customer read/write and PII/customer data access for this key in the SRL developer API settings.'
             : res.status === 429
               ? 'VMS API rate limit exceeded.'
               : `VMS request failed (${res.status})`;

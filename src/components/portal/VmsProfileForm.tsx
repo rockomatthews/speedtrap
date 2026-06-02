@@ -26,6 +26,11 @@ type ProfileResponse = {
   error?: string;
 };
 
+type CatalogResponse = {
+  classes?: VmsClass[];
+  error?: string;
+};
+
 function valueOrEmpty(value: string | null | undefined) {
   return value ?? '';
 }
@@ -62,13 +67,13 @@ export function VmsProfileForm() {
       const ensureRes = await fetch('/api/vms/customers/ensure', { method: 'POST' });
       const ensureJson = (await ensureRes.json().catch(() => null)) as ProfileResponse | null;
       if (!ensureRes.ok) throw new Error(ensureJson?.error ?? `Failed (${ensureRes.status})`);
+      if (!ensureJson?.customer) throw new Error('VMS did not return a customer profile.');
+      hydrate(ensureJson.customer);
 
-      const res = await fetch('/api/vms/customer-profile');
-      const json = (await res.json().catch(() => null)) as ProfileResponse | null;
-      if (!res.ok) throw new Error(json?.error ?? `Failed (${res.status})`);
-      if (!json?.customer) throw new Error('VMS did not return a customer profile.');
-      hydrate(json.customer);
-      setClasses(json.classes ?? []);
+      const catalogRes = await fetch('/api/vms/catalog');
+      const catalogJson = (await catalogRes.json().catch(() => null)) as CatalogResponse | null;
+      if (!catalogRes.ok) throw new Error(catalogJson?.error ?? `Failed (${catalogRes.status})`);
+      setClasses(catalogJson?.classes ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load VMS profile.');
     } finally {
