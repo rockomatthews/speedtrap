@@ -56,7 +56,8 @@ export async function POST() {
         home_venue_id: homeVenueId,
         email,
         email_optin: false,
-        source: 'Web',
+        source: 'Google/Web',
+        source_other: 'Speed Trap Racing website',
         if_duplicate_email_make_secondary: false
       });
 

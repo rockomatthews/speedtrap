@@ -30,6 +30,15 @@ export type VmsClientOptions = {
   timezoneOffsetHours?: number;
 };
 
+function summarizeErrorBody(body: string) {
+  const text = body
+    .replace(/<\?xml[^>]*>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.length > 240 ? `${text.slice(0, 240)}...` : text;
+}
+
 function timezoneOffsetHours(timeZone?: string) {
   if (!timeZone) return undefined;
   try {
@@ -297,6 +306,7 @@ export class VmsClient {
     const body = await res.text();
 
     if (!res.ok) {
+      const detail = summarizeErrorBody(body);
       const message =
         res.status === 401
           ? 'VMS authentication failed.'
@@ -304,7 +314,7 @@ export class VmsClient {
             ? 'VMS API key is missing customer/PII permissions for this request. Enable customer read/write and PII/customer data access for this key in the SRL developer API settings.'
             : res.status === 429
               ? 'VMS API rate limit exceeded.'
-              : `VMS request failed (${res.status})`;
+              : `VMS request failed (${res.status})${detail ? `: ${detail}` : ''}`;
       throw new VmsError(message, res.status, body);
     }
 
