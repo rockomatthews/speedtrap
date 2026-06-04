@@ -141,8 +141,8 @@ function normalizeMemberships(raw: any): string[] {
 
 function normalizeCustomer(raw: any): VmsCustomerProfile | null {
   const id = toNumber(raw?.id ?? raw?.customer_id);
-  const name = toStringOrNull(raw?.name ?? raw?.customer_name);
-  if (!id || !name) return null;
+  if (!id) return null;
+  const name = toStringOrNull(raw?.name ?? raw?.customer_name) ?? '';
   const classUri = toStringOrNull(raw?.class_uri);
   return {
     id,
@@ -378,6 +378,12 @@ export class VmsClient {
               ? 'VMS API rate limit exceeded.'
               : `VMS request failed (${res.status})${detail ? `: ${detail}` : ''}`;
       throw new VmsError(message, res.status, body);
+    }
+
+    const parsedBody = body.trim();
+    if (/^<\?xml[^>]*>\s*<error>/i.test(parsedBody) || /^<error>/i.test(parsedBody)) {
+      const detail = summarizeErrorBody(body);
+      throw new VmsError(`VMS request failed${detail ? `: ${detail}` : ''}`, 502, body);
     }
 
     return body;

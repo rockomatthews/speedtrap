@@ -41,37 +41,18 @@ export async function PATCH(request: Request) {
 
   try {
     const vms = VmsClient.fromEnv();
-    let customer = await vms.updateCustomer(profile.vms_customer_id, {
-      name: parsed.data.name,
-      email: user.email ?? null
-    });
+    let customer = await vms.updateCustomer(profile.vms_customer_id, { name: parsed.data.name });
     customer ??= await vms.getCustomer(profile.vms_customer_id);
-    customer ??= {
-      id: profile.vms_customer_id,
-      name: parsed.data.name,
-      email: user.email ?? null,
-      tel: null,
-      cell: null,
-      emailOptin: null,
-      postalCode: null,
-      homeVenue: null,
-      className: null,
-      classId: null,
-      memberships: [],
-      lapsRecorded: null,
-      lastVisit: null,
-      lastVehicle: null,
-      lastCircuit: null,
-      lastGroupEvent: null,
-      lastRaceEvent: null,
-      customerUri: null,
-      venueUri: null,
-      classUri: null,
-      lapTimesUri: null,
-      vehicleUri: null,
-      circuitUri: null,
-      raceEventUri: null
-    };
+    if (!customer) return NextResponse.json({ error: 'VMS updated the customer but did not return driver data.' }, { status: 502 });
+    if (customer.name.trim().toLowerCase() !== parsed.data.name.trim().toLowerCase()) {
+      return NextResponse.json(
+        {
+          error: 'VMS returned driver data, but the driver name was not updated.',
+          customer
+        },
+        { status: 502 }
+      );
+    }
     return NextResponse.json({ customer });
   } catch (error) {
     return vmsErrorResponse(error);
