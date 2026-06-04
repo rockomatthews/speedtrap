@@ -6,13 +6,7 @@ import { VmsClient } from '@/lib/vms/client';
 import { vmsErrorResponse } from '@/lib/vms/route-errors';
 
 const profileSchema = z.object({
-  name: z.string().trim().min(3, 'Driver name must be at least 3 characters.'),
-  email: z
-    .string()
-    .trim()
-    .transform((value) => (value.length > 0 ? value : null))
-    .pipe(z.string().email('Use a valid email address.').nullable())
-    .optional()
+  name: z.string().trim().min(3, 'Driver name must be at least 3 characters.')
 });
 
 export async function GET() {
@@ -47,12 +41,15 @@ export async function PATCH(request: Request) {
 
   try {
     const vms = VmsClient.fromEnv();
-    let customer = await vms.updateCustomer(profile.vms_customer_id, parsed.data);
+    let customer = await vms.updateCustomer(profile.vms_customer_id, {
+      name: parsed.data.name,
+      email: user.email ?? null
+    });
     customer ??= await vms.getCustomer(profile.vms_customer_id);
     customer ??= {
       id: profile.vms_customer_id,
       name: parsed.data.name,
-      email: parsed.data.email ?? user.email ?? null,
+      email: user.email ?? null,
       tel: null,
       cell: null,
       emailOptin: null,

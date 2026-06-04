@@ -9,7 +9,6 @@ import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { ChallengeList } from '@/components/portal/ChallengeList';
 import { PaidSessionsList } from '@/components/portal/PaidSessionsList';
-import { VmsDriverProfileCard } from '@/components/portal/VmsDriverProfileCard';
 import { VmsProfileForm } from '@/components/portal/VmsProfileForm';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 
@@ -25,8 +24,6 @@ export default async function DashboardPage() {
           </Typography>
           <Typography color="text.secondary">Signed in as {user?.email ?? 'unknown'}.</Typography>
         </Stack>
-
-        <VmsDriverProfileCard />
 
         <VmsProfileForm />
 

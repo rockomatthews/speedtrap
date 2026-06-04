@@ -7,7 +7,6 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CircularProgress from '@mui/material/CircularProgress';
-import Grid from '@mui/material/Grid2';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -30,11 +29,9 @@ export function VmsProfileForm() {
   const [message, setMessage] = useState<string | null>(null);
 
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
 
   function hydrate(customer: VmsCustomerProfile) {
-    setName(customer.name);
-    setEmail(valueOrEmpty(customer.email));
+    setName(valueOrEmpty(customer.name));
   }
 
   async function load() {
@@ -44,8 +41,7 @@ export function VmsProfileForm() {
       const ensureRes = await fetch('/api/vms/customers/ensure', { method: 'POST' });
       const ensureJson = (await ensureRes.json().catch(() => null)) as ProfileResponse | null;
       if (!ensureRes.ok) throw new Error(ensureJson?.error ?? `Failed (${ensureRes.status})`);
-      if (!ensureJson?.customer) throw new Error('VMS did not return a customer profile.');
-      hydrate(ensureJson.customer);
+      if (ensureJson?.customer) hydrate(ensureJson.customer);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load VMS profile.');
     } finally {
@@ -65,7 +61,7 @@ export function VmsProfileForm() {
       const res = await fetch('/api/vms/customer-profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email })
+        body: JSON.stringify({ name })
       });
       const json = (await res.json().catch(() => null)) as ProfileResponse | null;
       if (!res.ok) throw new Error(json?.error ?? `Failed (${res.status})`);
@@ -89,19 +85,18 @@ export function VmsProfileForm() {
             Driver Registration
           </Typography>
           <Typography color="text.secondary">
-            VMS only needs your driver name and email here. New drivers are assigned to the venue's Rookie class in VMS.
+            Enter the driver name you want shown in VMS and on leaderboards. Your signed-in email is used automatically.
           </Typography>
           {error ? <Alert severity="error">{error}</Alert> : null}
           {message ? <Alert severity="success">{message}</Alert> : null}
 
-          <Grid container spacing={1.5}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField label="Driver name" value={name} onChange={(e) => setName(e.target.value)} fullWidth />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth />
-            </Grid>
-          </Grid>
+          <TextField
+            label="Driver name"
+            placeholder="Rocket_Rob"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            fullWidth
+          />
 
           <Button variant="contained" disabled={saving || name.trim().length < 3} onClick={save} sx={{ alignSelf: 'flex-start' }}>
             {saving ? 'Saving...' : 'Save driver info'}

@@ -424,10 +424,9 @@ export default async function HomePage({
             component="section"
             sx={{
               p: { xs: 2.5, md: 4 },
-              border: '1px solid rgba(255,210,0,0.38)',
-              bgcolor: 'rgba(255,210,0,0.08)',
-              backgroundImage:
-                'linear-gradient(135deg, rgba(255,210,0,0.12), rgba(255,22,31,0.08)), linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)'
+              border: '1px solid rgba(255,210,0,0.55)',
+              bgcolor: '#050505',
+              backgroundImage: 'none'
             }}
           >
             <Grid container spacing={3} alignItems="center">
@@ -456,16 +455,18 @@ export default async function HomePage({
           <Box
             component="footer"
             sx={{
-              width: '100vw',
-              ml: 'calc(50% - 50vw)',
-              px: { xs: 2, sm: 3, md: 6 },
+              width: '100%',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
+              overflowX: 'hidden',
+              px: { xs: 2, sm: 3, md: 4 },
               py: { xs: 4, md: 5 },
               borderTop: '1px solid rgba(255,255,255,0.12)',
-              background:
-                'linear-gradient(135deg, rgba(255,210,0,0.12), transparent 18%), linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.4))'
+              bgcolor: '#050505',
+              backgroundImage: 'none'
             }}
           >
-            <Grid container spacing={3} sx={{ width: 'min(1180px, 100%)', mx: 'auto' }}>
+            <Grid container spacing={3} sx={{ width: '100%', maxWidth: 1180, mx: 'auto' }}>
               <Grid size={{ xs: 12, md: 4 }}>
                 <Stack spacing={1.5}>
                   <Box component="img" src="/brand/logo.svg" alt="Speed Trap Racing" sx={{ width: 220, maxWidth: '100%' }} />
@@ -483,7 +484,14 @@ export default async function HomePage({
                 </Stack>
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  useFlexGap
+                  flexWrap="wrap"
+                  justifyContent={{ xs: 'flex-start', md: 'flex-end' }}
+                  sx={{ maxWidth: '100%' }}
+                >
                   {footerLinks.map((label) => (
                     <Button
                       key={label}
