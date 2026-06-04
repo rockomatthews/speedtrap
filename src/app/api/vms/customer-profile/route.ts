@@ -5,8 +5,15 @@ import { getAuthedProfile } from '@/lib/supabase/profile';
 import { VmsClient } from '@/lib/vms/client';
 import { vmsErrorResponse } from '@/lib/vms/route-errors';
 
+function normalizeDriverName(value: string) {
+  return value.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 const profileSchema = z.object({
-  name: z.string().trim().min(3, 'Driver name must be at least 3 characters.')
+  name: z
+    .string()
+    .transform(normalizeDriverName)
+    .pipe(z.string().min(3, 'Driver name must be at least 3 characters.'))
 });
 
 export async function GET() {
