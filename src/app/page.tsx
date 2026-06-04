@@ -12,11 +12,30 @@ import Typography from '@mui/material/Typography';
 
 import { AppShell } from '@/components/AppShell';
 
-const featureCards = [
-  { title: 'Connected racing rigs', body: 'Four venue sims feed VMS timing so hotlap challenges feel official, not scribbled on a whiteboard.' },
-  { title: 'Arcade bar energy', body: 'Drop in for laps, bring friends, watch the board move, and make it a night instead of a spreadsheet.' },
-  { title: 'Live leaderboard chase', body: 'Link your VMS driver profile, join a challenge, then come back to see where your clean laps landed.' }
+const quickRacePricing = [
+  { label: 'Quick Race', minutes: '15 min', price: '$15', note: 'Fast laps, first timers, and quick rematches.' },
+  { label: 'Full Session', minutes: '30 min', price: '$26', note: 'More attempts, better rhythm, bigger leaderboard swings.' }
 ];
+
+const experienceHighlights = [
+  { title: 'Four connected sims', body: 'Venue rigs feed VMS timing so every clean lap has a real shot at the board.' },
+  { title: 'Restaurant energy', body: 'Grab food and drinks, rotate drivers, and turn one session into a night out.' },
+  { title: 'Live challenge culture', body: 'Join a standing hotlap, race in person, and watch the leaderboard move.' }
+];
+
+const leaderboardRows = [
+  { rank: '01', driver: 'ROCKETSHIP', lap: '1:42.119', delta: 'leader' },
+  { rank: '02', driver: 'APEXHUNTER', lap: '1:42.482', delta: '+0.363' },
+  { rank: '03', driver: 'NIGHTSHIFT', lap: '1:43.004', delta: '+0.885' }
+];
+
+const mediaTiles = [
+  { title: 'Restaurant and bar', objectPosition: '20% 50%' },
+  { title: 'Simulator bays', objectPosition: '52% 50%' },
+  { title: 'Leaderboard nights', objectPosition: '82% 50%' }
+];
+
+const bookHref = '/login?redirectTo=/dashboard';
 
 export default async function HomePage({
   searchParams
@@ -33,133 +52,364 @@ export default async function HomePage({
     <Box
       sx={{
         minHeight: '100vh',
+        overflow: 'hidden',
         background:
-          'linear-gradient(180deg, rgba(0,0,0,0.35), #080808 72%), radial-gradient(900px 420px at 12% 8%, rgba(255,42,42,0.20), transparent 58%), #080808'
+          'linear-gradient(180deg, #050505 0%, #0A0A0A 46%, #050505 100%), radial-gradient(900px 460px at 82% 12%, rgba(255,22,31,0.28), transparent 62%)'
       }}
     >
       <AppShell>
-        <Stack spacing={{ xs: 5, md: 7 }}>
+        <Stack spacing={{ xs: 6, md: 9 }}>
           <Box
+            component="section"
             sx={{
-              minHeight: { xs: 'calc(100vh - 170px)', md: 'calc(100vh - 150px)' },
-              display: 'grid',
-              alignItems: 'center',
+              width: '100vw',
+              ml: 'calc(50% - 50vw)',
+              mt: -3,
+              minHeight: { xs: 'calc(100svh - 64px)', md: 'calc(100svh - 72px)' },
               position: 'relative',
-              pb: { xs: 3, md: 5 },
+              display: 'grid',
+              alignItems: 'end',
+              px: { xs: 2, sm: 3, md: 6 },
+              pb: { xs: 5, md: 7 },
+              pt: { xs: 12, md: 16 },
+              borderBottom: '1px solid rgba(255,255,255,0.12)',
+              backgroundImage:
+                'linear-gradient(90deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.68) 43%, rgba(0,0,0,0.22) 70%, rgba(0,0,0,0.88) 100%), url(/home/venue-collage.webp)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
               '&::before': {
                 content: '""',
                 position: 'absolute',
-                inset: { xs: '-24px -16px', md: '-24px -48px' },
-                zIndex: 0,
+                inset: 0,
+                pointerEvents: 'none',
+                opacity: 0.18,
                 backgroundImage:
-                  'linear-gradient(90deg, rgba(0,0,0,0.92), rgba(0,0,0,0.32) 48%, rgba(0,0,0,0.86)), url(/brand/blurBackground.jpeg)',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                borderBottom: '1px solid rgba(255,255,255,0.10)'
+                  'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)',
+                backgroundSize: '46px 46px'
+              },
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                background:
+                  'repeating-linear-gradient(180deg, rgba(255,255,255,0.055) 0px, rgba(255,255,255,0.055) 1px, transparent 2px, transparent 7px)'
               }
             }}
           >
-            <Stack spacing={3} sx={{ position: 'relative', zIndex: 1, maxWidth: 840 }}>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
-                <Chip label="Lakewood" color="primary" />
-                <Chip label="Sim racing bar" variant="outlined" />
-                <Chip label="VMS timed challenges" variant="outlined" />
-              </Stack>
-              <Typography
-                component="h1"
-                sx={{
-                  fontSize: { xs: 48, sm: 72, md: 104 },
-                  lineHeight: 0.9,
-                  fontWeight: 950,
-                  letterSpacing: 0,
-                  maxWidth: 920,
-                  textTransform: 'uppercase'
-                }}
-              >
-                Race. Drink. Climb the board.
-              </Typography>
-              <Typography variant="h5" color="text.secondary" sx={{ maxWidth: 680, lineHeight: 1.45 }}>
-                Speed Trap Racing is an arcade-style sim racing venue where friends chase clean laps, staff-run challenges, and bragging
-                rights on VMS-powered leaderboards.
-              </Typography>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
-                <Button component={Link} href="/login?redirectTo=/dashboard" variant="contained" size="large">
-                  Join a Hotlap
+            <Box sx={{ position: 'relative', zIndex: 1, width: 'min(1180px, 100%)', mx: 'auto' }}>
+              <Grid container spacing={{ xs: 4, md: 6 }} alignItems="end">
+                <Grid size={{ xs: 12, md: 7 }}>
+                  <Stack spacing={3}>
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                      <Chip label="Sim racing restaurant" color="primary" />
+                      <Chip label="VMS live leaderboards" variant="outlined" />
+                      <Chip label="Four connected rigs" variant="outlined" />
+                    </Stack>
+                    <Typography
+                      component="h1"
+                      sx={{
+                        maxWidth: 900,
+                        fontSize: { xs: 52, sm: 76, md: 112 },
+                        lineHeight: 0.86,
+                        fontWeight: 950,
+                        letterSpacing: 0,
+                        textTransform: 'uppercase',
+                        textWrap: 'balance'
+                      }}
+                    >
+                      Race. Eat. Chase the board.
+                    </Typography>
+                    <Typography
+                      variant="h5"
+                      color="text.secondary"
+                      sx={{ maxWidth: 650, lineHeight: 1.45, fontSize: { xs: 19, md: 24 } }}
+                    >
+                      Sim racing sessions, drinks, and live VMS leaderboards in one night out.
+                    </Typography>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} sx={{ maxWidth: { xs: 360, sm: 'none' } }}>
+                      <Button component={Link} href={bookHref} variant="contained" size="large">
+                        Book a Race
+                      </Button>
+                      <Button component={Link} href="/pricing" variant="outlined" size="large">
+                        View Pricing
+                      </Button>
+                    </Stack>
+                  </Stack>
+                </Grid>
+                <Grid size={{ xs: 12, md: 5 }}>
+                  <Box
+                    sx={{
+                      border: '1px solid rgba(255,210,0,0.52)',
+                      bgcolor: 'rgba(0,0,0,0.58)',
+                      backdropFilter: 'blur(16px)',
+                      boxShadow: '0 0 42px rgba(255,22,31,0.18)',
+                      p: { xs: 2, md: 2.5 },
+                      transform: { md: 'skew(-4deg)' }
+                    }}
+                  >
+                    <Stack spacing={1.5} sx={{ transform: { md: 'skew(4deg)' } }}>
+                      <Typography color="primary" sx={{ fontWeight: 950, textTransform: 'uppercase' }}>
+                        Tonight's board
+                      </Typography>
+                      {leaderboardRows.map((row) => (
+                        <Stack
+                          key={row.rank}
+                          direction="row"
+                          alignItems="center"
+                          spacing={1.5}
+                          sx={{
+                            px: 1.5,
+                            py: 1.1,
+                            bgcolor: row.rank === '01' ? 'rgba(255,210,0,0.92)' : 'rgba(255,255,255,0.08)',
+                            color: row.rank === '01' ? '#050505' : '#fff',
+                            borderLeft: row.rank === '01' ? '5px solid #FF161F' : '5px solid rgba(255,210,0,0.55)'
+                          }}
+                        >
+                          <Typography sx={{ width: 34, fontWeight: 950 }}>{row.rank}</Typography>
+                          <Typography sx={{ flex: 1, fontWeight: 950 }}>{row.driver}</Typography>
+                          <Typography sx={{ fontWeight: 950 }}>{row.lap}</Typography>
+                        </Stack>
+                      ))}
+                      <Typography color="text.secondary" sx={{ fontSize: 14 }}>
+                        Sign in, race in person, and let VMS score the clean laps.
+                      </Typography>
+                    </Stack>
+                  </Box>
+                </Grid>
+              </Grid>
+            </Box>
+          </Box>
+
+          <Box component="section">
+            <Grid container spacing={2}>
+              {experienceHighlights.map((item) => (
+                <Grid key={item.title} size={{ xs: 12, md: 4 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      height: '100%',
+                      borderColor: 'rgba(255,255,255,0.12)',
+                      bgcolor: 'rgba(255,255,255,0.045)',
+                      transition: 'transform 180ms ease, border-color 180ms ease',
+                      '&:hover': { transform: 'translateY(-4px)', borderColor: 'rgba(255,210,0,0.55)' }
+                    }}
+                  >
+                    <CardContent>
+                      <Typography variant="h6" sx={{ fontWeight: 950 }}>
+                        {item.title}
+                      </Typography>
+                      <Typography color="text.secondary" sx={{ mt: 1 }}>
+                        {item.body}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+
+          <Box component="section">
+            <Stack spacing={2}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between">
+                <Box>
+                  <Typography variant="h3" sx={{ fontWeight: 950 }}>
+                    Quick race sessions
+                  </Typography>
+                  <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 680 }}>
+                    Drop in for a sprint, stay for another round, and keep chasing the standing hotlap challenge.
+                  </Typography>
+                </Box>
+                <Button component={Link} href="/pricing" variant="outlined" sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }}>
+                  See Pricing
                 </Button>
-                <Button component={Link} href="/how-it-works" variant="outlined" size="large">
-                  How It Works
-                </Button>
               </Stack>
+              <Grid container spacing={2}>
+                {quickRacePricing.map((item) => (
+                  <Grid key={item.minutes} size={{ xs: 12, md: 6 }}>
+                    <Card
+                      variant="outlined"
+                      sx={{
+                        position: 'relative',
+                        overflow: 'hidden',
+                        borderColor: 'rgba(255,210,0,0.35)',
+                        background: 'linear-gradient(135deg, rgba(255,210,0,0.08), rgba(255,22,31,0.08)), rgba(255,255,255,0.045)',
+                        '&::before': {
+                          content: '""',
+                          position: 'absolute',
+                          inset: 0,
+                          background: 'linear-gradient(110deg, transparent 0%, rgba(255,255,255,0.10) 46%, transparent 58%)',
+                          transform: 'translateX(-120%)',
+                          transition: 'transform 500ms ease'
+                        },
+                        '&:hover::before': { transform: 'translateX(120%)' }
+                      }}
+                    >
+                      <CardContent sx={{ position: 'relative', zIndex: 1 }}>
+                        <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
+                          <Box>
+                            <Typography color="primary" sx={{ fontWeight: 950, textTransform: 'uppercase' }}>
+                              {item.label}
+                            </Typography>
+                            <Typography variant="h2" sx={{ mt: 0.5, fontWeight: 950, lineHeight: 0.95 }}>
+                              {item.minutes}
+                            </Typography>
+                            <Typography color="text.secondary" sx={{ mt: 1 }}>
+                              {item.note}
+                            </Typography>
+                          </Box>
+                          <Typography sx={{ color: '#FFD200', fontSize: { xs: 56, sm: 72 }, fontWeight: 950, lineHeight: 1 }}>
+                            {item.price}
+                          </Typography>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
             </Stack>
           </Box>
 
-          <Grid container spacing={2}>
-            {featureCards.map((feature) => (
-              <Grid key={feature.title} size={{ xs: 12, md: 4 }}>
-                <Card variant="outlined" sx={{ height: '100%', borderColor: 'rgba(255,255,255,0.12)' }}>
-                  <CardContent>
-                    <Typography variant="h6" sx={{ fontWeight: 900 }}>
-                      {feature.title}
-                    </Typography>
-                    <Typography color="text.secondary" sx={{ mt: 1 }}>
-                      {feature.body}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-
-          <Card variant="outlined" sx={{ borderColor: 'rgba(255,210,0,0.35)' }}>
-            <CardContent>
-              <Stack spacing={1.5}>
-                <Chip label="Featured challenge" color="primary" sx={{ alignSelf: 'flex-start' }} />
-                <Typography variant="h4" sx={{ fontWeight: 900 }}>
-                  Hotlap nights are built for repeat attempts.
-                </Typography>
-                <Typography color="text.secondary" sx={{ maxWidth: 880 }}>
-                  Sign in, link your VMS driver profile, join the active challenge, then run laps on the connected rigs. Your best eligible
-                  laps come from VMS and your place shows on the leaderboard.
-                </Typography>
-                <Button component={Link} href="/how-it-works" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
-                  How It Works
+          <Grid component="section" container spacing={3} alignItems="stretch">
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Box
+                sx={{
+                  height: '100%',
+                  minHeight: 420,
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  backgroundImage:
+                    'linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.74)), url(/home/venue-collage.webp)',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  p: { xs: 2, md: 3 }
+                }}
+              >
+                <Stack spacing={1}>
+                  <Typography variant="h4" sx={{ fontWeight: 950 }}>
+                    A restaurant night with a race clock.
+                  </Typography>
+                  <Typography color="text.secondary" sx={{ maxWidth: 520 }}>
+                    Bring friends, rotate drivers, grab food and drinks, and keep one eye on the timing screen.
+                  </Typography>
+                </Stack>
+              </Box>
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Stack spacing={2} sx={{ height: '100%' }}>
+                <Box>
+                  <Chip label="Featured challenge" color="primary" />
+                  <Typography variant="h3" sx={{ mt: 2, fontWeight: 950 }}>
+                    Hotlap nights are built for repeat attempts.
+                  </Typography>
+                  <Typography color="text.secondary" sx={{ mt: 1.5 }}>
+                    Link your VMS driver profile, join the active challenge, then run laps on the connected rigs. Your best eligible laps come
+                    from VMS and your place shows on the leaderboard.
+                  </Typography>
+                </Box>
+                <Box sx={{ border: '1px solid rgba(255,255,255,0.12)', bgcolor: 'rgba(255,255,255,0.045)', p: 2 }}>
+                  <Stack spacing={1}>
+                    {leaderboardRows.map((row) => (
+                      <Stack key={row.driver} direction="row" spacing={1.5} alignItems="center">
+                        <Typography color="primary" sx={{ width: 34, fontWeight: 950 }}>
+                          {row.rank}
+                        </Typography>
+                        <Typography sx={{ flex: 1, fontWeight: 850 }}>{row.driver}</Typography>
+                        <Typography sx={{ fontWeight: 950 }}>{row.lap}</Typography>
+                        <Typography color="text.secondary" sx={{ width: 72, textAlign: 'right' }}>
+                          {row.delta}
+                        </Typography>
+                      </Stack>
+                    ))}
+                  </Stack>
+                </Box>
+                <Button component={Link} href="/leaderboards" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
+                  View Leaderboards
                 </Button>
               </Stack>
-            </CardContent>
-          </Card>
-
-          <Grid container spacing={2} sx={{ pb: 5 }}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card variant="outlined" sx={{ height: '100%', borderColor: 'rgba(255,255,255,0.12)' }}>
-                <CardContent>
-                  <Typography variant="h5" sx={{ fontWeight: 900 }}>
-                    Race Radar
-                  </Typography>
-                  <Typography color="text.secondary" sx={{ mt: 1 }}>
-                    Notes from the venue: challenge recaps, setup tips, race-night stories, and posts your staff can publish from admin.
-                  </Typography>
-                  <Button component={Link} href="/race-radar" variant="outlined" sx={{ mt: 2 }}>
-                    Read Race Radar
-                  </Button>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card variant="outlined" sx={{ height: '100%', borderColor: 'rgba(255,255,255,0.12)' }}>
-                <CardContent>
-                  <Typography variant="h5" sx={{ fontWeight: 900 }}>
-                    Merch and bragging rights
-                  </Typography>
-                  <Typography color="text.secondary" sx={{ mt: 1 }}>
-                    Grab Speed Trap gear, show up with your crew, and make your leaderboard name the one everyone is chasing.
-                  </Typography>
-                  <Button component={Link} href="/merch" variant="outlined" sx={{ mt: 2 }}>
-                    Shop Merch
-                  </Button>
-                </CardContent>
-              </Card>
             </Grid>
           </Grid>
+
+          <Box component="section">
+            <Stack spacing={2}>
+              <Typography variant="h3" sx={{ fontWeight: 950 }}>
+                Built for the whole night
+              </Typography>
+              <Grid container spacing={2}>
+                {mediaTiles.map((tile) => (
+                  <Grid key={tile.title} size={{ xs: 12, md: 4 }}>
+                    <Box
+                      sx={{
+                        minHeight: 280,
+                        position: 'relative',
+                        overflow: 'hidden',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        backgroundImage: 'url(/home/venue-collage.webp)',
+                        backgroundSize: '260%',
+                        backgroundPosition: tile.objectPosition,
+                        transition: 'transform 200ms ease, border-color 200ms ease',
+                        '&:hover': { transform: 'translateY(-4px)', borderColor: 'rgba(255,210,0,0.55)' },
+                        '&::after': {
+                          content: '""',
+                          position: 'absolute',
+                          inset: 0,
+                          background: 'linear-gradient(180deg, transparent 35%, rgba(0,0,0,0.86) 100%)'
+                        }
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          position: 'absolute',
+                          zIndex: 1,
+                          left: 18,
+                          bottom: 16,
+                          fontWeight: 950,
+                          fontSize: 22
+                        }}
+                      >
+                        {tile.title}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+            </Stack>
+          </Box>
+
+          <Box
+            component="section"
+            sx={{
+              mb: 5,
+              p: { xs: 2.5, md: 4 },
+              border: '1px solid rgba(255,210,0,0.38)',
+              bgcolor: 'rgba(255,210,0,0.08)',
+              backgroundImage:
+                'linear-gradient(135deg, rgba(255,210,0,0.12), rgba(255,22,31,0.08)), linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)'
+            }}
+          >
+            <Grid container spacing={3} alignItems="center">
+              <Grid size={{ xs: 12, md: 8 }}>
+                <Typography variant="h3" sx={{ fontWeight: 950 }}>
+                  Private events, gift cards, and leaderboard bragging rights.
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 1.5, maxWidth: 780 }}>
+                  Group racing and gift options are coming into focus. For now, book a race through the portal and keep an eye on Race Radar
+                  for event drops.
+                </Typography>
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <Stack spacing={1}>
+                  <Button component={Link} href={bookHref} variant="contained" size="large">
+                    Book a Race
+                  </Button>
+                  <Button component={Link} href="/race-radar" variant="outlined" size="large">
+                    Read Race Radar
+                  </Button>
+                </Stack>
+              </Grid>
+            </Grid>
+          </Box>
         </Stack>
       </AppShell>
     </Box>
