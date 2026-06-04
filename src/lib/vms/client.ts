@@ -172,6 +172,11 @@ function normalizeCustomer(raw: any): VmsCustomerProfile | null {
   };
 }
 
+function customerRoot(obj: any) {
+  const customer = obj?.customer ?? obj?.customers?.customer ?? obj;
+  return Array.isArray(customer) ? customer[0] : customer;
+}
+
 function normalizeBooking(raw: any): VmsBooking | null {
   const id = toNumber(raw?.id ?? raw?.booking_id);
   if (!id) return null;
@@ -210,12 +215,7 @@ function buildCustomerCreateXml(input: VmsCustomerCreateInput) {
 function buildCustomerUpdateXml(input: VmsCustomerUpdateInput) {
   const value: Record<string, unknown> = {};
   if (input.name !== undefined) value.name = input.name;
-  if (input.tel !== undefined) value.tel = input.tel ?? '';
-  if (input.cell !== undefined) value.cell = input.cell ?? '';
   if (input.email !== undefined) value.email = input.email ?? '';
-  if (input.emailOptin !== undefined) value.email_optin = input.emailOptin ?? false;
-  if (input.postalCode !== undefined) value.postal_code = input.postalCode ?? '';
-  if (input.classId !== undefined) value.class_id = input.classId ?? '';
   return buildXml('customer', value);
 }
 
@@ -420,12 +420,12 @@ export class VmsClient {
 
   async getCustomer(id: number): Promise<VmsCustomerProfile | null> {
     const obj = await this.getParsed<any>(`/customers/${id}`);
-    return normalizeCustomer(obj?.customer ?? obj);
+    return normalizeCustomer(customerRoot(obj));
   }
 
   async findCustomerByEmail(email: string): Promise<VmsCustomerProfile | null> {
     const obj = await this.getParsed<any>(`/customers?email=${encodeURIComponent(email)}`);
-    const first = asArray(obj?.customers?.customer).map(normalizeCustomer).filter(Boolean)[0];
+    const first = asArray(obj?.customers?.customer ?? obj?.customer).map(normalizeCustomer).filter(Boolean)[0];
     return first ?? null;
   }
 
@@ -436,7 +436,7 @@ export class VmsClient {
       body: buildCustomerCreateXml(input)
     });
     const obj = parseXml<any>(createdXml);
-    return normalizeCustomer(obj?.customer ?? obj);
+    return normalizeCustomer(customerRoot(obj));
   }
 
   async updateCustomer(id: number, input: VmsCustomerUpdateInput): Promise<VmsCustomerProfile | null> {
@@ -446,7 +446,7 @@ export class VmsClient {
       body: buildCustomerUpdateXml(input)
     });
     const obj = parseXml<any>(updatedXml);
-    return normalizeCustomer(obj?.customer ?? obj);
+    return normalizeCustomer(customerRoot(obj));
   }
 
   async createBooking(input: VmsBookingInput): Promise<VmsBooking | null> {

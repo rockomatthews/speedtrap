@@ -6,29 +6,16 @@ import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
-import Checkbox from '@mui/material/Checkbox';
 import CircularProgress from '@mui/material/CircularProgress';
-import Collapse from '@mui/material/Collapse';
-import FormControl from '@mui/material/FormControl';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import Grid from '@mui/material/Grid2';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import Select from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
-import { type VmsClass, type VmsCustomerProfile } from '@/lib/vms/types';
+import { type VmsCustomerProfile } from '@/lib/vms/types';
 
 type ProfileResponse = {
   customer?: VmsCustomerProfile;
-  classes?: VmsClass[];
-  error?: string;
-};
-
-type CatalogResponse = {
-  classes?: VmsClass[];
   error?: string;
 };
 
@@ -37,31 +24,17 @@ function valueOrEmpty(value: string | null | undefined) {
 }
 
 export function VmsProfileForm() {
-  const [classes, setClasses] = useState<VmsClass[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [showContactDetails, setShowContactDetails] = useState(false);
 
   const [name, setName] = useState('');
-  const [tel, setTel] = useState('');
-  const [cell, setCell] = useState('');
   const [email, setEmail] = useState('');
-  const [emailOptin, setEmailOptin] = useState(false);
-  const [postalCode, setPostalCode] = useState('');
-  const [classId, setClassId] = useState('');
-
-  const rookieClassId = classes.find((driverClass) => /rookie/i.test(driverClass.name))?.id;
 
   function hydrate(customer: VmsCustomerProfile) {
     setName(customer.name);
-    setTel(valueOrEmpty(customer.tel));
-    setCell(valueOrEmpty(customer.cell));
     setEmail(valueOrEmpty(customer.email));
-    setEmailOptin(Boolean(customer.emailOptin));
-    setPostalCode(valueOrEmpty(customer.postalCode));
-    setClassId(customer.classId ? String(customer.classId) : '');
   }
 
   async function load() {
@@ -73,16 +46,6 @@ export function VmsProfileForm() {
       if (!ensureRes.ok) throw new Error(ensureJson?.error ?? `Failed (${ensureRes.status})`);
       if (!ensureJson?.customer) throw new Error('VMS did not return a customer profile.');
       hydrate(ensureJson.customer);
-
-      const catalogRes = await fetch('/api/vms/catalog');
-      const catalogJson = (await catalogRes.json().catch(() => null)) as CatalogResponse | null;
-      if (!catalogRes.ok) throw new Error(catalogJson?.error ?? `Failed (${catalogRes.status})`);
-      const catalogClasses = catalogJson?.classes ?? [];
-      setClasses(catalogClasses);
-      if (!ensureJson.customer.classId) {
-        const rookie = catalogClasses.find((driverClass) => /rookie/i.test(driverClass.name));
-        if (rookie) setClassId(String(rookie.id));
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load VMS profile.');
     } finally {
@@ -99,17 +62,10 @@ export function VmsProfileForm() {
     setError(null);
     setMessage(null);
     try {
-      const payload = {
-        name,
-        email,
-        classId: classId ? Number(classId) : null,
-        ...(showContactDetails ? { tel, cell, emailOptin, postalCode } : {})
-      };
-
       const res = await fetch('/api/vms/customer-profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ name, email })
       });
       const json = (await res.json().catch(() => null)) as ProfileResponse | null;
       if (!res.ok) throw new Error(json?.error ?? `Failed (${res.status})`);
@@ -130,7 +86,10 @@ export function VmsProfileForm() {
       <CardContent>
         <Stack spacing={2}>
           <Typography variant="h6" sx={{ fontWeight: 900 }}>
-            VMS Driver Profile
+            Driver Registration
+          </Typography>
+          <Typography color="text.secondary">
+            VMS only needs your driver name and email here. New drivers are assigned to the venue's Rookie class in VMS.
           </Typography>
           {error ? <Alert severity="error">{error}</Alert> : null}
           {message ? <Alert severity="success">{message}</Alert> : null}
@@ -142,52 +101,10 @@ export function VmsProfileForm() {
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth />
             </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth>
-                <InputLabel id="vms-class-label">Driver class</InputLabel>
-                <Select labelId="vms-class-label" label="Driver class" value={classId} onChange={(e) => setClassId(e.target.value)}>
-                  <MenuItem value="">{rookieClassId ? 'Rookie Driver' : 'Unclassed'}</MenuItem>
-                  {classes.map((driverClass) => (
-                    <MenuItem key={driverClass.id} value={String(driverClass.id)}>
-                      {driverClass.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
           </Grid>
 
-          <Button
-            variant="text"
-            onClick={() => setShowContactDetails((value) => !value)}
-            sx={{ alignSelf: 'flex-start', px: 0, color: 'text.secondary' }}
-          >
-            {showContactDetails ? 'Hide optional contact details' : 'Optional contact details'}
-          </Button>
-
-          <Collapse in={showContactDetails}>
-            <Stack spacing={1.5}>
-              <Grid container spacing={1.5}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField label="Phone" value={tel} onChange={(e) => setTel(e.target.value)} fullWidth />
-                </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField label="Cell" value={cell} onChange={(e) => setCell(e.target.value)} fullWidth />
-                </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <TextField label="Postal code" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} fullWidth />
-                </Grid>
-              </Grid>
-
-              <FormControlLabel
-                control={<Checkbox checked={emailOptin} onChange={(_, checked) => setEmailOptin(checked)} />}
-                label="Email opt-in"
-              />
-            </Stack>
-          </Collapse>
-
           <Button variant="contained" disabled={saving || name.trim().length < 3} onClick={save} sx={{ alignSelf: 'flex-start' }}>
-            {saving ? 'Saving...' : 'Save VMS profile'}
+            {saving ? 'Saving...' : 'Save driver info'}
           </Button>
         </Stack>
       </CardContent>

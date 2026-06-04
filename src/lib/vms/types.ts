@@ -91,12 +91,7 @@ export type VmsCustomerProfile = {
 
 export type VmsCustomerUpdateInput = {
   name?: string;
-  tel?: string | null;
-  cell?: string | null;
   email?: string | null;
-  emailOptin?: boolean | null;
-  postalCode?: string | null;
-  classId?: number | null;
 };
 
 export type VmsCustomerCreateInput = {

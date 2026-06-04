@@ -10,6 +10,7 @@ import { AppShell } from '@/components/AppShell';
 import { ChallengeList } from '@/components/portal/ChallengeList';
 import { PaidSessionsList } from '@/components/portal/PaidSessionsList';
 import { VmsDriverProfileCard } from '@/components/portal/VmsDriverProfileCard';
+import { VmsProfileForm } from '@/components/portal/VmsProfileForm';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 
 export default async function DashboardPage() {
@@ -26,6 +27,8 @@ export default async function DashboardPage() {
         </Stack>
 
         <VmsDriverProfileCard />
+
+        <VmsProfileForm />
 
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, md: 4 }}>

@@ -33,15 +33,6 @@ function orderTimestamp(order: ToastOrder, payload: ToastWebhookPayload) {
   return sessionStartSource(payload, order);
 }
 
-async function findRookieClassId(vms: VmsClient) {
-  try {
-    const classes = await vms.getClasses();
-    return classes.find((driverClass) => /rookie/i.test(driverClass.name))?.id ?? null;
-  } catch {
-    return null;
-  }
-}
-
 async function upsertProfileIdForVmsCustomer(vmsCustomerId: number) {
   const supabase = createSupabaseAdminClient();
   const { data } = await supabase.from('profiles').select('id').eq('vms_customer_id', vmsCustomerId).maybeSingle<{ id: string }>();
@@ -168,14 +159,12 @@ export async function POST(request: Request) {
     const vms = VmsClient.fromEnv();
     const venueId = env.VMS_HOME_VENUE_ID ?? 1;
     const existingCustomer = await vms.findCustomerByEmail(guest.email);
-    const rookieClassId = existingCustomer ? null : await findRookieClassId(vms);
     const customer =
       existingCustomer ??
       (await vms.createCustomer({
         name: guest.name,
         email: guest.email,
         homeVenueId: venueId,
-        classId: rookieClassId,
         emailOptin: false,
         source: 'Google/Web',
         sourceOther: 'Toast paid sim session',

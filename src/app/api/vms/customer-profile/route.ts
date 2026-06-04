@@ -5,26 +5,14 @@ import { getAuthedProfile } from '@/lib/supabase/profile';
 import { VmsClient } from '@/lib/vms/client';
 import { vmsErrorResponse } from '@/lib/vms/route-errors';
 
-const optionalText = z
-  .string()
-  .trim()
-  .transform((value) => (value.length > 0 ? value : null))
-  .nullable()
-  .optional();
-
 const profileSchema = z.object({
-  name: z.string().trim().min(3, 'Driver name must be at least 3 characters.').optional(),
-  tel: optionalText,
-  cell: optionalText,
+  name: z.string().trim().min(3, 'Driver name must be at least 3 characters.'),
   email: z
     .string()
     .trim()
     .transform((value) => (value.length > 0 ? value : null))
     .pipe(z.string().email('Use a valid email address.').nullable())
-    .optional(),
-  emailOptin: z.boolean().nullable().optional(),
-  postalCode: optionalText,
-  classId: z.number().int().positive().nullable().optional()
+    .optional()
 });
 
 export async function GET() {
@@ -36,9 +24,9 @@ export async function GET() {
 
   try {
     const vms = VmsClient.fromEnv();
-    const [customer, classes] = await Promise.all([vms.getCustomer(profile.vms_customer_id), vms.getClasses()]);
+    const customer = await vms.getCustomer(profile.vms_customer_id);
     if (!customer) return NextResponse.json({ error: 'VMS did not return a customer profile.' }, { status: 502 });
-    return NextResponse.json({ customer, classes });
+    return NextResponse.json({ customer });
   } catch (error) {
     return vmsErrorResponse(error);
   }
@@ -61,7 +49,32 @@ export async function PATCH(request: Request) {
     const vms = VmsClient.fromEnv();
     let customer = await vms.updateCustomer(profile.vms_customer_id, parsed.data);
     customer ??= await vms.getCustomer(profile.vms_customer_id);
-    if (!customer) return NextResponse.json({ error: 'VMS updated the profile but did not return readable customer data.' }, { status: 502 });
+    customer ??= {
+      id: profile.vms_customer_id,
+      name: parsed.data.name,
+      email: parsed.data.email ?? user.email ?? null,
+      tel: null,
+      cell: null,
+      emailOptin: null,
+      postalCode: null,
+      homeVenue: null,
+      className: null,
+      classId: null,
+      memberships: [],
+      lapsRecorded: null,
+      lastVisit: null,
+      lastVehicle: null,
+      lastCircuit: null,
+      lastGroupEvent: null,
+      lastRaceEvent: null,
+      customerUri: null,
+      venueUri: null,
+      classUri: null,
+      lapTimesUri: null,
+      vehicleUri: null,
+      circuitUri: null,
+      raceEventUri: null
+    };
     return NextResponse.json({ customer });
   } catch (error) {
     return vmsErrorResponse(error);

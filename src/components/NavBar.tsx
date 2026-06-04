@@ -49,12 +49,7 @@ export function NavBar() {
     { href: '/merch', label: 'Merch' }
   ];
 
-  const authedItems = isAuthed
-    ? [
-        { href: '/dashboard', label: 'Portal' },
-        { href: '/profile', label: 'Profile' }
-      ]
-    : [];
+  const authedItems = isAuthed ? [{ href: '/dashboard', label: 'Portal' }] : [];
 
   async function logout() {
     await supabase.auth.signOut();

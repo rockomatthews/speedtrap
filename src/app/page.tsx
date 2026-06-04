@@ -35,6 +35,8 @@ const mediaTiles = [
   { title: 'Leaderboard nights', objectPosition: '82% 50%' }
 ];
 
+const footerLinks = ['How It Works', 'Pricing', 'Race Radar', 'Merch'];
+
 const bookHref = '/login?redirectTo=/dashboard';
 
 export default async function HomePage({
@@ -97,6 +99,22 @@ export default async function HomePage({
               }
             }}
           >
+            <Box
+              aria-hidden
+              sx={{
+                position: 'absolute',
+                right: { xs: -110, md: -40 },
+                bottom: { xs: 24, md: 0 },
+                width: { xs: 300, md: 560 },
+                height: { xs: 120, md: 220 },
+                zIndex: 0,
+                transform: 'skewX(-24deg) rotate(-10deg)',
+                background:
+                  'linear-gradient(90deg, transparent 0 18%, #FFD200 18% 34%, transparent 34% 42%, #FF161F 42% 58%, transparent 58% 100%)',
+                opacity: 0.92,
+                filter: 'drop-shadow(0 0 24px rgba(255,22,31,0.36))'
+              }}
+            />
             <Box sx={{ position: 'relative', zIndex: 1, width: 'min(1180px, 100%)', mx: 'auto' }}>
               <Grid container spacing={{ xs: 4, md: 6 }} alignItems="end">
                 <Grid size={{ xs: 12, md: 7 }}>
@@ -118,7 +136,15 @@ export default async function HomePage({
                         textWrap: 'balance'
                       }}
                     >
-                      Race. Eat. Chase the board.
+                      <Box component="span" sx={{ display: 'block', color: '#FFD200', fontStyle: 'italic' }}>
+                        Race.
+                      </Box>
+                      <Box component="span" sx={{ display: 'block', color: '#FFFFFF', fontStyle: 'italic' }}>
+                        Eat.
+                      </Box>
+                      <Box component="span" sx={{ display: 'block', color: '#FF161F', fontStyle: 'italic' }}>
+                        Chase the board.
+                      </Box>
                     </Typography>
                     <Typography
                       variant="h5"
@@ -210,64 +236,81 @@ export default async function HomePage({
           </Box>
 
           <Box component="section">
-            <Stack spacing={2}>
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between">
-                <Box>
-                  <Typography variant="h3" sx={{ fontWeight: 950 }}>
-                    Quick race sessions
-                  </Typography>
-                  <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 680 }}>
-                    Drop in for a sprint, stay for another round, and keep chasing the standing hotlap challenge.
-                  </Typography>
-                </Box>
-                <Button component={Link} href="/pricing" variant="outlined" sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }}>
-                  See Pricing
-                </Button>
-              </Stack>
-              <Grid container spacing={2}>
+            <Box
+              sx={{
+                position: 'relative',
+                overflow: 'hidden',
+                p: { xs: 2, md: 3 },
+                border: '1px solid rgba(255,210,0,0.45)',
+                borderBottom: '4px solid #FFD200',
+                bgcolor: 'rgba(255,255,255,0.045)',
+                background:
+                  'linear-gradient(135deg, rgba(255,255,255,0.055), rgba(255,22,31,0.05)), radial-gradient(500px 240px at 92% 18%, rgba(255,22,31,0.20), transparent 68%)',
+                '&::after': {
+                  content: '""',
+                  position: 'absolute',
+                  right: -80,
+                  top: -20,
+                  width: 280,
+                  height: 180,
+                  transform: 'skewX(-24deg)',
+                  background: 'linear-gradient(90deg, rgba(255,210,0,0.72), rgba(255,22,31,0.82))',
+                  opacity: 0.2
+                }
+              }}
+            >
+              <Grid container spacing={2.5} alignItems="stretch" sx={{ position: 'relative', zIndex: 1 }}>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Stack spacing={1} sx={{ height: '100%', justifyContent: 'center' }}>
+                    <Typography color="secondary" sx={{ fontWeight: 950, fontStyle: 'italic', textTransform: 'uppercase' }}>
+                      Quick race
+                    </Typography>
+                    <Typography variant="h3" sx={{ fontWeight: 950, fontStyle: 'italic', textTransform: 'uppercase' }}>
+                      Choose your session
+                    </Typography>
+                    <Button component={Link} href="/pricing" variant="outlined" sx={{ alignSelf: 'flex-start', mt: 1 }}>
+                      See Pricing
+                    </Button>
+                  </Stack>
+                </Grid>
                 {quickRacePricing.map((item) => (
-                  <Grid key={item.minutes} size={{ xs: 12, md: 6 }}>
-                    <Card
-                      variant="outlined"
+                  <Grid key={item.minutes} size={{ xs: 12, md: 4 }}>
+                    <Box
                       sx={{
+                        height: '100%',
+                        minHeight: 160,
+                        p: 2.5,
                         position: 'relative',
                         overflow: 'hidden',
-                        borderColor: 'rgba(255,210,0,0.35)',
-                        background: 'linear-gradient(135deg, rgba(255,210,0,0.08), rgba(255,22,31,0.08)), rgba(255,255,255,0.045)',
-                        '&::before': {
+                        border: '1px solid rgba(255,255,255,0.18)',
+                        bgcolor: 'rgba(0,0,0,0.32)',
+                        '&::after': {
                           content: '""',
                           position: 'absolute',
-                          inset: 0,
-                          background: 'linear-gradient(110deg, transparent 0%, rgba(255,255,255,0.10) 46%, transparent 58%)',
-                          transform: 'translateX(-120%)',
-                          transition: 'transform 500ms ease'
-                        },
-                        '&:hover::before': { transform: 'translateX(120%)' }
+                          right: -38,
+                          bottom: -44,
+                          width: 150,
+                          height: 150,
+                          borderRadius: '50%',
+                          border: '1px solid rgba(255,22,31,0.32)',
+                          boxShadow: 'inset 0 0 0 10px rgba(255,22,31,0.06)'
+                        }
                       }}
                     >
-                      <CardContent sx={{ position: 'relative', zIndex: 1 }}>
-                        <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
-                          <Box>
-                            <Typography color="primary" sx={{ fontWeight: 950, textTransform: 'uppercase' }}>
-                              {item.label}
-                            </Typography>
-                            <Typography variant="h2" sx={{ mt: 0.5, fontWeight: 950, lineHeight: 0.95 }}>
-                              {item.minutes}
-                            </Typography>
-                            <Typography color="text.secondary" sx={{ mt: 1 }}>
-                              {item.note}
-                            </Typography>
-                          </Box>
-                          <Typography sx={{ color: '#FFD200', fontSize: { xs: 56, sm: 72 }, fontWeight: 950, lineHeight: 1 }}>
-                            {item.price}
-                          </Typography>
-                        </Stack>
-                      </CardContent>
-                    </Card>
+                      <Typography color="primary" sx={{ fontWeight: 950, textTransform: 'uppercase' }}>
+                        {item.minutes}
+                      </Typography>
+                      <Typography sx={{ mt: 1, fontSize: { xs: 56, md: 64 }, lineHeight: 1, fontWeight: 950 }}>
+                        {item.price}
+                      </Typography>
+                      <Typography color="text.secondary" sx={{ mt: 1 }}>
+                        {item.note}
+                      </Typography>
+                    </Box>
                   </Grid>
                 ))}
               </Grid>
-            </Stack>
+            </Box>
           </Box>
 
           <Grid component="section" container spacing={3} alignItems="stretch">
@@ -380,7 +423,6 @@ export default async function HomePage({
           <Box
             component="section"
             sx={{
-              mb: 5,
               p: { xs: 2.5, md: 4 },
               border: '1px solid rgba(255,210,0,0.38)',
               bgcolor: 'rgba(255,210,0,0.08)',
@@ -405,6 +447,56 @@ export default async function HomePage({
                   </Button>
                   <Button component={Link} href="/race-radar" variant="outlined" size="large">
                     Read Race Radar
+                  </Button>
+                </Stack>
+              </Grid>
+            </Grid>
+          </Box>
+
+          <Box
+            component="footer"
+            sx={{
+              width: '100vw',
+              ml: 'calc(50% - 50vw)',
+              px: { xs: 2, sm: 3, md: 6 },
+              py: { xs: 4, md: 5 },
+              borderTop: '1px solid rgba(255,255,255,0.12)',
+              background:
+                'linear-gradient(135deg, rgba(255,210,0,0.12), transparent 18%), linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.4))'
+            }}
+          >
+            <Grid container spacing={3} sx={{ width: 'min(1180px, 100%)', mx: 'auto' }}>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <Stack spacing={1.5}>
+                  <Box component="img" src="/brand/logo.svg" alt="Speed Trap Racing" sx={{ width: 220, maxWidth: '100%' }} />
+                  <Typography color="text.secondary">Sim racing sessions, food, drinks, and VMS leaderboard nights.</Typography>
+                </Stack>
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <Stack spacing={0.75}>
+                  <Typography color="primary" sx={{ fontWeight: 950, textTransform: 'uppercase' }}>
+                    Visit
+                  </Typography>
+                  <Typography>Speed Trap Racing</Typography>
+                  <Typography color="text.secondary">Restaurant address coming soon</Typography>
+                  <Typography color="text.secondary">Hours and phone coming soon</Typography>
+                </Stack>
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {footerLinks.map((label) => (
+                    <Button
+                      key={label}
+                      component={Link}
+                      href={`/${label.toLowerCase().replaceAll(' ', '-')}`}
+                      variant="text"
+                      sx={{ color: '#fff', fontWeight: 850 }}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                  <Button component={Link} href={bookHref} variant="contained">
+                    Book a Race
                   </Button>
                 </Stack>
               </Grid>
