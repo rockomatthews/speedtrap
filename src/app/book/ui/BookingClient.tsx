@@ -13,7 +13,6 @@ import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Grid from '@mui/material/Grid2';
-import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
@@ -43,6 +42,29 @@ function money(cents: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 }
 
+function bookingPrice(durationMinutes: number, simCount: number) {
+  return (durationMinutes === 30 ? 2600 : 1500) * simCount;
+}
+
+function formatSlotTime(time: string) {
+  const [hourRaw, minute = '00'] = time.split(':');
+  const hour = Number(hourRaw);
+  if (!Number.isFinite(hour)) return time;
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minute} ${suffix}`;
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+}
+
 function disabledLabel(slot: Slot) {
   if (slot.reason === 'full') return 'Full';
   if (slot.reason === 'blackout') return 'Closed';
@@ -63,9 +85,15 @@ function PaymentForm({
   const stripe = useStripe();
   const elements = useElements();
   const [submitting, setSubmitting] = useState(false);
+  const [ready, setReady] = useState(false);
 
   async function submit() {
     if (!stripe || !elements) return;
+    const paymentElement = elements.getElement(PaymentElement);
+    if (!paymentElement || !ready) {
+      onError('Payment fields are still loading. Give them a second and try again.');
+      return;
+    }
     setSubmitting(true);
     onError('');
     const result = await stripe.confirmPayment({
@@ -95,8 +123,9 @@ function PaymentForm({
 
   return (
     <Stack spacing={2}>
-      <PaymentElement />
-      <Button variant="contained" size="large" disabled={!stripe || !elements || submitting} onClick={submit}>
+      {!ready ? <Alert severity="info">Loading secure card fields...</Alert> : null}
+      <PaymentElement onReady={() => setReady(true)} onLoadError={(event) => onError(event.error?.message ?? 'Stripe payment form failed to load.')} />
+      <Button variant="contained" size="large" disabled={!stripe || !elements || submitting || !ready} onClick={submit}>
         {submitting ? 'Confirming...' : 'Pay and Confirm Booking'}
       </Button>
     </Stack>
@@ -121,6 +150,23 @@ export function BookingClient({ stripePublishableKey }: { stripePublishableKey: 
 
   useEffect(() => {
     let cancelled = false;
+    async function loadCustomer() {
+      const res = await fetch('/api/bookings/current-customer');
+      const json = await res.json().catch(() => null);
+      if (cancelled || !res.ok || !json) return;
+      const name = json.user?.name || json.customer?.name || '';
+      const email = json.user?.email || json.customer?.email || '';
+      if (name) setCustomerName(name);
+      if (email) setCustomerEmail(email);
+    }
+    void loadCustomer();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
     async function load() {
       setLoading(true);
       setError('');
@@ -132,7 +178,7 @@ export function BookingClient({ stripePublishableKey }: { stripePublishableKey: 
         const params = new URLSearchParams({
           date,
           durationMinutes: String(durationMinutes),
-          simCount: String(simCount)
+          simCount: '1'
         });
         const res = await fetch(`/api/bookings/availability?${params}`);
         const json = await res.json().catch(() => null);
@@ -148,7 +194,11 @@ export function BookingClient({ stripePublishableKey }: { stripePublishableKey: 
     return () => {
       cancelled = true;
     };
-  }, [date, durationMinutes, simCount]);
+  }, [date, durationMinutes]);
+
+  useEffect(() => {
+    if (selectedSlot && simCount > selectedSlot.availableSims) setSimCount(Math.max(1, selectedSlot.availableSims));
+  }, [selectedSlot, simCount]);
 
   async function startPayment() {
     if (!selectedSlot) return;
@@ -187,7 +237,14 @@ export function BookingClient({ stripePublishableKey }: { stripePublishableKey: 
     }
   }
 
-  const canStartPayment = Boolean(selectedSlot && customerName.trim().length >= 3 && /[^\s@]+@[^\s@]+\.[^\s@]+/.test(customerEmail));
+  const amountCents = bookingPrice(durationMinutes, simCount);
+  const canStartPayment = Boolean(
+    selectedSlot &&
+      simCount >= 1 &&
+      simCount <= selectedSlot.availableSims &&
+      customerName.trim().length >= 3 &&
+      /[^\s@]+@[^\s@]+\.[^\s@]+/.test(customerEmail)
+  );
 
   if (booking) {
     return (
@@ -199,7 +256,7 @@ export function BookingClient({ stripePublishableKey }: { stripePublishableKey: 
               Your race is on the schedule.
             </Typography>
             <Typography color="text.secondary">
-              {new Date(booking.starts_at).toLocaleString()} for {booking.sim_count} sim{booking.sim_count === 1 ? '' : 's'}.
+              {formatDateTime(booking.starts_at)} for {booking.sim_count} sim{booking.sim_count === 1 ? '' : 's'}.
             </Typography>
             {booking.vms_booking_id ? <Typography>VMS booking #{booking.vms_booking_id}</Typography> : null}
             {booking.error ? <Alert severity="warning">{booking.error}</Alert> : null}
@@ -220,27 +277,19 @@ export function BookingClient({ stripePublishableKey }: { stripePublishableKey: 
             <Stack spacing={2.5}>
               <Grid container spacing={1.5}>
                 <Grid size={{ xs: 12, sm: 5 }}>
-                  <TextField label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} fullWidth />
+                  <TextField label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={Boolean(clientSecret)} fullWidth />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 4 }}>
+                <Grid size={{ xs: 12, sm: 7 }}>
                   <ToggleButtonGroup
                     value={durationMinutes}
                     exclusive
                     fullWidth
+                    disabled={Boolean(clientSecret)}
                     onChange={(_e, value) => value && setDurationMinutes(value)}
                   >
                     <ToggleButton value={15}>15 min</ToggleButton>
                     <ToggleButton value={30}>30 min</ToggleButton>
                   </ToggleButtonGroup>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 3 }}>
-                  <TextField select label="Racers" value={simCount} onChange={(e) => setSimCount(Number(e.target.value))} fullWidth>
-                    {[1, 2, 3, 4].map((count) => (
-                      <MenuItem key={count} value={count}>
-                        {count}
-                      </MenuItem>
-                    ))}
-                  </TextField>
                 </Grid>
               </Grid>
 
@@ -258,7 +307,7 @@ export function BookingClient({ stripePublishableKey }: { stripePublishableKey: 
                         <Button
                           fullWidth
                           variant={selectedSlot?.startsAt === slot.startsAt ? 'contained' : 'outlined'}
-                          disabled={!slot.available}
+                          disabled={!slot.available || Boolean(clientSecret)}
                           onClick={() => setSelectedSlot(slot)}
                           sx={{
                             minHeight: 68,
@@ -266,7 +315,7 @@ export function BookingClient({ stripePublishableKey }: { stripePublishableKey: 
                             borderColor: slot.available ? undefined : 'rgba(255,255,255,0.14)'
                           }}
                         >
-                          <span>{slot.time}</span>
+                          <span>{formatSlotTime(slot.time)}</span>
                           <Typography component="span" sx={{ fontSize: 11, opacity: 0.75 }}>
                             {disabledLabel(slot)}
                           </Typography>
@@ -294,12 +343,39 @@ export function BookingClient({ stripePublishableKey }: { stripePublishableKey: 
               <Stack spacing={0.5}>
                 <Typography color="text.secondary">Session</Typography>
                 <Typography sx={{ fontWeight: 900 }}>
-                  {simCount} x {durationMinutes} min race - {availability ? money(availability.amountCents) : '--'}
+                  {simCount} x {durationMinutes} min race - {money(amountCents)}
                 </Typography>
-                <Typography color="text.secondary">{selectedSlot ? `${date} at ${selectedSlot.time}` : 'Choose a time slot'}</Typography>
+                <Typography color="text.secondary">{selectedSlot ? `${date} at ${formatSlotTime(selectedSlot.time)}` : 'Choose a time slot'}</Typography>
               </Stack>
-              <TextField label="Driver name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} fullWidth />
-              <TextField label="Email" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} fullWidth />
+              <Box>
+                <Typography color="text.secondary" sx={{ mb: 1 }}>
+                  Sims
+                </Typography>
+                <Grid container spacing={1}>
+                  {[1, 2, 3, 4].map((count) => {
+                    const enabled = Boolean(selectedSlot && count <= selectedSlot.availableSims);
+                    const selected = count <= simCount;
+                    return (
+                      <Grid key={count} size={{ xs: 6, sm: 3 }}>
+                        <Button
+                          fullWidth
+                          disabled={!enabled || Boolean(clientSecret)}
+                          variant={selected ? 'contained' : 'outlined'}
+                          onClick={() => setSimCount(count)}
+                          sx={{ minHeight: 58, flexDirection: 'column' }}
+                        >
+                          Sim {count}
+                          <Typography component="span" sx={{ fontSize: 11, opacity: 0.7 }}>
+                            {enabled ? 'Available' : 'Unavailable'}
+                          </Typography>
+                        </Button>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              </Box>
+              <TextField label="Full name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} disabled={Boolean(clientSecret)} fullWidth />
+              <TextField label="Email" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} disabled={Boolean(clientSecret)} fullWidth />
               {!clientSecret ? (
                 <Button
                   variant="contained"
@@ -310,9 +386,20 @@ export function BookingClient({ stripePublishableKey }: { stripePublishableKey: 
                   {startingPayment ? 'Holding slot...' : 'Continue to Payment'}
                 </Button>
               ) : stripePromise ? (
-                <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night' } }}>
-                  <PaymentForm paymentIntentId={paymentIntentId} onConfirmed={setBooking} onError={setError} />
-                </Elements>
+                <Stack spacing={1.5}>
+                  <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night' } }}>
+                    <PaymentForm paymentIntentId={paymentIntentId} onConfirmed={setBooking} onError={setError} />
+                  </Elements>
+                  <Button
+                    variant="text"
+                    onClick={() => {
+                      setClientSecret('');
+                      setPaymentIntentId('');
+                    }}
+                  >
+                    Change booking details
+                  </Button>
+                </Stack>
               ) : null}
               <Typography color="text.secondary" sx={{ fontSize: 13 }}>
                 Online cancellations are refundable until 2 hours before race time.
