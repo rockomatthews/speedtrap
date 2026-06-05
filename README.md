@@ -32,5 +32,17 @@ Toast-paid racing sessions are received at `POST /api/toast/webhook`. Configure 
 - `TOAST_API_BASE_URL`: optional, defaults to `https://ws-api.toasttab.com`.
 - `TOAST_CLIENT_ID` and `TOAST_CLIENT_SECRET`: optional Orders API credentials used to hydrate full order details when webhook payloads omit guest name/email.
 
+### Online race bookings
+Native online bookings use Supabase schedule/inventory, embedded Stripe Payment Element, and VMS bookings.
+
+Required Vercel env vars:
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`: Stripe publishable key for embedded Payment Element.
+- `STRIPE_SECRET_KEY`: Stripe secret key for PaymentIntents and refunds.
+- `STRIPE_WEBHOOK_SECRET`: Stripe webhook signing secret for `/api/stripe/webhook`.
+- `SUPABASE_SERVICE_ROLE_KEY`: server-only key used by booking APIs.
+- `VMS_API_KEY`, `VMS_HOME_VENUE_ID`, `VMS_VENUE_TIMEZONE`: VMS customer/booking integration.
+
+Run migration `0014_native_race_bookings.sql`, then configure public booking hours in `/admin/bookings`.
+
 
 # speedtrap

@@ -243,6 +243,23 @@ function buildBookingXml(input: VmsBookingInput) {
   return buildXml('booking', value);
 }
 
+function buildBookingUpdateXml(input: Partial<VmsBookingInput>) {
+  const value: Record<string, unknown> = {};
+  if (input.eventName !== undefined) value.event_name = input.eventName;
+  if (input.customerId !== undefined) value.customer_id = input.customerId;
+  if (input.startDate !== undefined) value.start_date = input.startDate;
+  if (input.endDate !== undefined) value.end_date = input.endDate;
+  if (input.status !== undefined) value.status = input.status;
+  if (input.venueId !== undefined) value.venue_id = input.venueId;
+  if (input.eventActivity !== undefined) value.event_activity = input.eventActivity;
+  if (input.groupSize !== undefined) value.group_size = input.groupSize;
+  if (input.numberOfPods !== undefined) value.number_of_pods = input.numberOfPods;
+  if (input.specificPods !== undefined) value.specific_pods = input.specificPods;
+  if (input.notes !== undefined) value.notes = input.notes;
+  if (input.paymentNotes !== undefined) value.payment_notes = input.paymentNotes;
+  return buildXml('booking', value);
+}
+
 function normalizeHotlapSummary(raw: any): VmsHotlapEventSummary | null {
   const id = toNumber(raw?.id ?? raw?.hotlap_event_id);
   const name = toStringOrNull(raw?.name);
@@ -462,6 +479,16 @@ export class VmsClient {
       body: buildBookingXml(input)
     });
     const obj = parseXml<any>(createdXml);
+    return normalizeBooking(obj?.booking ?? obj);
+  }
+
+  async updateBooking(id: number, input: Partial<VmsBookingInput>): Promise<VmsBooking | null> {
+    const updatedXml = await this.request(`/bookings/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
+      body: buildBookingUpdateXml(input)
+    });
+    const obj = parseXml<any>(updatedXml);
     return normalizeBooking(obj?.booking ?? obj);
   }
 

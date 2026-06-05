@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { ChallengeList } from '@/components/portal/ChallengeList';
 import { PaidSessionsList } from '@/components/portal/PaidSessionsList';
+import { RaceBookingsList } from '@/components/portal/RaceBookingsList';
 import { VmsProfileForm } from '@/components/portal/VmsProfileForm';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 
@@ -71,7 +72,14 @@ export default async function DashboardPage() {
 
         <Stack spacing={1}>
           <Typography variant="h5" sx={{ fontWeight: 900 }}>
-            Paid Race Sessions
+            Online Race Bookings
+          </Typography>
+          <RaceBookingsList />
+        </Stack>
+
+        <Stack spacing={1}>
+          <Typography variant="h5" sx={{ fontWeight: 900 }}>
+            Toast Walk-in Sessions
           </Typography>
           <PaidSessionsList />
         </Stack>

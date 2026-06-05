@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 
+import { confirmRaceBookingFromPaymentIntent } from '@/lib/bookings/confirm';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getStripeEnv } from '@/lib/stripe/env';
 
@@ -27,6 +28,29 @@ export async function POST(request: Request) {
 
   try {
     switch (event.type) {
+      case 'payment_intent.succeeded': {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        if (paymentIntent.metadata?.source === 'speedtrap_online_booking') {
+          await confirmRaceBookingFromPaymentIntent({
+            supabase: createSupabaseAdminClient(),
+            stripe,
+            paymentIntentId: paymentIntent.id
+          });
+        }
+        break;
+      }
+      case 'payment_intent.payment_failed': {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        const holdId = paymentIntent.metadata?.booking_hold_id;
+        if (holdId) {
+          await createSupabaseAdminClient()
+            .from('race_booking_holds')
+            .update({ status: 'cancelled' })
+            .eq('id', holdId)
+            .eq('status', 'active');
+        }
+        break;
+      }
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         const supabaseAdmin = createSupabaseAdminClient();
@@ -107,4 +131,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ received: true });
 }
-

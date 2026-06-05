@@ -1,42 +1,31 @@
-import Typography from '@mui/material/Typography';
+import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
-import Paper from '@mui/material/Paper';
-import Box from '@mui/material/Box';
-import Divider from '@mui/material/Divider';
+import Typography from '@mui/material/Typography';
 
+import { BookingClient } from '@/app/book/ui/BookingClient';
 import { AppShell } from '@/components/AppShell';
-import { EnsureVmsCustomer } from '@/components/EnsureVmsCustomer';
-import { BookingsClient } from '@/app/book/ui/BookingsClient';
 
 export default function BookPage() {
+  const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
+
   return (
     <AppShell>
-      <Stack spacing={2}>
-        <Typography variant="h4" sx={{ fontWeight: 900 }}>
-          Book
-        </Typography>
-        <EnsureVmsCustomer />
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            border: '1px solid rgba(255,255,255,0.10)',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))'
-          }}
-        >
-          <Box sx={{ fontFamily: 'monospace', fontSize: 13, whiteSpace: 'pre-wrap' }}>
-            GET `/api/vms/bookings?past=1&future=1`
-          </Box>
-          <Typography color="text.secondary" sx={{ mt: 1 }}>
-            Next: calendar + time-slot picker + booking creation.
+      <Stack spacing={3}>
+        <Stack spacing={0.75}>
+          <Typography variant="h3" sx={{ fontWeight: 950 }}>
+            Book a Race
           </Typography>
-        </Paper>
+          <Typography color="text.secondary">
+            Choose an available time, reserve up to four sims, and pay without leaving Speed Trap.
+          </Typography>
+        </Stack>
 
-        <Divider sx={{ borderColor: 'rgba(255,255,255,0.10)' }} />
-        <BookingsClient />
+        {!publishableKey ? (
+          <Alert severity="warning">Stripe embedded payments need `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in Vercel.</Alert>
+        ) : null}
+
+        <BookingClient stripePublishableKey={publishableKey} />
       </Stack>
     </AppShell>
   );
 }
-
-

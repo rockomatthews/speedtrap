@@ -4,7 +4,7 @@ import { createServerClient } from '@supabase/ssr';
 
 import { env } from '@/lib/supabase/env';
 
-const PROTECTED_PREFIXES = ['/dashboard', '/profile', '/book', '/stats', '/leaderboards', '/admin'];
+const PROTECTED_PREFIXES = ['/dashboard', '/profile', '/stats', '/leaderboards', '/admin'];
 
 type CookieOptions = {
   domain?: string;
@@ -54,4 +54,3 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)']
 };
-

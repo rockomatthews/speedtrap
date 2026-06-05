@@ -37,7 +37,7 @@ const mediaTiles = [
 
 const footerLinks = ['How It Works', 'Pricing', 'Race Radar', 'Merch'];
 
-const bookHref = '/login?redirectTo=/dashboard';
+const bookHref = '/book';
 
 export default async function HomePage({
   searchParams
