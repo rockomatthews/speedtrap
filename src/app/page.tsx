@@ -479,8 +479,8 @@ export default async function HomePage({
                     Visit
                   </Typography>
                   <Typography>Speed Trap Racing</Typography>
-                  <Typography color="text.secondary">Restaurant address coming soon</Typography>
-                  <Typography color="text.secondary">Hours and phone coming soon</Typography>
+                  <Typography color="text.secondary">14718 Detroit Ave. Lakewood, OH 44107</Typography>
+                  <Typography color="text.secondary">216-712-4039</Typography>
                 </Stack>
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
