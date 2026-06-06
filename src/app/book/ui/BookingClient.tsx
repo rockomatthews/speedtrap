@@ -96,10 +96,21 @@ function PaymentForm({
     }
     setSubmitting(true);
     onError('');
-    const result = await stripe.confirmPayment({
-      elements,
-      redirect: 'if_required'
-    });
+
+    let result;
+    try {
+      result = await stripe.confirmPayment({
+        elements,
+        redirect: 'if_required',
+        confirmParams: {
+          return_url: `${window.location.origin}/book`
+        }
+      });
+    } catch (error) {
+      setSubmitting(false);
+      onError(error instanceof Error ? error.message : 'Stripe could not confirm the payment.');
+      return;
+    }
 
     if (result.error) {
       setSubmitting(false);
@@ -107,10 +118,17 @@ function PaymentForm({
       return;
     }
 
+    const confirmedPaymentIntentId = result.paymentIntent?.id ?? paymentIntentId;
+    if (result.paymentIntent && result.paymentIntent.status !== 'succeeded') {
+      setSubmitting(false);
+      onError(`Payment is ${result.paymentIntent.status}. Try again in a moment or use another card.`);
+      return;
+    }
+
     const res = await fetch('/api/bookings/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paymentIntentId })
+      body: JSON.stringify({ paymentIntentId: confirmedPaymentIntentId })
     });
     const json = await res.json().catch(() => null);
     setSubmitting(false);
@@ -132,10 +150,16 @@ function PaymentForm({
   );
 }
 
-export function BookingClient({ stripePublishableKey }: { stripePublishableKey: string }) {
+export function BookingClient({
+  stripePublishableKey,
+  initialDurationMinutes = 15
+}: {
+  stripePublishableKey: string;
+  initialDurationMinutes?: 15 | 30;
+}) {
   const stripePromise = useMemo(() => (stripePublishableKey ? loadStripe(stripePublishableKey) : null), [stripePublishableKey]);
   const [date, setDate] = useState(todayDate());
-  const [durationMinutes, setDurationMinutes] = useState(15);
+  const [durationMinutes, setDurationMinutes] = useState<15 | 30>(initialDurationMinutes);
   const [simCount, setSimCount] = useState(1);
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);

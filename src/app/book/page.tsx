@@ -5,8 +5,20 @@ import Typography from '@mui/material/Typography';
 import { BookingClient } from '@/app/book/ui/BookingClient';
 import { AppShell } from '@/components/AppShell';
 
-export default function BookPage() {
+function parseInitialDuration(value: string | string[] | undefined) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const duration = Number(raw);
+  return duration === 30 ? 30 : 15;
+}
+
+export default async function BookPage({
+  searchParams
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = (await searchParams) ?? {};
   const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
+  const initialDurationMinutes = parseInitialDuration(sp.duration ?? sp.minutes);
 
   return (
     <AppShell>
@@ -24,7 +36,7 @@ export default function BookPage() {
           <Alert severity="warning">Stripe embedded payments need `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in Vercel.</Alert>
         ) : null}
 
-        <BookingClient stripePublishableKey={publishableKey} />
+        <BookingClient stripePublishableKey={publishableKey} initialDurationMinutes={initialDurationMinutes} />
       </Stack>
     </AppShell>
   );

@@ -11,6 +11,8 @@ const confirmSchema = z.object({
   paymentIntentId: z.string().min(8)
 });
 
+export const runtime = 'nodejs';
+
 export async function POST(request: Request) {
   const raw = await request.json().catch(() => null);
   const parsed = confirmSchema.safeParse(raw);

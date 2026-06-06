@@ -14,12 +14,14 @@ import { AppShell } from '@/components/AppShell';
 const quickRacePricing = [
   {
     name: 'Quick Race Session',
+    durationMinutes: 15,
     duration: '15 minutes',
     price: '$15',
     description: 'A fast hit of sim racing for first timers, quick rematches, and lunch-break laps.'
   },
   {
     name: 'Quick Race Session',
+    durationMinutes: 30,
     duration: '30 minutes',
     price: '$26',
     description: 'More seat time, more attempts, and a better shot at climbing the VMS hotlap board.'
@@ -127,7 +129,13 @@ export default function PricingPage() {
                         {item.price}
                       </Typography>
                       <Typography color="text.secondary">{item.description}</Typography>
-                      <Button component={Link} href="/login?redirectTo=/dashboard" variant="contained" size="large" sx={{ alignSelf: 'flex-start' }}>
+                      <Button
+                        component={Link}
+                        href={`/book?duration=${item.durationMinutes}`}
+                        variant="contained"
+                        size="large"
+                        sx={{ alignSelf: 'flex-start' }}
+                      >
                         Book a Race
                       </Button>
                     </Stack>

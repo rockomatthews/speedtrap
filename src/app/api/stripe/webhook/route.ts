@@ -2,7 +2,7 @@ import Stripe from 'stripe';
 
 import { confirmRaceBookingFromPaymentIntent } from '@/lib/bookings/confirm';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
-import { getStripeEnv } from '@/lib/stripe/env';
+import { getStripeWebhookEnv } from '@/lib/stripe/env';
 
 import { NextResponse } from 'next/server';
 
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
   const rawBody = await request.text();
 
-  const stripeEnv = getStripeEnv();
+  const stripeEnv = getStripeWebhookEnv();
   const stripe = new Stripe(stripeEnv.STRIPE_SECRET_KEY);
 
   let event: Stripe.Event;

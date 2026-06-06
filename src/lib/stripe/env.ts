@@ -1,11 +1,15 @@
 import { z } from 'zod';
 
 const stripeEnvSchema = z.object({
-  STRIPE_SECRET_KEY: z.string().min(10),
+  STRIPE_SECRET_KEY: z.string().min(10)
+});
+
+const stripeWebhookEnvSchema = stripeEnvSchema.extend({
   STRIPE_WEBHOOK_SECRET: z.string().min(10)
 });
 
 export type StripeEnv = z.infer<typeof stripeEnvSchema>;
+export type StripeWebhookEnv = z.infer<typeof stripeWebhookEnvSchema>;
 
 /**
  * Stripe env validation is intentionally lazy.
@@ -14,8 +18,13 @@ export type StripeEnv = z.infer<typeof stripeEnvSchema>;
  */
 export function getStripeEnv(): StripeEnv {
   return stripeEnvSchema.parse({
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY
+  });
+}
+
+export function getStripeWebhookEnv(): StripeWebhookEnv {
+  return stripeWebhookEnvSchema.parse({
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET
   });
 }
-

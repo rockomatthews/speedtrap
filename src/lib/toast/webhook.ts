@@ -222,7 +222,7 @@ export function localVenueDateTime(input: string | Date, minutesToAdd = 0) {
   const date = typeof input === 'string' ? new Date(input) : input;
   const adjusted = new Date(date.getTime() + minutesToAdd * 60_000);
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: env.VMS_VENUE_TIMEZONE ?? 'America/Denver',
+    timeZone: env.VMS_VENUE_TIMEZONE ?? 'America/New_York',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

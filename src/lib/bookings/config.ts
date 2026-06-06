@@ -1,4 +1,4 @@
-export const BOOKING_TIMEZONE = process.env.VMS_VENUE_TIMEZONE ?? 'America/Denver';
+export const BOOKING_TIMEZONE = process.env.VMS_VENUE_TIMEZONE ?? 'America/New_York';
 export const BOOKING_BUFFER_MINUTES = 5;
 export const BOOKING_HOLD_MINUTES = 10;
 export const BOOKING_SLOT_INTERVAL_MINUTES = 15;

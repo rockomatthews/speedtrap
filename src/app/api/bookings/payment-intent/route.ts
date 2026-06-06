@@ -9,6 +9,8 @@ const paymentSchema = z.object({
   holdId: z.string().uuid()
 });
 
+export const runtime = 'nodejs';
+
 export async function POST(request: Request) {
   const raw = await request.json().catch(() => null);
   const parsed = paymentSchema.safeParse(raw);
@@ -37,7 +39,7 @@ export async function POST(request: Request) {
         currency: hold.currency,
         receipt_email: hold.customer_email,
         description: `${hold.sim_count} x ${hold.duration_minutes} min Speed Trap race session`,
-        automatic_payment_methods: { enabled: true },
+        payment_method_types: ['card'],
         metadata: {
           booking_hold_id: hold.id,
           source: 'speedtrap_online_booking'

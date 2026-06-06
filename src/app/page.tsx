@@ -37,7 +37,7 @@ const mediaTiles = [
 
 const footerLinks = ['How It Works', 'Pricing', 'Race Radar', 'Merch'];
 
-const bookHref = '/book';
+const bookHref = '/book?duration=15';
 
 export default async function HomePage({
   searchParams
