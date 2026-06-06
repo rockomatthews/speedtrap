@@ -378,23 +378,31 @@ export function BookingClient({
                       const isWindowContinuation =
                         durationMinutes === 30 && selectedSlot ? slot.startsAt === addMinutesIso(selectedSlot.startsAt, 15) : false;
                       const isWindowSelected = isStartSelected || isWindowContinuation;
-                      const subtitle = isWindowContinuation ? 'selected window' : slotSubtitle(slot, durationMinutes);
+                      const subtitle = durationMinutes === 30 && isWindowSelected ? 'selected window' : slotSubtitle(slot, durationMinutes);
                       return (
                         <Grid key={slot.startsAt} size={{ xs: 6, sm: 4, md: 3 }}>
                           <Button
                             fullWidth
                             variant={isWindowSelected ? 'contained' : 'outlined'}
-                            disabled={!slot.available || Boolean(clientSecret)}
+                            disabled={!slot.available || Boolean(clientSecret) || isWindowContinuation}
                             onClick={() => setSelectedSlot(slot)}
                             sx={{
                               minHeight: 78,
                               flexDirection: 'column',
-                              borderColor: slot.available ? undefined : 'rgba(255,255,255,0.14)',
+                              borderColor: isWindowSelected ? 'rgba(255,210,0,0.92)' : slot.available ? undefined : 'rgba(255,255,255,0.14)',
+                              bgcolor: isWindowSelected ? 'rgba(255,210,0,0.92)' : undefined,
+                              color: isWindowSelected ? '#050505' : undefined,
                               opacity: isWindowContinuation ? 0.86 : undefined,
                               boxShadow: isWindowSelected ? '0 0 0 1px rgba(255,210,0,0.9), 0 0 24px rgba(255,210,0,0.18)' : undefined,
+                              '&:hover': isWindowSelected
+                                ? {
+                                    bgcolor: '#FFD200',
+                                    borderColor: '#FFD200'
+                                  }
+                                : undefined,
                               '&.Mui-disabled': {
-                                color: isWindowContinuation ? '#fff' : 'rgba(255,255,255,0.45)',
-                                bgcolor: isWindowContinuation ? 'rgba(255,210,0,0.24)' : 'rgba(255,22,31,0.72)',
+                                color: isWindowContinuation ? '#050505' : 'rgba(255,255,255,0.45)',
+                                bgcolor: isWindowContinuation ? 'rgba(255,210,0,0.82)' : 'rgba(255,22,31,0.72)',
                                 borderColor: isWindowContinuation ? 'rgba(255,210,0,0.82)' : 'rgba(255,255,255,0.12)'
                               }
                             }}
