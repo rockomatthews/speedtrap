@@ -55,6 +55,40 @@ function formatSlotTime(time: string) {
   return `${displayHour}:${minute} ${suffix}`;
 }
 
+function addMinutesToSlotTime(time: string, minutesToAdd: number) {
+  const [hourRaw, minuteRaw = '00'] = time.split(':');
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return time;
+  const totalMinutes = (hour * 60 + minute + minutesToAdd) % (24 * 60);
+  const nextHour = Math.floor(totalMinutes / 60);
+  const nextMinute = totalMinutes % 60;
+  return `${String(nextHour).padStart(2, '0')}:${String(nextMinute).padStart(2, '0')}`;
+}
+
+function slotEndTime(slot: Slot, durationMinutes: 15 | 30) {
+  return formatSlotTime(addMinutesToSlotTime(slot.time, durationMinutes));
+}
+
+function slotSubtitle(slot: Slot, durationMinutes: 15 | 30) {
+  if (!slot.available) {
+    if (durationMinutes === 30 && slot.reason !== 'past') return 'Unavailable';
+    return disabledLabel(slot);
+  }
+  if (durationMinutes === 30) return `until ${slotEndTime(slot, durationMinutes)} · ${slot.availableSims} open`;
+  return `${slot.availableSims} open`;
+}
+
+function slotRangeLabel(slot: Slot, durationMinutes: 15 | 30) {
+  const start = formatSlotTime(slot.time);
+  if (durationMinutes === 15) return start;
+  return `${start} - ${slotEndTime(slot, durationMinutes)}`;
+}
+
+function addMinutesIso(value: string, minutesToAdd: number) {
+  return new Date(new Date(value).getTime() + minutesToAdd * 60_000).toISOString();
+}
+
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString('en-US', {
     month: 'short',
@@ -224,6 +258,19 @@ export function BookingClient({
     if (selectedSlot && simCount > selectedSlot.availableSims) setSimCount(Math.max(1, selectedSlot.availableSims));
   }, [selectedSlot, simCount]);
 
+  function resetPaymentState() {
+    setSelectedSlot(null);
+    setClientSecret('');
+    setPaymentIntentId('');
+    setError('');
+  }
+
+  function changeDuration(value: 15 | 30 | null) {
+    if (!value || value === durationMinutes) return;
+    resetPaymentState();
+    setDurationMinutes(value);
+  }
+
   async function startPayment() {
     if (!selectedSlot) return;
     setStartingPayment(true);
@@ -309,7 +356,7 @@ export function BookingClient({
                     exclusive
                     fullWidth
                     disabled={Boolean(clientSecret)}
-                    onChange={(_e, value) => value && setDurationMinutes(value)}
+                    onChange={(_e, value) => changeDuration(value)}
                   >
                     <ToggleButton value={15}>15 min</ToggleButton>
                     <ToggleButton value={30}>30 min</ToggleButton>
@@ -326,26 +373,40 @@ export function BookingClient({
                   <CircularProgress size={24} />
                 ) : availability?.slots.length ? (
                   <Grid container spacing={1}>
-                    {availability.slots.map((slot) => (
-                      <Grid key={slot.startsAt} size={{ xs: 6, sm: 4, md: 3 }}>
-                        <Button
-                          fullWidth
-                          variant={selectedSlot?.startsAt === slot.startsAt ? 'contained' : 'outlined'}
-                          disabled={!slot.available || Boolean(clientSecret)}
-                          onClick={() => setSelectedSlot(slot)}
-                          sx={{
-                            minHeight: 68,
-                            flexDirection: 'column',
-                            borderColor: slot.available ? undefined : 'rgba(255,255,255,0.14)'
-                          }}
-                        >
-                          <span>{formatSlotTime(slot.time)}</span>
-                          <Typography component="span" sx={{ fontSize: 11, opacity: 0.75 }}>
-                            {disabledLabel(slot)}
-                          </Typography>
-                        </Button>
-                      </Grid>
-                    ))}
+                    {availability.slots.map((slot) => {
+                      const isStartSelected = selectedSlot?.startsAt === slot.startsAt;
+                      const isWindowContinuation =
+                        durationMinutes === 30 && selectedSlot ? slot.startsAt === addMinutesIso(selectedSlot.startsAt, 15) : false;
+                      const isWindowSelected = isStartSelected || isWindowContinuation;
+                      const subtitle = isWindowContinuation ? 'selected window' : slotSubtitle(slot, durationMinutes);
+                      return (
+                        <Grid key={slot.startsAt} size={{ xs: 6, sm: 4, md: 3 }}>
+                          <Button
+                            fullWidth
+                            variant={isWindowSelected ? 'contained' : 'outlined'}
+                            disabled={!slot.available || Boolean(clientSecret)}
+                            onClick={() => setSelectedSlot(slot)}
+                            sx={{
+                              minHeight: 78,
+                              flexDirection: 'column',
+                              borderColor: slot.available ? undefined : 'rgba(255,255,255,0.14)',
+                              opacity: isWindowContinuation ? 0.86 : undefined,
+                              boxShadow: isWindowSelected ? '0 0 0 1px rgba(255,210,0,0.9), 0 0 24px rgba(255,210,0,0.18)' : undefined,
+                              '&.Mui-disabled': {
+                                color: isWindowContinuation ? '#fff' : 'rgba(255,255,255,0.45)',
+                                bgcolor: isWindowContinuation ? 'rgba(255,210,0,0.24)' : 'rgba(255,22,31,0.72)',
+                                borderColor: isWindowContinuation ? 'rgba(255,210,0,0.82)' : 'rgba(255,255,255,0.12)'
+                              }
+                            }}
+                          >
+                            <span>{formatSlotTime(slot.time)}</span>
+                            <Typography component="span" sx={{ fontSize: 11, opacity: 0.75, textAlign: 'center' }}>
+                              {subtitle}
+                            </Typography>
+                          </Button>
+                        </Grid>
+                      );
+                    })}
                   </Grid>
                 ) : (
                   <Alert severity="info">No public booking hours are configured for this date yet.</Alert>
@@ -369,7 +430,7 @@ export function BookingClient({
                 <Typography sx={{ fontWeight: 900 }}>
                   {simCount} x {durationMinutes} min race - {money(amountCents)}
                 </Typography>
-                <Typography color="text.secondary">{selectedSlot ? `${date} at ${formatSlotTime(selectedSlot.time)}` : 'Choose a time slot'}</Typography>
+                <Typography color="text.secondary">{selectedSlot ? `${date} at ${slotRangeLabel(selectedSlot, durationMinutes)}` : 'Choose a time slot'}</Typography>
               </Stack>
               <Box>
                 <Typography color="text.secondary" sx={{ mb: 1 }}>
