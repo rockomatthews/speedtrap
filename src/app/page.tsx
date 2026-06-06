@@ -30,9 +30,9 @@ const leaderboardRows = [
 ];
 
 const mediaTiles = [
-  { title: 'Restaurant and bar', objectPosition: '20% 50%' },
-  { title: 'Simulator bays', objectPosition: '52% 50%' },
-  { title: 'Leaderboard nights', objectPosition: '82% 50%' }
+  { title: 'Restaurant and bar', image: '/home/speedtrap-restaurant-bar.jpg', objectPosition: '52% 50%' },
+  { title: 'Simulator bays', image: '/home/speedtrap-lone-sims.jpg', objectPosition: '50% 56%' },
+  { title: 'Group nights', image: '/home/speedtrap-happy-eaters.jpg', objectPosition: '50% 44%' }
 ];
 
 const footerLinks = ['How It Works', 'Pricing', 'Race Radar', 'Merch'];
@@ -76,9 +76,9 @@ export default async function HomePage({
               pt: { xs: 12, md: 16 },
               borderBottom: '1px solid rgba(255,255,255,0.12)',
               backgroundImage:
-                'linear-gradient(90deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.68) 43%, rgba(0,0,0,0.22) 70%, rgba(0,0,0,0.88) 100%), url(/home/venue-collage.webp)',
+                'linear-gradient(90deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.68) 43%, rgba(0,0,0,0.22) 70%, rgba(0,0,0,0.88) 100%), url(/home/speedtrap-hero-bar.jpg)',
               backgroundSize: 'cover',
-              backgroundPosition: 'center',
+              backgroundPosition: 'center 46%',
               '&::before': {
                 content: '""',
                 position: 'absolute',
@@ -321,9 +321,9 @@ export default async function HomePage({
                   minHeight: 420,
                   border: '1px solid rgba(255,255,255,0.12)',
                   backgroundImage:
-                    'linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.74)), url(/home/venue-collage.webp)',
+                    'linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.74)), url(/home/speedtrap-active-sims.jpg)',
                   backgroundSize: 'cover',
-                  backgroundPosition: 'center',
+                  backgroundPosition: 'center 48%',
                   display: 'flex',
                   alignItems: 'flex-end',
                   p: { xs: 2, md: 3 }
@@ -388,8 +388,8 @@ export default async function HomePage({
                         position: 'relative',
                         overflow: 'hidden',
                         border: '1px solid rgba(255,255,255,0.12)',
-                        backgroundImage: 'url(/home/venue-collage.webp)',
-                        backgroundSize: '260%',
+                        backgroundImage: `url(${tile.image})`,
+                        backgroundSize: 'cover',
                         backgroundPosition: tile.objectPosition,
                         transition: 'transform 200ms ease, border-color 200ms ease',
                         '&:hover': { transform: 'translateY(-4px)', borderColor: 'rgba(255,210,0,0.55)' },
