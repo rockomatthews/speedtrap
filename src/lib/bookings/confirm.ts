@@ -48,6 +48,8 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
       profile_id: input.profileId ?? null,
       customer_name: hold.customer_name,
       customer_email: hold.customer_email,
+      customer_phone: hold.customer_phone,
+      sms_consent_at: hold.sms_consent_at,
       duration_minutes: hold.duration_minutes,
       sim_count: hold.sim_count,
       starts_at: hold.starts_at,

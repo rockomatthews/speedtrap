@@ -10,8 +10,10 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
+import Checkbox from '@mui/material/Checkbox';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import Grid from '@mui/material/Grid2';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
@@ -199,6 +201,8 @@ export function BookingClient({
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [smsConsent, setSmsConsent] = useState(false);
   const [clientSecret, setClientSecret] = useState('');
   const [paymentIntentId, setPaymentIntentId] = useState('');
   const [booking, setBooking] = useState<any>(null);
@@ -284,6 +288,8 @@ export function BookingClient({
         body: JSON.stringify({
           customerName,
           customerEmail,
+          customerPhone,
+          smsConsent,
           startsAt: selectedSlot.startsAt,
           durationMinutes,
           simCount
@@ -314,7 +320,9 @@ export function BookingClient({
       simCount >= 1 &&
       simCount <= selectedSlot.availableSims &&
       customerName.trim().length >= 3 &&
-      /[^\s@]+@[^\s@]+\.[^\s@]+/.test(customerEmail)
+      /[^\s@]+@[^\s@]+\.[^\s@]+/.test(customerEmail) &&
+      customerPhone.replace(/\D/g, '').length >= 10 &&
+      smsConsent
   );
 
   if (booking) {
@@ -469,6 +477,19 @@ export function BookingClient({
               </Box>
               <TextField label="Full name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} disabled={Boolean(clientSecret)} fullWidth />
               <TextField label="Email" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} disabled={Boolean(clientSecret)} fullWidth />
+              <TextField
+                label="Mobile phone"
+                type="tel"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                disabled={Boolean(clientSecret)}
+                fullWidth
+                helperText="Used for a 3-minute race reminder text."
+              />
+              <FormControlLabel
+                control={<Checkbox checked={smsConsent} onChange={(e) => setSmsConsent(e.target.checked)} disabled={Boolean(clientSecret)} />}
+                label="Text me a reminder 3 minutes before my race."
+              />
               {!clientSecret ? (
                 <Button
                   variant="contained"

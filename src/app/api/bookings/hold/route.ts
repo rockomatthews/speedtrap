@@ -4,11 +4,14 @@ import { z } from 'zod';
 import { assertSlotAvailable } from '@/lib/bookings/availability';
 import { BOOKING_BUFFER_MINUTES, BOOKING_HOLD_MINUTES, bookingAmountCents } from '@/lib/bookings/config';
 import { addMinutes, utcToVenueDate } from '@/lib/bookings/time';
+import { normalizeUsPhone } from '@/lib/phone';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const holdSchema = z.object({
   customerName: z.string().trim().min(3).max(120),
   customerEmail: z.string().trim().email().max(180).transform((value) => value.toLowerCase()),
+  customerPhone: z.string().trim().min(7).max(40),
+  smsConsent: z.boolean().refine((value) => value === true, 'SMS reminder consent is required.'),
   startsAt: z.string().datetime(),
   durationMinutes: z.number().int().refine((value) => value === 15 || value === 30),
   simCount: z.number().int().min(1).max(4)
@@ -26,6 +29,8 @@ export async function POST(request: Request) {
     const bufferUntil = addMinutes(end, BOOKING_BUFFER_MINUTES);
     const amountCents = bookingAmountCents(parsed.data.durationMinutes, parsed.data.simCount);
     if (!amountCents) return NextResponse.json({ error: 'Unsupported booking product.' }, { status: 400 });
+    const customerPhone = normalizeUsPhone(parsed.data.customerPhone);
+    if (!customerPhone) return NextResponse.json({ error: 'Enter a valid mobile phone number.' }, { status: 400 });
 
     await assertSlotAvailable(supabase, {
       date: utcToVenueDate(start),
@@ -39,6 +44,8 @@ export async function POST(request: Request) {
       .insert({
         customer_name: parsed.data.customerName.replace(/_/g, ' ').replace(/\s+/g, ' ').trim(),
         customer_email: parsed.data.customerEmail,
+        customer_phone: customerPhone,
+        sms_consent_at: new Date().toISOString(),
         duration_minutes: parsed.data.durationMinutes,
         sim_count: parsed.data.simCount,
         starts_at: start.toISOString(),

@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/auth/require-admin';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const RACE_SELECT =
-  'id,source,customer_name,customer_email,duration_minutes,sim_count,starts_at,ends_at,amount_cents,currency,status,vms_booking_id,error,created_at';
+  'id,source,customer_name,customer_email,customer_phone,duration_minutes,sim_count,starts_at,ends_at,amount_cents,currency,status,vms_booking_id,error,reminder_sent_at,reminder_error,created_at';
 const TOAST_SELECT =
   'id,toast_order_guid,customer_name,customer_email,session_quantity,session_minutes,status,vms_booking_id,error,ignored_reason,processed_at,created_at';
 

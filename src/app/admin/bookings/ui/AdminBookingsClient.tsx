@@ -269,6 +269,8 @@ export function AdminBookingsClient() {
                 <Typography>
                   {booking.customer_name} · {booking.sim_count} x {booking.duration_minutes} min ·{' '}
                   {new Date(booking.starts_at).toLocaleString()}
+                  {booking.reminder_sent_at ? ` · reminder sent ${new Date(booking.reminder_sent_at).toLocaleTimeString()}` : ''}
+                  {booking.reminder_error ? ` · reminder error: ${booking.reminder_error}` : ''}
                 </Typography>
                 <Chip size="small" label={booking.status} color={statusColor(booking.status) as any} />
               </Stack>

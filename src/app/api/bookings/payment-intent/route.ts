@@ -42,7 +42,8 @@ export async function POST(request: Request) {
         payment_method_types: ['card'],
         metadata: {
           booking_hold_id: hold.id,
-          source: 'speedtrap_online_booking'
+          source: 'speedtrap_online_booking',
+          sms_reminder: hold.sms_consent_at ? 'true' : 'false'
         }
       });
 
