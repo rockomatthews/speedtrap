@@ -10,6 +10,7 @@ import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Grid from '@mui/material/Grid2';
+import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
@@ -23,6 +24,7 @@ type Rule = {
   opens_at: string;
   closes_at: string;
   active: boolean;
+  max_sims: number;
 };
 
 type Blackout = {
@@ -65,7 +67,7 @@ export function AdminBookingsClient() {
       const bookings = await bookingsRes.json().catch(() => null);
       if (!scheduleRes.ok) throw new Error(schedule?.error ?? 'Failed to load schedule.');
       if (!bookingsRes.ok) throw new Error(bookings?.error ?? 'Failed to load bookings.');
-      setRules(schedule.rules ?? []);
+      setRules((schedule.rules ?? []).map((rule: Rule) => ({ ...rule, max_sims: Number(rule.max_sims ?? 4) })));
       setBlackouts(schedule.blackouts ?? []);
       setRaceBookings(bookings.raceBookings ?? []);
       setToastSessions(bookings.toastSessions ?? []);
@@ -155,21 +157,42 @@ export function AdminBookingsClient() {
               {rules.map((rule, index) => (
                 <Grid key={rule.id ?? `${rule.day_of_week}-${index}`} size={{ xs: 12, md: 6 }}>
                   <Box sx={{ p: 1.5, border: '1px solid rgba(255,255,255,0.1)' }}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography sx={{ fontWeight: 900, width: 44 }}>{DAYS[rule.day_of_week]}</Typography>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                      <Typography sx={{ fontWeight: 900, width: { sm: 44 } }}>{DAYS[rule.day_of_week]}</Typography>
                       <TextField
                         type="time"
                         size="small"
                         value={timeValue(rule.opens_at)}
                         onChange={(e) => updateRule(index, { opens_at: e.target.value })}
+                        sx={{ minWidth: { sm: 132 } }}
                       />
                       <TextField
                         type="time"
                         size="small"
                         value={timeValue(rule.closes_at)}
                         onChange={(e) => updateRule(index, { closes_at: e.target.value })}
+                        sx={{ minWidth: { sm: 132 } }}
                       />
-                      <Switch checked={rule.active} onChange={(e) => updateRule(index, { active: e.target.checked })} />
+                      <TextField
+                        select
+                        label="Sims"
+                        size="small"
+                        value={String(rule.max_sims ?? 4)}
+                        onChange={(e) => updateRule(index, { max_sims: Number(e.target.value) })}
+                        sx={{ minWidth: { sm: 96 } }}
+                      >
+                        {[1, 2, 3, 4].map((count) => (
+                          <MenuItem key={count} value={count}>
+                            {count}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Switch checked={rule.active} onChange={(e) => updateRule(index, { active: e.target.checked })} />
+                        <Typography variant="body2" color="text.secondary">
+                          Open
+                        </Typography>
+                      </Stack>
                     </Stack>
                   </Box>
                 </Grid>

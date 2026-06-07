@@ -9,7 +9,8 @@ const ruleSchema = z.object({
   day_of_week: z.number().int().min(0).max(6),
   opens_at: z.string().regex(/^\d{2}:\d{2}/),
   closes_at: z.string().regex(/^\d{2}:\d{2}/),
-  active: z.boolean()
+  active: z.boolean(),
+  max_sims: z.coerce.number().int().min(1).max(4).default(4)
 });
 
 const scheduleSchema = z.object({
@@ -42,7 +43,8 @@ export async function PATCH(request: Request) {
   const rows = parsed.data.rules.map((rule) => ({
     ...rule,
     opens_at: rule.opens_at.slice(0, 5),
-    closes_at: rule.closes_at.slice(0, 5)
+    closes_at: rule.closes_at.slice(0, 5),
+    max_sims: rule.max_sims
   }));
   const { data, error } = await supabase.from('venue_schedule_rules').upsert(rows).select('*').order('day_of_week').order('opens_at');
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

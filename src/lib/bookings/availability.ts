@@ -20,6 +20,7 @@ export type BookingSlot = {
 type ScheduleRule = {
   opens_at: string;
   closes_at: string;
+  max_sims: number | null;
 };
 
 type Occupancy = {
@@ -65,12 +66,12 @@ export async function getBookingAvailability(
     .eq('active', true)
     .order('display_order', { ascending: true });
   if (resourcesRes.error) throw new Error(resourcesRes.error.message);
-  const totalSims = resourcesRes.data?.length ?? 0;
+  const physicalTotalSims = resourcesRes.data?.length ?? 0;
 
   const dayOfWeek = dayOfWeekForVenueDate(input.date);
   const scheduleRes = await supabase
     .from('venue_schedule_rules')
-    .select('opens_at,closes_at')
+    .select('opens_at,closes_at,max_sims')
     .eq('day_of_week', dayOfWeek)
     .eq('active', true)
     .order('opens_at', { ascending: true });
@@ -103,10 +104,13 @@ export async function getBookingAvailability(
   const holds = ((holdsRes.data ?? []) as Array<Occupancy & { id: string }>).filter((hold) => hold.id !== input.excludeHoldId);
   const now = new Date();
   const slots: BookingSlot[] = [];
+  const dailyPublicSimCap =
+    schedule.length > 0 ? Math.max(...schedule.map((rule) => Math.min(physicalTotalSims, Number(rule.max_sims ?? 4)))) : 0;
 
   for (const rule of schedule) {
     let cursor = localDateTimeToUtc(input.date, timePart(rule.opens_at));
     const close = localDateTimeToUtc(input.date, timePart(rule.closes_at));
+    const publicSimCap = Math.min(physicalTotalSims, Number(rule.max_sims ?? 4));
 
     while (cursor < close) {
       const startsAt = new Date(cursor);
@@ -123,7 +127,7 @@ export async function getBookingAvailability(
       const occupied = [...bookings, ...holds].reduce((count, item) => {
         return overlaps(startsAt, bufferUntil, new Date(item.starts_at), new Date(item.buffer_until)) ? count + Number(item.sim_count ?? 0) : count;
       }, 0);
-      const availableSims = Math.max(0, totalSims - occupied);
+      const availableSims = Math.max(0, publicSimCap - occupied);
       if (reason === 'available' && availableSims < simCount) reason = 'full';
 
       slots.push({
@@ -145,7 +149,7 @@ export async function getBookingAvailability(
     simCount,
     amountCents,
     currency: 'usd',
-    totalSims,
+    totalSims: dailyPublicSimCap,
     slots
   };
 }
