@@ -37,7 +37,19 @@ export async function getAuthedProfile() {
       .select(LEGACY_PROFILE_SELECT)
       .eq('id', user.id)
       .maybeSingle<Omit<Profile, 'username'>>();
-    return { supabase, user, profile: legacyProfile ? withDefaultUsername(legacyProfile) : null } as const;
+    if (legacyProfile) return { supabase, user, profile: withDefaultUsername(legacyProfile) } as const;
+
+    try {
+      const admin = createSupabaseAdminClient();
+      const { data: adminProfile } = await admin
+        .from('profiles')
+        .select(PROFILE_SELECT)
+        .eq('id', user.id)
+        .maybeSingle<Profile>();
+      return { supabase, user, profile: adminProfile ?? null } as const;
+    } catch {
+      return { supabase, user, profile: null } as const;
+    }
   }
 
   if (!profile) {

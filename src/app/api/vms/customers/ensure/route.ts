@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { env } from '@/lib/supabase/env';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 import { VmsClient } from '@/lib/vms/client';
 import { vmsErrorResponse } from '@/lib/vms/route-errors';
@@ -29,7 +30,7 @@ function extractCustomerId(xmlObj: any): number | null {
 
 export async function POST() {
   try {
-    const { supabase, user, profile } = await getAuthedProfile();
+    const { user, profile } = await getAuthedProfile();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const email = user.email;
@@ -77,7 +78,8 @@ export async function POST() {
       return NextResponse.json({ error: 'VMS did not return a customer id for this account.' }, { status: 502 });
     }
 
-    const { error } = await supabase.from('profiles').update({ vms_customer_id: customerId }).eq('id', user.id);
+    const supabaseAdmin = createSupabaseAdminClient();
+    const { error } = await supabaseAdmin.from('profiles').update({ vms_customer_id: customerId }).eq('id', user.id);
     if (error) return NextResponse.json({ error: `VMS customer linked, but profile update failed: ${error.message}` }, { status: 500 });
 
     const customer = await vms.getCustomer(customerId);
