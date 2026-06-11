@@ -7,14 +7,15 @@ export type Profile = {
   username: string | null;
   display_name: string | null;
   phone: string | null;
+  avatar_url: string | null;
   vms_customer_id: number | null;
 };
 
-const PROFILE_SELECT = 'id, role, username, display_name, phone, vms_customer_id';
+const PROFILE_SELECT = 'id, role, username, display_name, phone, avatar_url, vms_customer_id';
 const LEGACY_PROFILE_SELECT = 'id, role, display_name, phone, vms_customer_id';
 
-function withDefaultUsername(profile: Omit<Profile, 'username'> & { username?: string | null }): Profile {
-  return { ...profile, username: profile.username ?? null };
+function withDefaults(profile: Omit<Profile, 'username' | 'avatar_url'> & { username?: string | null; avatar_url?: string | null }): Profile {
+  return { ...profile, username: profile.username ?? null, avatar_url: profile.avatar_url ?? null };
 }
 
 export async function getAuthedProfile() {
@@ -36,8 +37,8 @@ export async function getAuthedProfile() {
       .from('profiles')
       .select(LEGACY_PROFILE_SELECT)
       .eq('id', user.id)
-      .maybeSingle<Omit<Profile, 'username'>>();
-    if (legacyProfile) return { supabase, user, profile: withDefaultUsername(legacyProfile) } as const;
+      .maybeSingle<Omit<Profile, 'username' | 'avatar_url'>>();
+    if (legacyProfile) return { supabase, user, profile: withDefaults(legacyProfile) } as const;
 
     try {
       const admin = createSupabaseAdminClient();

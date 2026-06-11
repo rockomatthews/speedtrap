@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 import { VmsClient } from '@/lib/vms/client';
 import { vmsErrorResponse } from '@/lib/vms/route-errors';
+import { type VmsCustomerProfile } from '@/lib/vms/types';
 
 function normalizeDriverName(value: string) {
   return value.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
@@ -16,6 +18,12 @@ const profileSchema = z.object({
     .pipe(z.string().min(3, 'Driver name must be at least 3 characters.'))
 });
 
+function withDisplayNameFallback(customer: VmsCustomerProfile, displayName?: string | null): VmsCustomerProfile {
+  const fallback = displayName?.trim();
+  if (customer.name.trim().length > 0 || !fallback) return customer;
+  return { ...customer, name: fallback };
+}
+
 export async function GET() {
   const { user, profile } = await getAuthedProfile();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -27,7 +35,10 @@ export async function GET() {
     const vms = VmsClient.fromEnv();
     const customer = await vms.getCustomer(profile.vms_customer_id);
     if (!customer) return NextResponse.json({ error: 'VMS did not return a customer profile.' }, { status: 502 });
-    return NextResponse.json({ customer });
+    return NextResponse.json({
+      customer: withDisplayNameFallback(customer, profile.display_name),
+      profile: { avatarUrl: profile.avatar_url, displayName: profile.display_name }
+    });
   } catch (error) {
     return vmsErrorResponse(error);
   }
@@ -51,16 +62,16 @@ export async function PATCH(request: Request) {
     let customer = await vms.updateCustomer(profile.vms_customer_id, { name: parsed.data.name });
     customer ??= await vms.getCustomer(profile.vms_customer_id);
     if (!customer) return NextResponse.json({ error: 'VMS updated the customer but did not return driver data.' }, { status: 502 });
-    if (customer.name.trim().toLowerCase() !== parsed.data.name.trim().toLowerCase()) {
-      return NextResponse.json(
-        {
-          error: 'VMS returned driver data, but the driver name was not updated.',
-          customer
-        },
-        { status: 502 }
-      );
-    }
-    return NextResponse.json({ customer });
+
+    const supabaseAdmin = createSupabaseAdminClient();
+    await supabaseAdmin.from('profiles').update({ display_name: parsed.data.name }).eq('id', user.id);
+
+    const vmsPersisted = customer.name.trim().toLowerCase() === parsed.data.name.trim().toLowerCase();
+    return NextResponse.json({
+      customer: withDisplayNameFallback(customer, parsed.data.name),
+      profile: { avatarUrl: profile.avatar_url, displayName: parsed.data.name },
+      warning: vmsPersisted ? null : 'VMS accepted the update request but did not persist the driver name yet. The portal is showing your saved site profile name.'
+    });
   } catch (error) {
     return vmsErrorResponse(error);
   }
