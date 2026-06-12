@@ -11,10 +11,13 @@ import Typography from '@mui/material/Typography';
 import { AppShell } from '@/components/AppShell';
 
 const steps = [
-  ['Link your VMS profile', 'Sign in and the portal connects your account to the driver profile VMS uses at the venue.'],
-  ['Join a hotlap challenge', 'Pick an active or upcoming challenge from the portal. Signup is saved on the site; staff-run timing stays in VMS.'],
+  ['Ready to Race?', "Sign up to get started, or sign in if you're already a registered driver."],
+  ['Join a hotlap challenge', 'Once you are signed in, pick an active or upcoming challenge from the portal.'],
   ['Race on the connected sims', 'At the venue, run laps on the rigs assigned to the challenge. Clean laps become eligible for the board.'],
-  ['Track your place', 'Leaderboards pull results from VMS and highlight your row when your customer profile matches the timing data.']
+  [
+    'Track your place',
+    'Run your laps, grab a drink, and watch the board. Our leaderboards sync with the STR timing system to automatically highlight your stats and show the whole room your rank.'
+  ]
 ];
 
 export default function HowItWorksPage() {
@@ -26,7 +29,8 @@ export default function HowItWorksPage() {
             How It Works
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 760 }}>
-            Speed Trap is built around venue racing: sign up online, race in person, and let VMS timing settle the leaderboard.
+            Speed Trap is built for live venue racing. Just sign up online, step into the cockpit in person, and let STR timing rank you on
+            the leaderboard.
           </Typography>
         </Box>
 
@@ -58,8 +62,8 @@ export default function HowItWorksPage() {
                   What counts as a leaderboard lap?
                 </Typography>
                 <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 760 }}>
-                  VMS records the lap data from the connected sims. Speed Trap displays those results, including every eligible driver VMS
-                  returns, so the leaderboard is tied to actual venue racing rather than manual entry.
+                  Real sims. Real timing. No manual entry. The STR system tracks your lap data live from the cockpit and shoots it straight
+                  to the Speed Trap leaderboard. What you see on the screen is exactly what went down on the track.
                 </Typography>
               </Box>
               <Button component={Link} href="/login?redirectTo=/dashboard" variant="contained" sx={{ alignSelf: { md: 'center' } }}>

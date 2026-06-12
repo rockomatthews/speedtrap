@@ -18,7 +18,7 @@ const quickRacePricing = [
 ];
 
 const experienceHighlights = [
-  { title: 'Four connected sims', body: 'Venue rigs feed VMS timing so every clean lap has a real shot at the board.' },
+  { title: 'Four connected sims', body: 'Rigs feed STR timing so every clean lap has a real shot at the board.' },
   { title: 'Restaurant energy', body: 'Grab food and drinks, rotate drivers, and turn one session into a night out.' },
   { title: 'Live challenge culture', body: 'Join a standing hotlap, race in person, and watch the leaderboard move.' }
 ];
@@ -79,11 +79,13 @@ export default async function HomePage({
                 'linear-gradient(90deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.68) 43%, rgba(0,0,0,0.22) 70%, rgba(0,0,0,0.88) 100%), url(/home/speedtrap-hero-bar.jpg)',
               backgroundSize: 'cover',
               backgroundPosition: 'center 46%',
+              isolation: 'isolate',
               '&::before': {
                 content: '""',
                 position: 'absolute',
                 inset: 0,
                 pointerEvents: 'none',
+                zIndex: 1,
                 opacity: 0.18,
                 backgroundImage:
                   'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)',
@@ -94,11 +96,40 @@ export default async function HomePage({
                 position: 'absolute',
                 inset: 0,
                 pointerEvents: 'none',
+                zIndex: 1,
                 background:
                   'repeating-linear-gradient(180deg, rgba(255,255,255,0.055) 0px, rgba(255,255,255,0.055) 1px, transparent 2px, transparent 7px)'
               }
             }}
           >
+            <Box
+              component="video"
+              src="/home/smallerTEMPHERO.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+              aria-hidden
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: 'center',
+                zIndex: 0
+              }}
+            />
+            <Box
+              aria-hidden
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 1,
+                background:
+                  'linear-gradient(90deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.68) 43%, rgba(0,0,0,0.22) 70%, rgba(0,0,0,0.88) 100%)'
+              }}
+            />
             <Box
               aria-hidden
               sx={{
@@ -107,7 +138,7 @@ export default async function HomePage({
                 bottom: { xs: 24, md: 0 },
                 width: { xs: 300, md: 560 },
                 height: { xs: 120, md: 220 },
-                zIndex: 0,
+                zIndex: 2,
                 transform: 'skewX(-24deg) rotate(-10deg)',
                 background:
                   'linear-gradient(90deg, transparent 0 18%, #FFD200 18% 34%, transparent 34% 42%, #FF161F 42% 58%, transparent 58% 100%)',
@@ -115,14 +146,14 @@ export default async function HomePage({
                 filter: 'drop-shadow(0 0 24px rgba(255,22,31,0.36))'
               }}
             />
-            <Box sx={{ position: 'relative', zIndex: 1, width: 'min(1180px, 100%)', mx: 'auto' }}>
+            <Box sx={{ position: 'relative', zIndex: 3, width: 'min(1180px, 100%)', mx: 'auto' }}>
               <Grid container spacing={{ xs: 4, md: 6 }} alignItems="end">
                 <Grid size={{ xs: 12, md: 7 }}>
                   <Stack spacing={3}>
                     <Stack direction="row" spacing={1} flexWrap="wrap">
                       <Chip label="Sim racing restaurant" color="primary" />
-                      <Chip label="VMS live leaderboards" variant="outlined" />
-                      <Chip label="Four connected rigs" variant="outlined" />
+                      <Chip label="Live leaderboard" color="primary" />
+                      <Chip label="Four connected rigs" color="primary" />
                     </Stack>
                     <Typography
                       component="h1"
@@ -151,7 +182,7 @@ export default async function HomePage({
                       color="text.secondary"
                       sx={{ maxWidth: 650, lineHeight: 1.45, fontSize: { xs: 19, md: 24 } }}
                     >
-                      Sim racing sessions, drinks, and live VMS leaderboards in one night out.
+                      Sim racing sessions, drinks, and live leaderboards in one night out.
                     </Typography>
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} sx={{ maxWidth: { xs: 360, sm: 'none' } }}>
                       <Button component={Link} href={bookHref} variant="contained" size="large">
@@ -198,7 +229,7 @@ export default async function HomePage({
                         </Stack>
                       ))}
                       <Typography color="text.secondary" sx={{ fontSize: 14 }}>
-                        Sign in, race in person, and let VMS score the clean laps.
+                        Sign in, race in person, and let STR score the clean laps.
                       </Typography>
                     </Stack>
                   </Box>
@@ -347,8 +378,8 @@ export default async function HomePage({
                     Hotlap nights are built for repeat attempts.
                   </Typography>
                   <Typography color="text.secondary" sx={{ mt: 1.5 }}>
-                    Link your VMS driver profile, join the active challenge, then run laps on the connected rigs. Your best eligible laps come
-                    from VMS and your place shows on the leaderboard.
+                    Create your STR driver profile by clicking "Sign Up", join the active challenge, and start running laps on the connected
+                    rigs. Track the leaderboard to see where your best eligible lap ranks you against the competition!
                   </Typography>
                 </Box>
                 <Box sx={{ border: '1px solid rgba(255,255,255,0.12)', bgcolor: 'rgba(255,255,255,0.045)', p: 2 }}>
@@ -470,7 +501,7 @@ export default async function HomePage({
               <Grid size={{ xs: 12, md: 4 }}>
                 <Stack spacing={1.5}>
                   <Box component="img" src="/brand/logo.svg" alt="Speed Trap Racing" sx={{ width: 220, maxWidth: '100%' }} />
-                  <Typography color="text.secondary">Sim racing sessions, food, drinks, and VMS leaderboard nights.</Typography>
+                  <Typography color="text.secondary">Sim racing sessions, food, drinks, and leaderboard nights.</Typography>
                 </Stack>
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
@@ -481,6 +512,7 @@ export default async function HomePage({
                   <Typography>Speed Trap Racing</Typography>
                   <Typography color="text.secondary">14718 Detroit Ave. Lakewood, OH 44107</Typography>
                   <Typography color="text.secondary">216-712-4039</Typography>
+                  <Typography color="text.secondary">Hours: 4 PM-11 PM</Typography>
                 </Stack>
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>

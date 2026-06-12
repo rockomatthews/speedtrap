@@ -24,7 +24,7 @@ const quickRacePricing = [
     durationMinutes: 30,
     duration: '30 minutes',
     price: '$26',
-    description: 'More seat time, more attempts, and a better shot at climbing the VMS hotlap board.'
+    description: 'More seat time, more attempts, and a better shot at climbing the STR leaderboard.'
   }
 ];
 
@@ -88,7 +88,7 @@ export default function PricingPage() {
                 Pick a session. Chase a faster lap.
               </Typography>
               <Typography color="text.secondary" sx={{ maxWidth: 680, fontSize: { xs: 18, md: 22 }, lineHeight: 1.45 }}>
-                Simple quick-race pricing for restaurant nights, friend groups, and VMS leaderboard runs.
+                Pick your pace with 2 simple pricing options, tailored for casual group nights or official leaderboard title shots.
               </Typography>
             </Stack>
           </Box>
@@ -164,8 +164,7 @@ export default function PricingPage() {
                     Group racing is coming soon.
                   </Typography>
                   <Typography color="text.secondary" sx={{ mt: 1.5, maxWidth: 680 }}>
-                    Private events, group packages, and gift cards are still being finalized. For now, quick-race sessions are the public
-                    pricing that should appear on the site.
+                    Check back soon for private event bookings, group rates, and gift cards!
                   </Typography>
                 </Box>
                 <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 3 }}>

@@ -43,8 +43,7 @@ export default async function BookPage({
 
         {!BOOKING_COMING_SOON && !publishableKey ? (
           <Alert severity="warning">
-            Stripe embedded payments need `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in Vercel set to a real publishable key that starts with
-            `pk_live_` or `pk_test_`.
+            Online checkout is being configured. Please check back soon to reserve your race time.
           </Alert>
         ) : null}
 
