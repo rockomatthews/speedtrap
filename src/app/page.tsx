@@ -71,7 +71,6 @@ export default async function HomePage({
               position: 'relative',
               display: 'grid',
               alignItems: 'end',
-              px: { xs: 2, sm: 3, md: 6 },
               pb: { xs: 5, md: 7 },
               pt: { xs: 12, md: 16 },
               borderBottom: '1px solid rgba(255,255,255,0.12)',
@@ -146,7 +145,7 @@ export default async function HomePage({
                 filter: 'drop-shadow(0 0 24px rgba(255,22,31,0.36))'
               }}
             />
-            <Box sx={{ position: 'relative', zIndex: 3, width: 'min(1180px, 100%)', mx: 'auto' }}>
+            <Box sx={{ position: 'relative', zIndex: 3, width: 'min(1180px, 100%)', mx: 'auto', px: { xs: 2, sm: 3, md: 6 } }}>
               <Grid container spacing={{ xs: 4, md: 6 }} alignItems="end">
                 <Grid size={{ xs: 12, md: 7 }}>
                   <Stack spacing={3}>
