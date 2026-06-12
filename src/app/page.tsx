@@ -6,11 +6,12 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
+import Container from '@mui/material/Container';
 import Grid from '@mui/material/Grid2';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
-import { AppShell } from '@/components/AppShell';
+import { NavBar } from '@/components/NavBar';
 
 const quickRacePricing = [
   { label: 'Quick Race', minutes: '15 min', price: '$15', note: 'Fast laps, first timers, and quick rematches.' },
@@ -59,20 +60,11 @@ export default async function HomePage({
           'linear-gradient(180deg, #050505 0%, #0A0A0A 46%, #050505 100%), radial-gradient(900px 460px at 82% 12%, rgba(255,22,31,0.28), transparent 62%)'
       }}
     >
-      <AppShell disableGutters containerSx={{ px: '0 !important', pt: '0 !important' }}>
-        <Stack
-          spacing={{ xs: 6, md: 9 }}
-          sx={{
-            '& > section:not(:first-of-type)': {
-              px: { xs: 2, sm: 3, md: 0 }
-            }
-          }}
-        >
+      <NavBar />
           <Box
             component="section"
             sx={{
-              width: '100vw',
-              ml: 'calc(50% - 50vw)',
+              width: '100%',
               minHeight: { xs: 'calc(100svh - 64px)', md: 'calc(100svh - 72px)' },
               position: 'relative',
               display: 'grid',
@@ -243,6 +235,8 @@ export default async function HomePage({
             </Box>
           </Box>
 
+      <Container sx={{ py: 3 }}>
+        <Stack spacing={{ xs: 6, md: 9 }}>
           <Box component="section">
             <Grid container spacing={2}>
               {experienceHighlights.map((item) => (
@@ -548,7 +542,7 @@ export default async function HomePage({
             </Grid>
           </Box>
         </Stack>
-      </AppShell>
+      </Container>
     </Box>
   );
 }
