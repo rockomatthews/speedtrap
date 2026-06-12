@@ -59,14 +59,20 @@ export default async function HomePage({
           'linear-gradient(180deg, #050505 0%, #0A0A0A 46%, #050505 100%), radial-gradient(900px 460px at 82% 12%, rgba(255,22,31,0.28), transparent 62%)'
       }}
     >
-      <AppShell>
-        <Stack spacing={{ xs: 6, md: 9 }}>
+      <AppShell disableGutters containerSx={{ px: '0 !important', pt: '0 !important' }}>
+        <Stack
+          spacing={{ xs: 6, md: 9 }}
+          sx={{
+            '& > section:not(:first-of-type)': {
+              px: { xs: 2, sm: 3, md: 0 }
+            }
+          }}
+        >
           <Box
             component="section"
             sx={{
               width: '100vw',
               ml: 'calc(50% - 50vw)',
-              mt: -3,
               minHeight: { xs: 'calc(100svh - 64px)', md: 'calc(100svh - 72px)' },
               position: 'relative',
               display: 'grid',
