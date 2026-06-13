@@ -46,6 +46,7 @@ export function NavBar() {
     { href: '/pricing', label: 'Pricing' },
     { href: '/race-radar', label: 'Race Radar' },
     ...(isAuthed ? [{ href: '/leaderboards', label: 'Leaderboards' }] : []),
+    { href: '/menu', label: 'Menu' },
     { href: '/merch', label: 'Merch' }
   ];
 

@@ -36,7 +36,7 @@ const mediaTiles = [
   { title: 'Group nights', image: '/home/speedtrap-happy-eaters.jpg', objectPosition: '50% 44%' }
 ];
 
-const footerLinks = ['How It Works', 'Pricing', 'Race Radar', 'Merch'];
+const footerLinks = ['How It Works', 'Pricing', 'Race Radar', 'Menu', 'Merch'];
 
 const bookHref = '/book?duration=15';
 
