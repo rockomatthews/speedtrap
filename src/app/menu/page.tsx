@@ -2,7 +2,6 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
-import Grid from '@mui/material/Grid2';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
@@ -174,13 +173,12 @@ export default function MenuPage() {
             </Typography>
           </Box>
 
-          <Grid container spacing={3} alignItems="flex-start">
+          <Box sx={{ columnCount: { xs: 1, md: 2 }, columnGap: 3 }}>
             {menuSections.map((section) => (
-              <Grid key={section.title} size={{ xs: 12, md: 6 }}>
+              <Box key={section.title} sx={{ breakInside: 'avoid', mb: 3 }}>
                 <Card
                   variant="outlined"
                   sx={{
-                    height: '100%',
                     bgcolor: '#FFD200',
                     color: '#050505',
                     borderColor: 'rgba(255,210,0,0.72)',
@@ -226,9 +224,9 @@ export default function MenuPage() {
                     </Stack>
                   </CardContent>
                 </Card>
-              </Grid>
+              </Box>
             ))}
-          </Grid>
+          </Box>
         </Stack>
       </AppShell>
     </Box>
