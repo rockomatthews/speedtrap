@@ -12,6 +12,7 @@ import {
   type VmsHotlapEventInput,
   type VmsHotlapEventSummary,
   type VmsHotlapLeaderboardRow,
+  type VmsHotlapSubEventInput,
   type VmsHotlapSubEvent,
   type VmsVehicle,
   type VmsVenue
@@ -323,6 +324,7 @@ function buildHotlapEventXml(input: VmsHotlapEventInput) {
     sub_event: input.subEvents.map((subEvent) => {
       const out: Record<string, unknown> = { name: subEvent.name };
       if (subEvent.id) out.sub_event_id = subEvent.id;
+      if (subEvent.circuitId) out.circuit_id = subEvent.circuitId;
       if (subEvent.vehicleIds?.length) out.vehicles = { vehicle_id: subEvent.vehicleIds };
       if (subEvent.classIds?.length) out.classes = { class_id: subEvent.classIds };
       return out;
@@ -346,6 +348,19 @@ function buildHotlapEventUpdateXml(input: VmsHotlapEventInput) {
   if (input.qualificationPercentage) value.qualification_percentage = input.qualificationPercentage;
 
   return buildXml('hotlap_event', value);
+}
+
+function buildHotlapSubEventUpdateXml(subEvents: VmsHotlapSubEventInput[]) {
+  return buildXml('hotlap_event', {
+    sub_event: subEvents.map((subEvent) => {
+      const out: Record<string, unknown> = { sub_event_id: subEvent.id };
+      if (subEvent.name) out.name = subEvent.name;
+      if (subEvent.circuitId) out.circuit_id = subEvent.circuitId;
+      if (subEvent.vehicleIds) out.vehicles = { vehicle_id: subEvent.vehicleIds };
+      if (subEvent.classIds) out.classes = { class_id: subEvent.classIds };
+      return out;
+    })
+  });
 }
 
 export class VmsClient {
@@ -546,6 +561,25 @@ export class VmsClient {
     const event = normalizeHotlapSummary(eventRaw);
     const subEvents = asArray(root?.sub_event).map(normalizeSubEvent).filter(Boolean) as VmsHotlapSubEvent[];
     return { event, subEvents };
+  }
+
+  async updateHotlapSubEvents(id: number, subEvents: VmsHotlapSubEventInput[]): Promise<VmsHotlapEventDetail> {
+    const validSubEvents = subEvents.filter((subEvent) => subEvent.id);
+    if (validSubEvents.length === 0) {
+      throw new VmsError('At least one VMS sub-event id is required to update hotlap sub-events.', 400);
+    }
+
+    const updatedXml = await this.request(`/hotlap_events/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'text/xml;charset=UTF-8' },
+      body: buildHotlapSubEventUpdateXml(validSubEvents)
+    });
+    const obj = parseXml<any>(updatedXml);
+    const root = obj?.hotlap_events ?? obj?.hotlap_event ?? obj;
+    const eventRaw = Array.isArray(root?.hotlap_event) ? root.hotlap_event[0] : root?.hotlap_event ?? root;
+    const event = normalizeHotlapSummary(eventRaw);
+    const updatedSubEvents = asArray(root?.sub_event).map(normalizeSubEvent).filter(Boolean) as VmsHotlapSubEvent[];
+    return { event, subEvents: updatedSubEvents };
   }
 
   async deleteHotlapEvent(id: number): Promise<void> {

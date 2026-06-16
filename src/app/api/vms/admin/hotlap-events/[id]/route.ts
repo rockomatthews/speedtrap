@@ -8,7 +8,9 @@ import { VmsClient } from '@/lib/vms/client';
 import { vmsErrorResponse } from '@/lib/vms/route-errors';
 
 const subEventSchema = z.object({
+  id: z.coerce.number().int().positive().nullable().optional(),
   name: z.string().trim().min(3),
+  circuitId: z.coerce.number().int().positive().nullable().optional(),
   vehicleIds: z.array(z.coerce.number().int().positive()).optional().default([]),
   classIds: z.array(z.coerce.number().int().positive()).optional().default([])
 });
@@ -85,7 +87,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const venueIds = input.venueIds?.length ? input.venueIds : [env.VMS_HOME_VENUE_ID ?? 1];
 
   try {
-    const detail = await VmsClient.fromEnv().updateHotlapEvent(localEvent.vms_hotlap_event_id, {
+    const vms = VmsClient.fromEnv();
+    let detail = await vms.updateHotlapEvent(localEvent.vms_hotlap_event_id, {
       name: input.name,
       startDate,
       endDate,
@@ -94,6 +97,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       qualificationPercentage: input.qualificationPercentage ?? null,
       subEvents: input.subEvents
     });
+
+    const existingSubEvents = input.subEvents.filter((subEvent) => subEvent.id);
+    if (existingSubEvents.length > 0) {
+      detail = await vms.updateHotlapSubEvents(
+        localEvent.vms_hotlap_event_id,
+        existingSubEvents.map((subEvent) => ({
+          id: subEvent.id,
+          name: subEvent.name,
+          circuitId: subEvent.circuitId ?? input.circuitId,
+          vehicleIds: subEvent.vehicleIds,
+          classIds: subEvent.classIds
+        }))
+      );
+    }
 
     const supabaseAdmin = createSupabaseAdminClient();
     const { data, error } = await supabaseAdmin

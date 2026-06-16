@@ -127,6 +127,7 @@ export type VmsBookingInput = {
 export type VmsHotlapSubEventInput = {
   id?: number | null;
   name: string;
+  circuitId?: number | null;
   vehicleIds?: number[];
   classIds?: number[];
 };
