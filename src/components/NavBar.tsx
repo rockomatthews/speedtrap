@@ -42,7 +42,6 @@ export function NavBar() {
   }, [supabase.auth]);
 
   const navItems = [
-    { href: '/how-it-works', label: 'How It Works' },
     { href: '/pricing', label: 'Pricing' },
     { href: '/race-radar', label: 'Race Radar' },
     ...(isAuthed ? [{ href: '/leaderboards', label: 'Leaderboards' }] : []),

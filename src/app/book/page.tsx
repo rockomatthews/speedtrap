@@ -37,7 +37,7 @@ export default async function BookPage({
             Book a Race
           </Typography>
           <Typography color="text.secondary">
-            Online booking is being tuned up and will be available soon.
+            Online booking coming soon. For now: walk-in and race!
           </Typography>
         </Stack>
 
@@ -103,7 +103,7 @@ export default async function BookPage({
                   Coming Soon
                 </Typography>
                 <Typography color="text.secondary" sx={{ maxWidth: 560, fontSize: { xs: 18, md: 22 } }}>
-                  The online race calendar is almost ready. Check back soon to reserve your sim time.
+                  Online booking coming soon. For now: walk-in and race!
                 </Typography>
               </Stack>
             </Box>
