@@ -12,7 +12,9 @@ import { env } from '@/lib/supabase/env';
 
 export default async function AdminRaceRadarPage() {
   const { user, role, serviceRoleAvailable } = await getCurrentUserAndAdminRole();
-  const contentfulConfigured = Boolean(env.CONTENTFUL_SPACE_ID && env.CONTENTFUL_DELIVERY_TOKEN);
+  const contentfulConfigured = Boolean(
+    env.CONTENTFUL_SPACE_ID && (env.CONTENTFUL_DELIVERY_TOKEN || env.CONTENTFUL_ACCESS_TOKEN)
+  );
 
   return (
     <AppShell>

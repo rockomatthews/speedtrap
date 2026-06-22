@@ -12,7 +12,7 @@ export async function GET(_request: Request, context: { params: Promise<{ slug: 
     const contentfulPost = await getContentfulRaceRadarPost(slug);
     if (contentfulPost !== undefined) {
       if (!contentfulPost) return NextResponse.json({ error: 'Post not found.' }, { status: 404 });
-      return NextResponse.json({ post: contentfulPost });
+      return NextResponse.json({ post: contentfulPost, source: 'contentful' });
     }
   } catch (error) {
     return NextResponse.json(
@@ -31,5 +31,5 @@ export async function GET(_request: Request, context: { params: Promise<{ slug: 
 
   if (error) return NextResponse.json({ error: `Failed to load post: ${error.message}` }, { status: 500 });
   if (!data) return NextResponse.json({ error: 'Post not found.' }, { status: 404 });
-  return NextResponse.json({ post: data });
+  return NextResponse.json({ post: data, source: 'supabase' });
 }

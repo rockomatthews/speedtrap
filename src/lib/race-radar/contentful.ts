@@ -9,13 +9,14 @@ type RaceRadarSkeleton = EntrySkeletonType<Record<string, unknown>, string>;
 
 const defaults = {
   environment: 'master',
-  contentType: ['blogPost', 'blog', 'post', 'article'],
+  contentType: ['nightlyEvent', 'blogPost', 'blog', 'post', 'article'],
   title: ['title', 'postTitle', 'headline', 'name'],
   slug: ['slug', 'urlSlug', 'path'],
-  excerpt: ['excerpt', 'summary', 'description', 'subtitle', 'subheading'],
+  excerpt: ['excerpt', 'summary', 'subtitle', 'subheading'],
   coverImage: ['coverImage', 'featuredImage', 'heroImage', 'mainImage', 'image', 'thumbnail'],
-  body: ['body', 'content', 'postBody', 'articleBody', 'copy', 'text'],
-  tags: ['tags', 'categories', 'category']
+  body: ['description', 'body', 'content', 'postBody', 'articleBody', 'copy', 'text'],
+  tags: ['tags', 'categories', 'category'],
+  date: ['date', 'publishedAt', 'publishDate', 'eventDate']
 };
 
 type ContentfulField = {
@@ -39,20 +40,26 @@ type ResolvedModel = {
   coverImage: string | null;
   body: string | null;
   tags: string | null;
+  date: string | null;
 };
 
+function deliveryToken() {
+  return env.CONTENTFUL_DELIVERY_TOKEN ?? env.CONTENTFUL_ACCESS_TOKEN;
+}
+
 function contentfulConfigured() {
-  return Boolean(env.CONTENTFUL_SPACE_ID && env.CONTENTFUL_DELIVERY_TOKEN);
+  return Boolean(env.CONTENTFUL_SPACE_ID && deliveryToken());
 }
 
 function client() {
-  if (!env.CONTENTFUL_SPACE_ID || !env.CONTENTFUL_DELIVERY_TOKEN) {
+  const accessToken = deliveryToken();
+  if (!env.CONTENTFUL_SPACE_ID || !accessToken) {
     throw new Error('Contentful is not configured.');
   }
 
   return createClient({
     space: env.CONTENTFUL_SPACE_ID,
-    accessToken: env.CONTENTFUL_DELIVERY_TOKEN,
+    accessToken,
     environment: env.CONTENTFUL_ENVIRONMENT ?? defaults.environment
   });
 }
@@ -111,7 +118,8 @@ async function resolveModel(): Promise<ResolvedModel> {
       excerpt: findField(contentType.fields, env.CONTENTFUL_FIELD_EXCERPT, defaults.excerpt),
       coverImage: findField(contentType.fields, env.CONTENTFUL_FIELD_COVER_IMAGE, defaults.coverImage),
       body: findField(contentType.fields, env.CONTENTFUL_FIELD_BODY, defaults.body),
-      tags: findField(contentType.fields, env.CONTENTFUL_FIELD_TAGS, defaults.tags)
+      tags: findField(contentType.fields, env.CONTENTFUL_FIELD_TAGS, defaults.tags),
+      date: findField(contentType.fields, env.CONTENTFUL_FIELD_DATE, defaults.date)
     };
   })();
 
@@ -207,7 +215,7 @@ function normalizeEntry(entry: Entry<RaceRadarSkeleton>, ids: ResolvedModel): Ra
     body_json: bodyValue ?? null,
     tags: tags(ids.tags ? fields[ids.tags] : null),
     published: true,
-    published_at: entry.sys.updatedAt ?? entry.sys.createdAt ?? null,
+    published_at: (ids.date ? text(fields[ids.date]) : '') || entry.sys.updatedAt || entry.sys.createdAt || null,
     created_by: null,
     created_at: entry.sys.createdAt ?? entry.sys.updatedAt ?? new Date(0).toISOString(),
     updated_at: entry.sys.updatedAt ?? entry.sys.createdAt ?? new Date(0).toISOString()

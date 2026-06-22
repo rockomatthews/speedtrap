@@ -9,7 +9,7 @@ const POST_SELECT =
 export async function GET() {
   try {
     const contentfulPosts = await listContentfulRaceRadarPosts();
-    if (contentfulPosts) return NextResponse.json({ posts: contentfulPosts });
+    if (contentfulPosts) return NextResponse.json({ posts: contentfulPosts, source: 'contentful' });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? `Failed to load Contentful Race Radar posts: ${error.message}` : 'Failed to load Contentful posts.' },
@@ -31,5 +31,5 @@ export async function GET() {
     );
   }
 
-  return NextResponse.json({ posts: data ?? [] });
+  return NextResponse.json({ posts: data ?? [], source: 'supabase' });
 }
