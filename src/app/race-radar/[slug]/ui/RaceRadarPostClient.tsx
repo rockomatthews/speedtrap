@@ -11,6 +11,13 @@ import Typography from '@mui/material/Typography';
 
 import { type RaceRadarPost } from '@/lib/race-radar/types';
 
+function publishedDate(post: RaceRadarPost) {
+  const raw = post.published_at ?? post.created_at;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(date);
+}
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, '&amp;')
@@ -54,43 +61,71 @@ export function RaceRadarPostClient({ slug }: { slug: string }) {
   if (loading || !post) return <CircularProgress size={22} />;
 
   return (
-    <Stack spacing={2} sx={{ maxWidth: 900 }}>
+    <Stack spacing={{ xs: 3, md: 4 }}>
+      <Stack spacing={2} sx={{ maxWidth: 980 }}>
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center">
+          <Typography color="primary.main" sx={{ fontSize: 14, fontWeight: 950, textTransform: 'uppercase' }}>
+            Race Radar
+          </Typography>
+          <Typography color="text.secondary" aria-hidden="true">
+            /
+          </Typography>
+          <Typography color="text.secondary">{publishedDate(post)}</Typography>
+        </Stack>
+        <Typography
+          variant="h1"
+          sx={{
+            fontSize: { xs: 44, sm: 62, md: 78 },
+            fontWeight: 950,
+            lineHeight: 0.94,
+            maxWidth: 1050
+          }}
+        >
+          {post.title}
+        </Typography>
+        {post.excerpt ? (
+          <Typography color="text.secondary" sx={{ maxWidth: 820, fontSize: { xs: 19, md: 24 }, lineHeight: 1.45 }}>
+            {post.excerpt}
+          </Typography>
+        ) : null}
+        {post.tags.length ? (
+          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+            {post.tags.map((tag) => (
+              <Chip key={tag} size="small" label={tag} variant="outlined" />
+            ))}
+          </Stack>
+        ) : null}
+      </Stack>
+
       {post.cover_image_url ? (
         <Box
           component="img"
           src={post.cover_image_url}
-          alt=""
-          sx={{ width: '100%', maxHeight: 420, objectFit: 'cover', borderRadius: 1 }}
+          alt={post.title}
+          sx={{ width: '100%', maxHeight: 620, aspectRatio: { xs: '4 / 3', md: '16 / 8' }, objectFit: 'cover' }}
         />
       ) : null}
-      <Stack spacing={1}>
-        <Typography variant="h3" sx={{ fontWeight: 950 }}>
-          {post.title}
-        </Typography>
-        <Typography color="text.secondary">{post.excerpt}</Typography>
-        <Stack direction="row" spacing={0.75} flexWrap="wrap">
-          {post.tags.map((tag) => (
-            <Chip key={tag} size="small" label={tag} variant="outlined" />
-          ))}
-        </Stack>
-      </Stack>
       <Box
         className="race-radar-post-body"
         sx={{
+          width: '100%',
+          maxWidth: 820,
+          mx: 'auto',
           color: 'text.secondary',
-          fontSize: 18,
-          lineHeight: 1.75,
+          fontSize: { xs: 17, md: 19 },
+          lineHeight: 1.8,
           '& h1, & h2, & h3, & h4': {
             color: 'text.primary',
             fontWeight: 950,
-            lineHeight: 1.08,
-            mt: 3,
-            mb: 1
+            lineHeight: 1.04,
+            mt: 4,
+            mb: 1.5
           },
-          '& h1': { fontSize: { xs: 34, md: 46 } },
-          '& h2': { fontSize: { xs: 28, md: 36 } },
-          '& h3': { fontSize: { xs: 22, md: 28 } },
-          '& p': { mt: 0, mb: 2 },
+          '& h1': { fontSize: { xs: 36, md: 50 } },
+          '& h2': { fontSize: { xs: 30, md: 40 } },
+          '& h3': { fontSize: { xs: 24, md: 31 } },
+          '& h4': { fontSize: { xs: 21, md: 25 } },
+          '& p': { mt: 0, mb: 2.5 },
           '& ul, & ol': { pl: 3, mb: 2 },
           '& li': { mb: 0.75 },
           '& a': { color: 'primary.main', fontWeight: 800 },
@@ -99,16 +134,32 @@ export function RaceRadarPostClient({ slug }: { slug: string }) {
             width: '100%',
             maxWidth: '100%',
             height: 'auto',
-            borderRadius: 1,
-            my: 2
+            my: 3
           },
           '& blockquote': {
             borderLeft: '4px solid',
             borderColor: 'primary.main',
             m: 0,
-            my: 2,
-            pl: 2,
-            color: 'text.primary'
+            my: 3,
+            pl: 2.5,
+            color: 'text.primary',
+            fontSize: { xs: 21, md: 25 },
+            fontWeight: 800
+          },
+          '& hr': {
+            border: 0,
+            borderTop: '1px solid rgba(255,255,255,0.16)',
+            my: 4
+          },
+          '& table': {
+            width: '100%',
+            borderCollapse: 'collapse',
+            my: 3
+          },
+          '& th, & td': {
+            borderBottom: '1px solid rgba(255,255,255,0.14)',
+            p: 1.25,
+            textAlign: 'left'
           }
         }}
         dangerouslySetInnerHTML={{ __html: bodyToHtml(post.body) }}
