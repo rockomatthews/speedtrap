@@ -36,6 +36,12 @@ type Availability = {
   slots: Slot[];
 };
 
+type MembershipSummary = {
+  status: 'inactive' | 'active-start' | 'active';
+  freeRaceAvailable: boolean;
+  discountPercent: number;
+};
+
 function todayDate() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -46,6 +52,22 @@ function money(cents: number) {
 
 function bookingPrice(durationMinutes: number, simCount: number) {
   return (durationMinutes === 30 ? 2600 : 1500) * simCount;
+}
+
+function memberBookingPrice(durationMinutes: number, simCount: number, membership: MembershipSummary | null) {
+  const unitCents = durationMinutes === 30 ? 2600 : 1500;
+  const base = unitCents * simCount;
+  if (!membership || membership.status === 'inactive') return { amountCents: base, discountCents: 0, freeRaceApplied: false };
+
+  const freeRaceApplied = membership.freeRaceAvailable && simCount > 0;
+  const freeCredit = freeRaceApplied ? unitCents : 0;
+  const discountable = Math.max(0, base - freeCredit);
+  const discount = Math.round(discountable * (membership.discountPercent / 100));
+  return {
+    amountCents: Math.max(0, discountable - discount),
+    discountCents: freeCredit + discount,
+    freeRaceApplied
+  };
 }
 
 function formatSlotTime(time: string) {
@@ -203,6 +225,7 @@ export function BookingClient({
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [smsConsent, setSmsConsent] = useState(false);
+  const [membership, setMembership] = useState<MembershipSummary | null>(null);
   const [clientSecret, setClientSecret] = useState('');
   const [paymentIntentId, setPaymentIntentId] = useState('');
   const [booking, setBooking] = useState<any>(null);
@@ -220,6 +243,7 @@ export function BookingClient({
       const email = json.user?.email || json.customer?.email || '';
       if (name) setCustomerName(name);
       if (email) setCustomerEmail(email);
+      if (json.membership) setMembership(json.membership);
     }
     void loadCustomer();
     return () => {
@@ -305,6 +329,10 @@ export function BookingClient({
       });
       const payJson = await payRes.json().catch(() => null);
       if (!payRes.ok) throw new Error(payJson?.error ?? 'Failed to start payment.');
+      if (payJson?.freeBooking && payJson.booking) {
+        setBooking(payJson.booking);
+        return;
+      }
       setClientSecret(payJson.clientSecret);
       setPaymentIntentId(payJson.paymentIntentId);
     } catch (e) {
@@ -314,7 +342,9 @@ export function BookingClient({
     }
   }
 
-  const amountCents = bookingPrice(durationMinutes, simCount);
+  const baseAmountCents = bookingPrice(durationMinutes, simCount);
+  const memberPrice = memberBookingPrice(durationMinutes, simCount, membership);
+  const amountCents = memberPrice.amountCents;
   const canStartPayment = Boolean(
     selectedSlot &&
       simCount >= 1 &&
@@ -446,6 +476,17 @@ export function BookingClient({
                 <Typography sx={{ fontWeight: 900 }}>
                   {simCount} x {durationMinutes} min race - {money(amountCents)}
                 </Typography>
+                {memberPrice.discountCents > 0 ? (
+                  <Typography color="primary" sx={{ fontSize: 13, fontWeight: 800 }}>
+                    Member savings: {money(memberPrice.discountCents)}
+                    {memberPrice.freeRaceApplied ? ' including this month’s free race' : ''}
+                  </Typography>
+                ) : null}
+                {memberPrice.discountCents > 0 && baseAmountCents !== amountCents ? (
+                  <Typography color="text.secondary" sx={{ fontSize: 12 }}>
+                    Standard price: {money(baseAmountCents)}
+                  </Typography>
+                ) : null}
                 <Typography color="text.secondary">{selectedSlot ? `${date} at ${slotRangeLabel(selectedSlot, durationMinutes)}` : 'Choose a time slot'}</Typography>
               </Stack>
               <Box>

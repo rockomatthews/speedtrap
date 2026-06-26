@@ -8,6 +8,90 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
+function unixToIso(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? new Date(value * 1000).toISOString() : null;
+}
+
+function stripeId(value: unknown) {
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object' && 'id' in value && typeof (value as { id?: unknown }).id === 'string') {
+    return (value as { id: string }).id;
+  }
+  return null;
+}
+
+function invoiceSubscriptionId(invoice: any) {
+  return (
+    stripeId(invoice.subscription) ??
+    stripeId(invoice.parent?.subscription_details?.subscription) ??
+    stripeId(invoice.lines?.data?.[0]?.subscription) ??
+    null
+  );
+}
+
+async function syncMembershipFromSubscription(input: {
+  supabaseAdmin: ReturnType<typeof createSupabaseAdminClient>;
+  subscription: Stripe.Subscription;
+  resetCredit: boolean;
+}) {
+  const subscriptionAny = input.subscription as any;
+  const subscriptionId = input.subscription.id;
+  const customerId = stripeId(input.subscription.customer);
+  const profileIdFromMeta = input.subscription.metadata?.profile_id ?? null;
+  const active = input.subscription.status === 'active' || input.subscription.status === 'trialing';
+
+  let profileId: string | null = profileIdFromMeta;
+  if (!profileId) {
+    const { data } = await input.supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .or(`stripe_subscription_id.eq.${subscriptionId}${customerId ? `,stripe_customer_id.eq.${customerId}` : ''}`)
+      .maybeSingle<{ id: string }>();
+    profileId = data?.id ?? null;
+  }
+  if (!profileId) return;
+
+  if (!active) {
+    await input.supabaseAdmin
+      .from('profiles')
+      .update({
+        membership_status: 'inactive',
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscriptionId,
+        membership_current_period_start: unixToIso(subscriptionAny.current_period_start),
+        membership_current_period_end: unixToIso(subscriptionAny.current_period_end)
+      })
+      .eq('id', profileId);
+    return;
+  }
+
+  const { data: existing } = await input.supabaseAdmin
+    .from('profiles')
+    .select('membership_status,membership_current_period_start')
+    .eq('id', profileId)
+    .maybeSingle<{ membership_status: string | null; membership_current_period_start: string | null }>();
+
+  const currentPeriodStart = unixToIso(subscriptionAny.current_period_start);
+  const periodChanged = Boolean(currentPeriodStart && existing?.membership_current_period_start !== currentPeriodStart);
+  const shouldResetCredit = input.resetCredit || periodChanged || existing?.membership_status === 'inactive';
+  const update: Record<string, unknown> = {
+    membership_status: shouldResetCredit ? 'active-start' : existing?.membership_status ?? 'active-start',
+    stripe_customer_id: customerId,
+    stripe_subscription_id: subscriptionId,
+    membership_current_period_start: currentPeriodStart,
+    membership_current_period_end: unixToIso(subscriptionAny.current_period_end)
+  };
+  if (shouldResetCredit) {
+    update.membership_free_race_month = null;
+    update.membership_free_race_redeemed_at = null;
+  }
+
+  await input.supabaseAdmin
+    .from('profiles')
+    .update(update)
+    .eq('id', profileId);
+}
+
 export async function POST(request: Request) {
   const signature = request.headers.get('stripe-signature');
   if (!signature) {
@@ -55,6 +139,26 @@ export async function POST(request: Request) {
         const session = event.data.object as Stripe.Checkout.Session;
         const supabaseAdmin = createSupabaseAdminClient();
         const merchCartMeta = session.metadata?.merch_cart ?? '';
+
+        if (session.mode === 'subscription' && session.metadata?.source === 'speedtrap_membership') {
+          const subscriptionId = stripeId(session.subscription);
+          if (subscriptionId) {
+            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            await syncMembershipFromSubscription({ supabaseAdmin, subscription, resetCredit: true });
+          } else if (session.client_reference_id || session.metadata?.profile_id) {
+            await supabaseAdmin
+              .from('profiles')
+              .update({
+                membership_status: 'active-start',
+                stripe_customer_id: stripeId(session.customer),
+                stripe_subscription_id: null,
+                membership_free_race_month: null,
+                membership_free_race_redeemed_at: null
+              })
+              .eq('id', session.metadata?.profile_id ?? session.client_reference_id);
+          }
+          break;
+        }
 
         if (merchCartMeta) {
           // Format: itemId:qty:size|itemId:qty:size
@@ -117,6 +221,56 @@ export async function POST(request: Request) {
           amount_total: session.amount_total,
           currency: session.currency
         });
+        break;
+      }
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        await syncMembershipFromSubscription({
+          supabaseAdmin: createSupabaseAdminClient(),
+          subscription: event.data.object as Stripe.Subscription,
+          resetCredit: false
+        });
+        break;
+      }
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const subscriptionId = subscription.id;
+        const customerId = stripeId(subscription.customer);
+        await createSupabaseAdminClient()
+          .from('profiles')
+          .update({
+            membership_status: 'inactive',
+            stripe_subscription_id: subscriptionId,
+            stripe_customer_id: customerId,
+            membership_current_period_end: unixToIso((subscription as any).current_period_end)
+          })
+          .or(`stripe_subscription_id.eq.${subscriptionId}${customerId ? `,stripe_customer_id.eq.${customerId}` : ''}`);
+        break;
+      }
+      case 'invoice.paid':
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as any;
+        const subscriptionId = invoiceSubscriptionId(invoice);
+        if (subscriptionId) {
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          await syncMembershipFromSubscription({
+            supabaseAdmin: createSupabaseAdminClient(),
+            subscription,
+            resetCredit: true
+          });
+        }
+        break;
+      }
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as any;
+        const subscriptionId = invoiceSubscriptionId(invoice);
+        const customerId = stripeId(invoice.customer);
+        const filters = [subscriptionId ? `stripe_subscription_id.eq.${subscriptionId}` : null, customerId ? `stripe_customer_id.eq.${customerId}` : null]
+          .filter(Boolean)
+          .join(',');
+        if (filters) {
+          await createSupabaseAdminClient().from('profiles').update({ membership_status: 'inactive' }).or(filters);
+        }
         break;
       }
       default: {

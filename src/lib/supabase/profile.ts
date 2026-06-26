@@ -9,13 +9,34 @@ export type Profile = {
   phone: string | null;
   avatar_url: string | null;
   vms_customer_id: number | null;
+  membership_status: 'inactive' | 'active-start' | 'active';
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  membership_current_period_start: string | null;
+  membership_current_period_end: string | null;
+  membership_free_race_month: string | null;
+  membership_free_race_redeemed_at: string | null;
 };
 
-const PROFILE_SELECT = 'id, role, username, display_name, phone, avatar_url, vms_customer_id';
+const PROFILE_SELECT =
+  'id, role, username, display_name, phone, avatar_url, vms_customer_id, membership_status, stripe_customer_id, stripe_subscription_id, membership_current_period_start, membership_current_period_end, membership_free_race_month, membership_free_race_redeemed_at';
 const LEGACY_PROFILE_SELECT = 'id, role, display_name, phone, vms_customer_id';
 
-function withDefaults(profile: Omit<Profile, 'username' | 'avatar_url'> & { username?: string | null; avatar_url?: string | null }): Profile {
-  return { ...profile, username: profile.username ?? null, avatar_url: profile.avatar_url ?? null };
+function withDefaults(
+  profile: Partial<Profile> & Pick<Profile, 'id' | 'role' | 'display_name' | 'phone' | 'vms_customer_id'>
+): Profile {
+  return {
+    ...profile,
+    username: profile.username ?? null,
+    avatar_url: profile.avatar_url ?? null,
+    membership_status: profile.membership_status ?? 'inactive',
+    stripe_customer_id: profile.stripe_customer_id ?? null,
+    stripe_subscription_id: profile.stripe_subscription_id ?? null,
+    membership_current_period_start: profile.membership_current_period_start ?? null,
+    membership_current_period_end: profile.membership_current_period_end ?? null,
+    membership_free_race_month: profile.membership_free_race_month ?? null,
+    membership_free_race_redeemed_at: profile.membership_free_race_redeemed_at ?? null
+  };
 }
 
 export async function getAuthedProfile() {

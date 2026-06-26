@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { assertSlotAvailable } from '@/lib/bookings/availability';
-import { BOOKING_BUFFER_MINUTES, BOOKING_HOLD_MINUTES, bookingAmountCents } from '@/lib/bookings/config';
+import { BOOKING_BUFFER_MINUTES, BOOKING_HOLD_MINUTES } from '@/lib/bookings/config';
 import { addMinutes, utcToVenueDate } from '@/lib/bookings/time';
+import { membershipBookingPrice, type MembershipProfile } from '@/lib/membership';
 import { normalizeUsPhone } from '@/lib/phone';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
 
 const holdSchema = z.object({
   customerName: z.string().trim().min(3).max(120),
@@ -24,13 +26,35 @@ export async function POST(request: Request) {
 
   try {
     const supabase = createSupabaseAdminClient();
+    const authClient = await createRouteHandlerClient();
+    const {
+      data: { user }
+    } = await authClient.auth.getUser().catch(() => ({ data: { user: null } }));
     const start = new Date(parsed.data.startsAt);
     const end = addMinutes(start, parsed.data.durationMinutes);
     const bufferUntil = addMinutes(end, BOOKING_BUFFER_MINUTES);
-    const amountCents = bookingAmountCents(parsed.data.durationMinutes, parsed.data.simCount);
-    if (!amountCents) return NextResponse.json({ error: 'Unsupported booking product.' }, { status: 400 });
     const customerPhone = normalizeUsPhone(parsed.data.customerPhone);
     if (!customerPhone) return NextResponse.json({ error: 'Enter a valid mobile phone number.' }, { status: 400 });
+
+    let membershipProfile: MembershipProfile | null = null;
+    const userEmail = user?.email?.toLowerCase() ?? null;
+    if (user?.id && userEmail && userEmail === parsed.data.customerEmail) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select(
+          'id,membership_status,membership_current_period_end,membership_free_race_month,membership_free_race_redeemed_at'
+        )
+        .eq('id', user.id)
+        .maybeSingle<MembershipProfile>();
+      membershipProfile = profile ?? null;
+    }
+
+    const price = membershipBookingPrice({
+      durationMinutes: parsed.data.durationMinutes,
+      simCount: parsed.data.simCount,
+      profile: membershipProfile
+    });
+    if (!price) return NextResponse.json({ error: 'Unsupported booking product.' }, { status: 400 });
 
     await assertSlotAvailable(supabase, {
       date: utcToVenueDate(start),
@@ -51,11 +75,15 @@ export async function POST(request: Request) {
         starts_at: start.toISOString(),
         ends_at: end.toISOString(),
         buffer_until: bufferUntil.toISOString(),
-        amount_cents: amountCents,
+        amount_cents: price.amountCents,
         currency: 'usd',
+        profile_id: membershipProfile?.id ?? null,
+        membership_free_race_month: price.freeRaceMonth,
+        membership_free_race_applied: price.freeRaceApplied,
+        membership_discount_cents: price.discountCents,
         expires_at: addMinutes(new Date(), BOOKING_HOLD_MINUTES).toISOString()
       })
-      .select('id,amount_cents,currency,expires_at')
+      .select('id,amount_cents,currency,expires_at,membership_free_race_applied,membership_discount_cents')
       .single();
     if (error) throw new Error(error.message);
 

@@ -10,6 +10,19 @@ function normalizeVmsName(name: string) {
   return name.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+async function redeemMembershipCreditIfNeeded(supabase: any, hold: any) {
+  if (!hold.profile_id || !hold.membership_free_race_applied) return;
+  await supabase
+    .from('profiles')
+    .update({
+      membership_status: 'active',
+      membership_free_race_month: hold.membership_free_race_month,
+      membership_free_race_redeemed_at: new Date().toISOString()
+    })
+    .eq('id', hold.profile_id)
+    .eq('membership_status', 'active-start');
+}
+
 export async function confirmRaceBookingFromPaymentIntent(input: {
   supabase: any;
   stripe: Stripe;
@@ -45,7 +58,7 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
     .from('race_bookings')
     .insert({
       source: 'online_stripe',
-      profile_id: input.profileId ?? null,
+      profile_id: input.profileId ?? hold.profile_id ?? null,
       customer_name: hold.customer_name,
       customer_email: hold.customer_email,
       customer_phone: hold.customer_phone,
@@ -59,13 +72,18 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
       currency: hold.currency,
       status: 'confirmed',
       stripe_payment_intent_id: paymentIntent.id,
-      stripe_charge_id: charge?.id ?? null
+      stripe_charge_id: charge?.id ?? null,
+      membership_free_race_month: hold.membership_free_race_month ?? null,
+      membership_free_race_applied: Boolean(hold.membership_free_race_applied),
+      membership_discount_cents: hold.membership_discount_cents ?? 0
     })
     .select('*')
     .single();
   if (bookingInsert.error) throw new Error(bookingInsert.error.message);
 
   const booking = bookingInsert.data;
+  await redeemMembershipCreditIfNeeded(input.supabase, hold);
+
   try {
     await allocateBookingResources(input.supabase, {
       bookingId: booking.id,
@@ -108,6 +126,120 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
       participantIds: [customer.id],
       notes: 'Created automatically from a Speed Trap online booking.',
       paymentNotes: [`Stripe payment intent: ${paymentIntent.id}`, charge?.id ? `Stripe charge: ${charge.id}` : null].filter(Boolean).join('\n')
+    });
+    if (!vmsBooking?.id) throw new Error('VMS did not return a booking id.');
+
+    const updated = await input.supabase
+      .from('race_bookings')
+      .update({
+        status: 'confirmed',
+        vms_customer_id: customer.id,
+        vms_booking_id: vmsBooking.id,
+        error: null
+      })
+      .eq('id', booking.id)
+      .select('*')
+      .single();
+    if (updated.error) throw new Error(updated.error.message);
+
+    await input.supabase.from('race_booking_holds').update({ status: 'converted' }).eq('id', hold.id);
+    return updated.data;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'VMS booking failed after payment.';
+    await input.supabase
+      .from('race_bookings')
+      .update({ status: 'payment_succeeded_vms_failed', error: message })
+      .eq('id', booking.id);
+    await input.supabase.from('race_booking_holds').update({ status: 'converted' }).eq('id', hold.id);
+    return { ...booking, status: 'payment_succeeded_vms_failed', error: message };
+  }
+}
+
+export async function confirmRaceBookingFromHold(input: {
+  supabase: any;
+  holdId: string;
+  profileId?: string | null;
+}) {
+  const { data: hold, error: holdError } = await input.supabase
+    .from('race_booking_holds')
+    .select('*')
+    .eq('id', input.holdId)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (holdError) throw new Error(holdError.message);
+  if (!hold) throw new Error('Booking hold was not found.');
+  if (hold.amount_cents !== 0) throw new Error('This booking requires payment.');
+
+  const bookingInsert = await input.supabase
+    .from('race_bookings')
+    .insert({
+      source: 'online_stripe',
+      profile_id: input.profileId ?? hold.profile_id ?? null,
+      customer_name: hold.customer_name,
+      customer_email: hold.customer_email,
+      customer_phone: hold.customer_phone,
+      sms_consent_at: hold.sms_consent_at,
+      duration_minutes: hold.duration_minutes,
+      sim_count: hold.sim_count,
+      starts_at: hold.starts_at,
+      ends_at: hold.ends_at,
+      buffer_until: hold.buffer_until,
+      amount_cents: 0,
+      currency: hold.currency,
+      status: 'confirmed',
+      membership_free_race_month: hold.membership_free_race_month ?? null,
+      membership_free_race_applied: Boolean(hold.membership_free_race_applied),
+      membership_discount_cents: hold.membership_discount_cents ?? 0
+    })
+    .select('*')
+    .single();
+  if (bookingInsert.error) throw new Error(bookingInsert.error.message);
+
+  const booking = bookingInsert.data;
+  await redeemMembershipCreditIfNeeded(input.supabase, hold);
+
+  try {
+    await allocateBookingResources(input.supabase, {
+      bookingId: booking.id,
+      startsAt: booking.starts_at,
+      bufferUntil: booking.buffer_until,
+      simCount: booking.sim_count
+    });
+  } catch (error) {
+    await input.supabase.from('race_bookings').update({ status: 'payment_succeeded_vms_failed', error: String(error) }).eq('id', booking.id);
+    throw error;
+  }
+
+  try {
+    const vms = VmsClient.fromEnv();
+    const venueId = env.VMS_HOME_VENUE_ID ?? 1;
+    const existingCustomer = await vms.findCustomerByEmail(booking.customer_email);
+    const customer =
+      existingCustomer ??
+      (await vms.createCustomer({
+        name: normalizeVmsName(booking.customer_name),
+        email: booking.customer_email,
+        homeVenueId: venueId,
+        emailOptin: false,
+        source: 'Google/Web',
+        sourceOther: 'Speed Trap online booking',
+        ifDuplicateEmailMakeSecondary: false
+      }));
+    if (!customer?.id) throw new Error('VMS did not return a customer for this booking.');
+
+    const vmsBooking = await vms.createBooking({
+      eventName: `Speed Trap Race - ${normalizeVmsName(booking.customer_name)}`,
+      customerId: customer.id,
+      startDate: utcToVenueDateTime(booking.starts_at),
+      endDate: utcToVenueDateTime(booking.ends_at),
+      status: 'Booked',
+      venueId,
+      eventActivity: 'Hotlapping',
+      groupSize: booking.sim_count,
+      numberOfPods: booking.sim_count,
+      participantIds: [customer.id],
+      notes: 'Created automatically from a Speed Trap online booking.',
+      paymentNotes: 'Monthly membership free race.'
     });
     if (!vmsBooking?.id) throw new Error('VMS did not return a booking id.');
 

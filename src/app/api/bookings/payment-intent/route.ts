@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { z } from 'zod';
 
+import { confirmRaceBookingFromHold } from '@/lib/bookings/confirm';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getStripeEnv } from '@/lib/stripe/env';
 
@@ -27,6 +28,20 @@ export async function POST(request: Request) {
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!hold) return NextResponse.json({ error: 'Booking hold expired. Pick a time again.' }, { status: 410 });
+
+    if (hold.amount_cents === 0) {
+      const booking = await confirmRaceBookingFromHold({
+        supabase,
+        holdId: hold.id,
+        profileId: hold.profile_id ?? null
+      });
+      return NextResponse.json({
+        freeBooking: true,
+        booking,
+        amountCents: 0,
+        currency: hold.currency
+      });
+    }
 
     const stripe = new Stripe(getStripeEnv().STRIPE_SECRET_KEY);
     let paymentIntent: Stripe.PaymentIntent;

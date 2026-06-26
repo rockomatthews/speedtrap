@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { hasUnusedMonthlyRace, isMembershipActive, MEMBERSHIP_DISCOUNT_PERCENT } from '@/lib/membership';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 import { VmsClient } from '@/lib/vms/client';
 
@@ -21,6 +22,13 @@ export async function GET() {
       email: user.email ?? null,
       name: (user.user_metadata?.full_name as string | undefined) ?? profile?.display_name ?? null
     },
+    membership: profile
+      ? {
+          status: isMembershipActive(profile) ? profile.membership_status : 'inactive',
+          freeRaceAvailable: hasUnusedMonthlyRace(profile),
+          discountPercent: MEMBERSHIP_DISCOUNT_PERCENT
+        }
+      : null,
     customer
   });
 }

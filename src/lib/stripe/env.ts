@@ -8,8 +8,13 @@ const stripeWebhookEnvSchema = stripeEnvSchema.extend({
   STRIPE_WEBHOOK_SECRET: z.string().min(10)
 });
 
+const stripeMembershipEnvSchema = stripeEnvSchema.extend({
+  STRIPE_MEMBERSHIP_PRICE_ID: z.string().min(5)
+});
+
 export type StripeEnv = z.infer<typeof stripeEnvSchema>;
 export type StripeWebhookEnv = z.infer<typeof stripeWebhookEnvSchema>;
+export type StripeMembershipEnv = z.infer<typeof stripeMembershipEnvSchema>;
 
 /**
  * Stripe env validation is intentionally lazy.
@@ -26,5 +31,12 @@ export function getStripeWebhookEnv(): StripeWebhookEnv {
   return stripeWebhookEnvSchema.parse({
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET
+  });
+}
+
+export function getStripeMembershipEnv(): StripeMembershipEnv {
+  return stripeMembershipEnvSchema.parse({
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+    STRIPE_MEMBERSHIP_PRICE_ID: process.env.STRIPE_MEMBERSHIP_PRICE_ID
   });
 }
