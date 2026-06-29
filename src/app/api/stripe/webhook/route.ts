@@ -3,94 +3,16 @@ import Stripe from 'stripe';
 import { confirmRaceBookingFromPaymentIntent } from '@/lib/bookings/confirm';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getStripeWebhookEnv } from '@/lib/stripe/env';
+import {
+  invoiceSubscriptionId,
+  stripeId,
+  syncMembershipFromSubscription,
+  unixToIso
+} from '@/lib/stripe/membership-sync';
 
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
-
-function unixToIso(value: unknown) {
-  return typeof value === 'number' && Number.isFinite(value) ? new Date(value * 1000).toISOString() : null;
-}
-
-function stripeId(value: unknown) {
-  if (typeof value === 'string') return value;
-  if (value && typeof value === 'object' && 'id' in value && typeof (value as { id?: unknown }).id === 'string') {
-    return (value as { id: string }).id;
-  }
-  return null;
-}
-
-function invoiceSubscriptionId(invoice: any) {
-  return (
-    stripeId(invoice.subscription) ??
-    stripeId(invoice.parent?.subscription_details?.subscription) ??
-    stripeId(invoice.lines?.data?.[0]?.subscription) ??
-    null
-  );
-}
-
-async function syncMembershipFromSubscription(input: {
-  supabaseAdmin: ReturnType<typeof createSupabaseAdminClient>;
-  subscription: Stripe.Subscription;
-  resetCredit: boolean;
-}) {
-  const subscriptionAny = input.subscription as any;
-  const subscriptionId = input.subscription.id;
-  const customerId = stripeId(input.subscription.customer);
-  const profileIdFromMeta = input.subscription.metadata?.profile_id ?? null;
-  const active = input.subscription.status === 'active' || input.subscription.status === 'trialing';
-
-  let profileId: string | null = profileIdFromMeta;
-  if (!profileId) {
-    const { data } = await input.supabaseAdmin
-      .from('profiles')
-      .select('id')
-      .or(`stripe_subscription_id.eq.${subscriptionId}${customerId ? `,stripe_customer_id.eq.${customerId}` : ''}`)
-      .maybeSingle<{ id: string }>();
-    profileId = data?.id ?? null;
-  }
-  if (!profileId) return;
-
-  if (!active) {
-    await input.supabaseAdmin
-      .from('profiles')
-      .update({
-        membership_status: 'inactive',
-        stripe_customer_id: customerId,
-        stripe_subscription_id: subscriptionId,
-        membership_current_period_start: unixToIso(subscriptionAny.current_period_start),
-        membership_current_period_end: unixToIso(subscriptionAny.current_period_end)
-      })
-      .eq('id', profileId);
-    return;
-  }
-
-  const { data: existing } = await input.supabaseAdmin
-    .from('profiles')
-    .select('membership_status,membership_current_period_start')
-    .eq('id', profileId)
-    .maybeSingle<{ membership_status: string | null; membership_current_period_start: string | null }>();
-
-  const currentPeriodStart = unixToIso(subscriptionAny.current_period_start);
-  const periodChanged = Boolean(currentPeriodStart && existing?.membership_current_period_start !== currentPeriodStart);
-  const shouldResetCredit = input.resetCredit || periodChanged || existing?.membership_status === 'inactive';
-  const update: Record<string, unknown> = {
-    membership_status: shouldResetCredit ? 'active-start' : existing?.membership_status ?? 'active-start',
-    stripe_customer_id: customerId,
-    stripe_subscription_id: subscriptionId,
-    membership_current_period_start: currentPeriodStart,
-    membership_current_period_end: unixToIso(subscriptionAny.current_period_end)
-  };
-  if (shouldResetCredit) {
-    update.membership_free_race_month = null;
-    update.membership_free_race_redeemed_at = null;
-  }
-
-  await input.supabaseAdmin
-    .from('profiles')
-    .update(update)
-    .eq('id', profileId);
-}
 
 export async function POST(request: Request) {
   const signature = request.headers.get('stripe-signature');

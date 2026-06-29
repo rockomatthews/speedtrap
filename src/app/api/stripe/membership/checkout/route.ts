@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       customer_email: profile?.stripe_customer_id ? undefined : user.email ?? undefined,
       client_reference_id: user.id,
       line_items: [{ price: stripeEnv.STRIPE_MEMBERSHIP_PRICE_ID, quantity: 1 }],
-      success_url: `${origin}/membership/success`,
+      success_url: `${origin}/membership/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/pricing?membership=cancelled`,
       metadata: {
         source: 'speedtrap_membership',

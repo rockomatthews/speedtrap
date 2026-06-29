@@ -1,3 +1,5 @@
+import Stripe from 'stripe';
+
 import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
@@ -12,10 +14,33 @@ import { MemberPassCard } from '@/components/portal/MemberPassCard';
 import { PaidSessionsList } from '@/components/portal/PaidSessionsList';
 import { RaceBookingsList } from '@/components/portal/RaceBookingsList';
 import { VmsProfileForm } from '@/components/portal/VmsProfileForm';
+import { membershipState } from '@/lib/membership';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getAuthedProfile } from '@/lib/supabase/profile';
+import { getStripeMembershipEnv } from '@/lib/stripe/env';
+import { syncMembershipFromEmail } from '@/lib/stripe/membership-sync';
 
 export default async function DashboardPage() {
   const { user, profile } = await getAuthedProfile();
+  let currentProfile = profile;
+
+  if (user?.email && !membershipState(currentProfile).active) {
+    try {
+      const stripeEnv = getStripeMembershipEnv();
+      const stripe = new Stripe(stripeEnv.STRIPE_SECRET_KEY);
+      await syncMembershipFromEmail({
+        supabaseAdmin: createSupabaseAdminClient(),
+        stripe,
+        email: user.email,
+        profileId: user.id,
+        membershipPriceId: stripeEnv.STRIPE_MEMBERSHIP_PRICE_ID
+      });
+      const refreshed = await getAuthedProfile();
+      currentProfile = refreshed.profile ?? currentProfile;
+    } catch (error) {
+      console.error('[dashboard] membership email sync failed', error);
+    }
+  }
 
   return (
     <AppShell>
@@ -27,7 +52,7 @@ export default async function DashboardPage() {
           <Typography color="text.secondary">Signed in as {user?.email ?? 'unknown'}.</Typography>
         </Stack>
 
-        <MemberPassCard profile={profile} email={user?.email} />
+        <MemberPassCard profile={currentProfile} email={user?.email} />
 
         <VmsProfileForm />
 
