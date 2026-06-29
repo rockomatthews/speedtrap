@@ -33,6 +33,9 @@ export default async function AdminPage() {
             <Button component={Link} href="/admin/bookings" variant="contained">
               Manage Bookings
             </Button>
+            <Button component={Link} href="/admin/members" variant="contained">
+              Manage Members
+            </Button>
             <Button component={Link} href="/admin/race-events" variant="contained">
               Manage Race Events
             </Button>

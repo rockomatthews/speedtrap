@@ -9,7 +9,9 @@ const stripeWebhookEnvSchema = stripeEnvSchema.extend({
 });
 
 const stripeMembershipEnvSchema = stripeEnvSchema.extend({
-  STRIPE_MEMBERSHIP_PRICE_ID: z.string().min(5)
+  STRIPE_MEMBERSHIP_PRICE_ID: z
+    .string()
+    .regex(/^price_/, 'STRIPE_MEMBERSHIP_PRICE_ID must be a Stripe Price ID that starts with price_.')
 });
 
 export type StripeEnv = z.infer<typeof stripeEnvSchema>;

@@ -8,13 +8,14 @@ import Link from 'next/link';
 
 import { AppShell } from '@/components/AppShell';
 import { ChallengeList } from '@/components/portal/ChallengeList';
+import { MemberPassCard } from '@/components/portal/MemberPassCard';
 import { PaidSessionsList } from '@/components/portal/PaidSessionsList';
 import { RaceBookingsList } from '@/components/portal/RaceBookingsList';
 import { VmsProfileForm } from '@/components/portal/VmsProfileForm';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 
 export default async function DashboardPage() {
-  const { user } = await getAuthedProfile();
+  const { user, profile } = await getAuthedProfile();
 
   return (
     <AppShell>
@@ -25,6 +26,8 @@ export default async function DashboardPage() {
           </Typography>
           <Typography color="text.secondary">Signed in as {user?.email ?? 'unknown'}.</Typography>
         </Stack>
+
+        <MemberPassCard profile={profile} email={user?.email} />
 
         <VmsProfileForm />
 

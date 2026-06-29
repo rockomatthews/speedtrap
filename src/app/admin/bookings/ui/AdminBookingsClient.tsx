@@ -45,6 +45,10 @@ function statusColor(status: string) {
   return 'warning';
 }
 
+function money(cents: number | null | undefined, currency = 'usd') {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format((cents ?? 0) / 100);
+}
+
 export function AdminBookingsClient() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [blackouts, setBlackouts] = useState<Blackout[]>([]);
@@ -265,14 +269,33 @@ export function AdminBookingsClient() {
               Recent Online Bookings
             </Typography>
             {raceBookings.map((booking) => (
-              <Stack key={booking.id} direction={{ xs: 'column', md: 'row' }} spacing={1} justifyContent="space-between">
-                <Typography>
-                  {booking.customer_name} · {booking.sim_count} x {booking.duration_minutes} min ·{' '}
-                  {new Date(booking.starts_at).toLocaleString()}
-                  {booking.reminder_sent_at ? ` · reminder sent ${new Date(booking.reminder_sent_at).toLocaleTimeString()}` : ''}
-                  {booking.reminder_error ? ` · reminder error: ${booking.reminder_error}` : ''}
-                </Typography>
-                <Chip size="small" label={booking.status} color={statusColor(booking.status) as any} />
+              <Stack key={booking.id} direction={{ xs: 'column', md: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }}>
+                <Stack spacing={0.5}>
+                  <Typography>
+                    {booking.customer_name} · {booking.sim_count} x {booking.duration_minutes} min ·{' '}
+                    {new Date(booking.starts_at).toLocaleString()}
+                    {booking.reminder_sent_at ? ` · reminder sent ${new Date(booking.reminder_sent_at).toLocaleTimeString()}` : ''}
+                    {booking.reminder_error ? ` · reminder error: ${booking.reminder_error}` : ''}
+                  </Typography>
+                  <Stack direction="row" spacing={0.75} flexWrap="wrap">
+                    {booking.membership_free_race_applied ? <Chip size="small" color="primary" label="Member free race" sx={{ fontWeight: 900 }} /> : null}
+                    {Number(booking.membership_discount_cents ?? 0) > 0 ? (
+                      <Chip
+                        size="small"
+                        color="success"
+                        label={`Member savings ${money(booking.membership_discount_cents, booking.currency)}`}
+                        sx={{ fontWeight: 900 }}
+                      />
+                    ) : null}
+                    {!booking.membership_free_race_applied && Number(booking.membership_discount_cents ?? 0) === 0 ? (
+                      <Chip size="small" label="Non-member price" />
+                    ) : null}
+                  </Stack>
+                </Stack>
+                <Stack direction="row" spacing={0.75}>
+                  <Chip size="small" label={money(booking.amount_cents, booking.currency)} />
+                  <Chip size="small" label={booking.status} color={statusColor(booking.status) as any} />
+                </Stack>
               </Stack>
             ))}
           </Stack>

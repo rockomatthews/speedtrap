@@ -20,6 +20,18 @@ export type MembershipBookingPrice = {
 
 export const MEMBERSHIP_DISCOUNT_PERCENT = 10;
 
+export function membershipState(profile: MembershipProfile | null | undefined, now = new Date()) {
+  const active = isMembershipActive(profile, now);
+  const freeRaceAvailable = hasUnusedMonthlyRace(profile, now);
+  return {
+    active,
+    freeRaceAvailable,
+    status: active ? profile?.membership_status ?? 'inactive' : 'inactive',
+    label: active ? 'Active Member' : 'Not a Member',
+    creditLabel: !active ? 'No member credit' : freeRaceAvailable ? 'Monthly race credit available' : 'Monthly race credit used'
+  };
+}
+
 export function venueMembershipMonth(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: BOOKING_TIMEZONE,
