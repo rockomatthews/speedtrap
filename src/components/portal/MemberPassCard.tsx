@@ -1,7 +1,6 @@
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
@@ -9,7 +8,6 @@ import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid2';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import Link from 'next/link';
 
 import { MembershipCheckoutButton } from '@/components/MembershipCheckoutButton';
 import { MEMBERSHIP_DISCOUNT_PERCENT, membershipState } from '@/lib/membership';
@@ -92,9 +90,6 @@ export function MemberPassCard({ profile, email }: { profile: Profile | null; em
             </Stack>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
               <MembershipCheckoutButton manage>Manage membership</MembershipCheckoutButton>
-              <Button component={Link} href="/pricing" variant="outlined">
-                View perks
-              </Button>
             </Stack>
           </Stack>
 

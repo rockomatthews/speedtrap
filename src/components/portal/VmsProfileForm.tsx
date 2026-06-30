@@ -17,6 +17,7 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
+import { DriverRacingProfile, type DriverDetail } from '@/components/portal/DriverRacingProfile';
 import { type VmsCustomerProfile } from '@/lib/vms/types';
 
 type ProfileResponse = {
@@ -45,6 +46,8 @@ export function VmsProfileForm() {
   const [customer, setCustomer] = useState<VmsCustomerProfile | null>(null);
   const [name, setName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [driverDetail, setDriverDetail] = useState<DriverDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   function hydrate(response: ProfileResponse | null) {
     const nextCustomer = response?.customer ?? null;
@@ -55,6 +58,27 @@ export function VmsProfileForm() {
     setAvatarUrl(response?.profile?.avatarUrl ?? null);
     setWarning(response?.warning ?? null);
     setEditing(nextName.trim().length < 3);
+    return nextCustomer ? { ...nextCustomer, name: nextName } : null;
+  }
+
+  async function loadDriverDetail(customerId: number) {
+    setDetailLoading(true);
+    try {
+      const res = await fetch(`/api/vms/drivers/${customerId}?lapCount=20`);
+      const json = (await res.json().catch(() => null)) as (DriverDetail & { error?: string }) | null;
+      if (!res.ok) throw new Error(json?.error ?? `Failed (${res.status})`);
+      if (json?.driver) {
+        setDriverDetail({
+          driver: json.driver,
+          laps: json.laps ?? [],
+          placements: json.placements ?? []
+        });
+      }
+    } catch (e) {
+      setWarning(e instanceof Error ? e.message : 'Driver racing history is not available yet.');
+    } finally {
+      setDetailLoading(false);
+    }
   }
 
   async function load() {
@@ -68,10 +92,12 @@ export function VmsProfileForm() {
       const profileRes = await fetch('/api/vms/customer-profile');
       const profileJson = (await profileRes.json().catch(() => null)) as ProfileResponse | null;
       if (!profileRes.ok) {
-        hydrate(ensureJson);
+        const ensuredCustomer = hydrate(ensureJson);
+        if (ensuredCustomer?.id) void loadDriverDetail(ensuredCustomer.id);
         throw new Error(profileJson?.error ?? `Failed (${profileRes.status})`);
       }
-      hydrate(profileJson);
+      const nextCustomer = hydrate(profileJson);
+      if (nextCustomer?.id) void loadDriverDetail(nextCustomer.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load VMS profile.');
     } finally {
@@ -97,7 +123,8 @@ export function VmsProfileForm() {
       const json = (await res.json().catch(() => null)) as ProfileResponse | null;
       if (!res.ok) throw new Error(json?.error ?? `Failed (${res.status})`);
       if (!json?.customer) throw new Error('VMS did not return the updated profile.');
-      hydrate(json);
+      const nextCustomer = hydrate(json);
+      if (nextCustomer?.id) void loadDriverDetail(nextCustomer.id);
       setEditing(false);
       setMessage(json.warning ? 'Driver profile saved on Speed Trap.' : 'VMS profile updated.');
     } catch (e) {
@@ -216,6 +243,9 @@ export function VmsProfileForm() {
               </Stack>
             </Stack>
           ) : null}
+
+          {detailLoading ? <CircularProgress size={18} /> : null}
+          {driverDetail ? <DriverRacingProfile detail={driverDetail} /> : null}
         </Stack>
       </CardContent>
     </Card>

@@ -31,6 +31,39 @@ export type VmsLap = {
   verified?: number | null;
 };
 
+export type VmsDriverPublicProfile = {
+  id: number;
+  name: string;
+  avatarUrl: string | null;
+  className: string | null;
+  classId: number | null;
+  homeVenue: string | null;
+  lapsRecorded: number | null;
+  lastVisit: string | null;
+  lastVehicle: string | null;
+  lastCircuit: string | null;
+  lastGroupEvent: string | null;
+  lastRaceEvent: string | null;
+};
+
+export type VmsDriverLeaderboardPlacement = {
+  eventId: string;
+  eventSlug: string;
+  eventName: string;
+  eventStatus: string;
+  subEventId: number | null;
+  subEventName: string;
+  circuitName: string | null;
+  rank: number;
+  lapTimeMs: number | null;
+  lapTimeStr: string | null;
+  vehicleName: string | null;
+  venueName: string | null;
+  date: string | null;
+  invalid: number | null;
+  verified: number | null;
+};
+
 export type VmsCircuit = {
   id: number;
   name: string;

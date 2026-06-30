@@ -14,6 +14,7 @@ import {
   type VmsHotlapLeaderboardRow,
   type VmsHotlapSubEventInput,
   type VmsHotlapSubEvent,
+  type VmsLap,
   type VmsVehicle,
   type VmsVenue
 } from '@/lib/vms/types';
@@ -170,6 +171,27 @@ function normalizeCustomer(raw: any): VmsCustomerProfile | null {
     vehicleUri: toStringOrNull(raw?.vehicle_uri),
     circuitUri: toStringOrNull(raw?.circuit_uri),
     raceEventUri: toStringOrNull(raw?.race_event_uri)
+  };
+}
+
+function normalizeLap(raw: any): VmsLap | null {
+  const id = toNumber(raw?.id ?? raw?.lap_id ?? raw?.lap_time_id);
+  if (!id) return null;
+  const lapTimeMs = toNumber(raw?.lap_time_ms ?? raw?.time_ms);
+  const lapTimeStr = toStringOrNull(raw?.lap_time_str ?? raw?.time_str ?? raw?.lap_time ?? raw?.time);
+  return {
+    id,
+    customerId: toNumber(raw?.customer_id),
+    customerName: toStringOrNull(raw?.customer_name ?? raw?.customer),
+    timeMs: lapTimeMs,
+    timeStr: lapTimeStr,
+    circuitId: toNumber(raw?.circuit_id),
+    circuit: toStringOrNull(raw?.circuit_name ?? raw?.circuit),
+    vehicleId: toNumber(raw?.vehicle_id),
+    vehicle: toStringOrNull(raw?.vehicle_name ?? raw?.vehicle),
+    date: toStringOrNull(raw?.date ?? raw?.created_at ?? raw?.start_date ?? raw?.recorded_at),
+    invalid: toNumber(raw?.invalid),
+    verified: toNumber(raw?.verified)
   };
 }
 
@@ -465,6 +487,29 @@ export class VmsClient {
     const obj = await this.getParsed<any>(`/customers?email=${encodeURIComponent(email)}`);
     const first = asArray(obj?.customers?.customer ?? obj?.customer).map(normalizeCustomer).filter(Boolean)[0];
     return first ?? null;
+  }
+
+  async searchCustomersByName(name: string): Promise<VmsCustomerProfile[]> {
+    const query = name.trim();
+    if (query.length < 2) return [];
+    const obj = await this.getParsed<any>(`/customers?name=${encodeURIComponent(query)}`);
+    return asArray(obj?.customers?.customer ?? obj?.customer)
+      .map(normalizeCustomer)
+      .filter(Boolean) as VmsCustomerProfile[];
+  }
+
+  async getCustomerLapTimes(id: number, params?: { index?: number; count?: number }): Promise<VmsLap[]> {
+    const index = Math.max(0, params?.index ?? 0);
+    const count = Math.min(100, Math.max(1, params?.count ?? 25));
+    const obj = await this.getParsed<any>(`/customers/${id}/lap_times${compactQuery({ index, count })}`);
+    const rows =
+      obj?.customer?.results?.result ??
+      obj?.results?.result ??
+      obj?.lap_times?.lap_time ??
+      obj?.lap_times?.lap ??
+      obj?.laps?.lap ??
+      obj?.result;
+    return asArray(rows).map(normalizeLap).filter(Boolean) as VmsLap[];
   }
 
   async createCustomer(input: VmsCustomerCreateInput): Promise<VmsCustomerProfile | null> {

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getAuthedProfile } from '@/lib/supabase/profile';
 import { VmsClient } from '@/lib/vms/client';
-import { parseXml } from '@/lib/vms/xml';
+import { vmsErrorResponse } from '@/lib/vms/route-errors';
 
 function toInt(v: string | null) {
   if (!v) return null;
@@ -21,23 +21,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Missing vms_customer_id. Call POST /api/vms/customers/ensure first.' }, { status: 412 });
   }
 
-  const vms = VmsClient.fromEnv();
-  const xml = await vms.request(
-    `/customers/${profile.vms_customer_id}/lap_times?index=${index}&count=${count}`,
-    { method: 'GET' }
-  );
+  try {
+    const vms = VmsClient.fromEnv();
+    const results = await vms.getCustomerLapTimes(profile.vms_customer_id, { index, count });
 
-  const obj = parseXml<any>(xml);
-  // The docs show a `<customer>` root with `<results><result>...</result></results>`
-  const results = obj?.customer?.results?.result ?? [];
-  const list = Array.isArray(results) ? results : results ? [results] : [];
-
-  return NextResponse.json({
-    index,
-    count,
-    raw: obj,
-    results: list
-  });
+    return NextResponse.json({
+      index,
+      count,
+      results
+    });
+  } catch (error) {
+    return vmsErrorResponse(error);
+  }
 }
-
 
