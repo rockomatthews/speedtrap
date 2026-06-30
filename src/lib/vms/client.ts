@@ -489,13 +489,28 @@ export class VmsClient {
     return first ?? null;
   }
 
-  async searchCustomersByName(name: string): Promise<VmsCustomerProfile[]> {
-    const query = name.trim();
-    if (query.length < 2) return [];
-    const obj = await this.getParsed<any>(`/customers?name=${encodeURIComponent(query)}`);
+  async getCustomers(): Promise<VmsCustomerProfile[]> {
+    const obj = await this.getParsed<any>('/customers');
     return asArray(obj?.customers?.customer ?? obj?.customer)
       .map(normalizeCustomer)
       .filter(Boolean) as VmsCustomerProfile[];
+  }
+
+  async searchCustomersByName(name: string): Promise<VmsCustomerProfile[]> {
+    const query = name.trim();
+    if (query.length < 2) return [];
+    const normalizedQuery = query.toLowerCase();
+    const customers = await this.getCustomers();
+    return customers
+      .filter((customer) => customer.name.toLowerCase().includes(normalizedQuery))
+      .sort((a, b) => {
+        const aName = a.name.toLowerCase();
+        const bName = b.name.toLowerCase();
+        const aStarts = aName.startsWith(normalizedQuery);
+        const bStarts = bName.startsWith(normalizedQuery);
+        if (aStarts !== bStarts) return aStarts ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
   }
 
   async getCustomerLapTimes(id: number, params?: { index?: number; count?: number }): Promise<VmsLap[]> {
