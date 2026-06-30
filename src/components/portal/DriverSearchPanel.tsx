@@ -35,7 +35,11 @@ function initials(name: string) {
     .join('');
 }
 
-export function DriverSearchPanel() {
+export function DriverSearchPanel({
+  onDriverSelected
+}: {
+  onDriverSelected?: (detail: DriverDetail) => void;
+}) {
   const [query, setQuery] = useState('');
   const [drivers, setDrivers] = useState<VmsDriverPublicProfile[]>([]);
   const [searching, setSearching] = useState(false);
@@ -83,7 +87,9 @@ export function DriverSearchPanel() {
       const json = (await res.json().catch(() => null)) as DriverDetail & { error?: string } | null;
       if (!res.ok) throw new Error(json?.error ?? `Failed (${res.status})`);
       if (!json?.driver) throw new Error('Driver details were not returned.');
-      setSelected({ driver: json.driver, laps: json.laps ?? [], placements: json.placements ?? [] });
+      const detail = { driver: json.driver, laps: json.laps ?? [], placements: json.placements ?? [] };
+      if (onDriverSelected) onDriverSelected(detail);
+      else setSelected(detail);
       setQuery('');
       setDrivers([]);
     } catch (e) {

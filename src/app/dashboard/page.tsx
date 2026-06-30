@@ -10,7 +10,7 @@ import Link from 'next/link';
 
 import { AppShell } from '@/components/AppShell';
 import { ChallengeList } from '@/components/portal/ChallengeList';
-import { DriverSearchPanel } from '@/components/portal/DriverSearchPanel';
+import { DriverPortalHeader } from '@/components/portal/DriverPortalHeader';
 import { MemberPassCard } from '@/components/portal/MemberPassCard';
 import { PaidSessionsList } from '@/components/portal/PaidSessionsList';
 import { RaceBookingsList } from '@/components/portal/RaceBookingsList';
@@ -46,19 +46,7 @@ export default async function DashboardPage() {
   return (
     <AppShell>
       <Stack spacing={3}>
-        <Grid container spacing={2} alignItems="flex-start">
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Stack spacing={0.5}>
-              <Typography variant="h4" sx={{ fontWeight: 900 }}>
-                Driver Portal
-              </Typography>
-              <Typography color="text.secondary">Signed in as {user?.email ?? 'unknown'}.</Typography>
-            </Stack>
-          </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <DriverSearchPanel />
-          </Grid>
-        </Grid>
+        <DriverPortalHeader email={user?.email} />
 
         <MemberPassCard profile={currentProfile} email={user?.email} />
 
