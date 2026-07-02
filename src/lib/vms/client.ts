@@ -91,6 +91,12 @@ function toBooleanOrNull(value: unknown): boolean | null {
   return null;
 }
 
+function normalizeNumberList(raw: unknown): number[] {
+  return asArray(raw)
+    .map((item: any) => toNumber(item?.id ?? item?.customer_id ?? item?.vehicle_id ?? item?.circuit_id ?? item))
+    .filter((id): id is number => Boolean(id));
+}
+
 function idFromUri(uri: string | null): number | null {
   if (!uri) return null;
   const match = uri.match(/\/(\d+)(?:\?.*)?$/);
@@ -203,6 +209,9 @@ function customerRoot(obj: any) {
 function normalizeBooking(raw: any): VmsBooking | null {
   const id = toNumber(raw?.id ?? raw?.booking_id);
   if (!id) return null;
+  const requestedVehicles = raw?.requested_vehicles?.vehicle_id ?? raw?.requested_vehicles?.vehicle ?? raw?.requested_vehicle_id;
+  const requestedCircuits = raw?.requested_circuits?.circuit_id ?? raw?.requested_circuits?.circuit ?? raw?.requested_circuit_id;
+  const participants = raw?.participants?.customer_id ?? raw?.participants?.customer ?? raw?.participant_id;
   return {
     id,
     eventName: toStringOrNull(raw?.event_name),
@@ -217,6 +226,10 @@ function normalizeBooking(raw: any): VmsBooking | null {
     groupSize: toNumber(raw?.group_size),
     numberOfPods: toNumber(raw?.number_of_pods),
     specificPods: toStringOrNull(raw?.specific_pods),
+    requestedVehicleIds: normalizeNumberList(requestedVehicles),
+    requestedCircuitIds: normalizeNumberList(requestedCircuits),
+    participantIds: normalizeNumberList(participants),
+    staffingNotes: toStringOrNull(raw?.staffing_notes),
     paymentNotes: toStringOrNull(raw?.payment_notes),
     notes: toStringOrNull(raw?.notes)
   };
@@ -239,6 +252,7 @@ function buildCustomerUpdateXml(input: VmsCustomerUpdateInput) {
   const value: Record<string, unknown> = {};
   if (input.name !== undefined) value.name = input.name;
   if (input.email !== undefined) value.email = input.email ?? '';
+  if (input.membershipId !== undefined) value.membership_id = input.membershipId ?? '';
   return buildXml('customer', value);
 }
 
@@ -278,6 +292,10 @@ function buildBookingUpdateXml(input: Partial<VmsBookingInput>) {
   if (input.groupSize !== undefined) value.group_size = input.groupSize;
   if (input.numberOfPods !== undefined) value.number_of_pods = input.numberOfPods;
   if (input.specificPods !== undefined) value.specific_pods = input.specificPods;
+  if (input.requestedVehicleIds !== undefined) value.requested_vehicles = { vehicle_id: input.requestedVehicleIds };
+  if (input.requestedCircuitIds !== undefined) value.requested_circuits = { circuit_id: input.requestedCircuitIds };
+  if (input.participantIds !== undefined) value.participants = { customer_id: input.participantIds };
+  if (input.staffingNotes !== undefined) value.staffing_notes = input.staffingNotes;
   if (input.notes !== undefined) value.notes = input.notes;
   if (input.paymentNotes !== undefined) value.payment_notes = input.paymentNotes;
   return buildXml('booking', value);
@@ -555,6 +573,18 @@ export class VmsClient {
     });
     const obj = parseXml<any>(createdXml);
     return normalizeBooking(obj?.booking ?? obj);
+  }
+
+  async listBookings(params?: { past?: number; future?: number }): Promise<VmsBooking[]> {
+    const obj = await this.getParsed<any>(
+      `/bookings${compactQuery({
+        past: params?.past ?? 1,
+        future: params?.future ?? 1
+      })}`
+    );
+    return asArray(obj?.bookings?.booking ?? obj?.booking)
+      .map(normalizeBooking)
+      .filter(Boolean) as VmsBooking[];
   }
 
   async updateBooking(id: number, input: Partial<VmsBookingInput>): Promise<VmsBooking | null> {

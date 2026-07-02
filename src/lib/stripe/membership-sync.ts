@@ -1,6 +1,8 @@
 import Stripe from 'stripe';
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { env } from '@/lib/supabase/env';
+import { VmsClient } from '@/lib/vms/client';
 
 type SupabaseAdmin = ReturnType<typeof createSupabaseAdminClient>;
 
@@ -23,6 +25,52 @@ export function invoiceSubscriptionId(invoice: any) {
     stripeId(invoice.lines?.data?.[0]?.subscription) ??
     null
   );
+}
+
+async function syncVmsMembershipForProfile(input: {
+  supabaseAdmin: SupabaseAdmin;
+  profileId: string;
+  active: boolean;
+}) {
+  const membershipId = env.VMS_MEMBERSHIP_ID;
+  if (!membershipId || !env.VMS_API_KEY) return;
+
+  const { data, error } = await input.supabaseAdmin
+    .from('profiles')
+    .select('vms_customer_id')
+    .eq('id', input.profileId)
+    .maybeSingle<{ vms_customer_id: number | null }>();
+
+  if (error) {
+    console.error('[membership sync] failed to load profile for VMS sync', error);
+    return;
+  }
+  if (!data?.vms_customer_id) return;
+
+  try {
+    const vms = VmsClient.fromEnv();
+    await vms.updateCustomer(data.vms_customer_id, {
+      membershipId: input.active ? membershipId : null
+    });
+  } catch (e) {
+    // Stripe/Supabase remain the source of truth; VMS can be retried manually if needed.
+    console.error('[membership sync] failed to sync VMS membership', e);
+  }
+}
+
+export async function syncVmsMembershipStatusForProfiles(input: {
+  supabaseAdmin: SupabaseAdmin;
+  profileIds: string[];
+  active: boolean;
+}) {
+  const uniqueProfileIds = Array.from(new Set(input.profileIds.filter(Boolean)));
+  for (const profileId of uniqueProfileIds) {
+    await syncVmsMembershipForProfile({
+      supabaseAdmin: input.supabaseAdmin,
+      profileId,
+      active: input.active
+    });
+  }
 }
 
 export async function syncMembershipFromSubscription(input: {
@@ -59,6 +107,7 @@ export async function syncMembershipFromSubscription(input: {
         membership_current_period_end: unixToIso(subscriptionAny.current_period_end)
       })
       .eq('id', profileId);
+    await syncVmsMembershipForProfile({ supabaseAdmin: input.supabaseAdmin, profileId, active: false });
     return profileId;
   }
 
@@ -84,6 +133,7 @@ export async function syncMembershipFromSubscription(input: {
   }
 
   await input.supabaseAdmin.from('profiles').update(update).eq('id', profileId);
+  await syncVmsMembershipForProfile({ supabaseAdmin: input.supabaseAdmin, profileId, active: true });
   return profileId;
 }
 
@@ -131,6 +181,7 @@ export async function syncMembershipFromCheckoutSession(input: {
         membership_free_race_redeemed_at: null
       })
       .eq('id', input.profileId);
+    await syncVmsMembershipForProfile({ supabaseAdmin: input.supabaseAdmin, profileId: input.profileId, active: true });
     return input.profileId;
   }
 

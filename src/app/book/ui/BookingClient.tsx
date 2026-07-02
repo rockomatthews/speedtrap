@@ -21,6 +21,15 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 
+import {
+  CUSTOM_DURATION_BLOCK_MINUTES,
+  CUSTOM_DURATION_BLOCK_PRICE_CENTS,
+  MAX_CUSTOM_DURATION_MINUTES,
+  MIN_CUSTOM_DURATION_MINUTES,
+  bookingAmountCents,
+  supportedBookingDuration
+} from '@/lib/bookings/config';
+
 type Slot = {
   startsAt: string;
   endsAt: string;
@@ -51,16 +60,16 @@ function money(cents: number) {
 }
 
 function bookingPrice(durationMinutes: number, simCount: number) {
-  return (durationMinutes === 30 ? 2600 : 1500) * simCount;
+  return bookingAmountCents(durationMinutes, simCount) ?? 0;
 }
 
 function memberBookingPrice(durationMinutes: number, simCount: number, membership: MembershipSummary | null) {
-  const unitCents = durationMinutes === 30 ? 2600 : 1500;
-  const base = unitCents * simCount;
+  const base = bookingPrice(durationMinutes, simCount);
   if (!membership || membership.status === 'inactive') return { amountCents: base, discountCents: 0, freeRaceApplied: false };
 
   const freeRaceApplied = membership.freeRaceAvailable && simCount > 0;
-  const freeCredit = freeRaceApplied ? unitCents : 0;
+  const oneDriverPrice = bookingPrice(durationMinutes, 1);
+  const freeCredit = freeRaceApplied ? Math.min(oneDriverPrice, CUSTOM_DURATION_BLOCK_PRICE_CENTS) : 0;
   const discountable = Math.max(0, base - freeCredit);
   const discount = Math.round(discountable * (membership.discountPercent / 100));
   return {
@@ -90,27 +99,37 @@ function addMinutesToSlotTime(time: string, minutesToAdd: number) {
   return `${String(nextHour).padStart(2, '0')}:${String(nextMinute).padStart(2, '0')}`;
 }
 
-function slotEndTime(slot: Slot, durationMinutes: 15 | 30) {
+function slotEndTime(slot: Slot, durationMinutes: number) {
   return formatSlotTime(addMinutesToSlotTime(slot.time, durationMinutes));
 }
 
-function slotSubtitle(slot: Slot, durationMinutes: 15 | 30) {
+function slotSubtitle(slot: Slot, durationMinutes: number) {
   if (!slot.available) {
-    if (durationMinutes === 30 && slot.reason !== 'past') return 'Unavailable';
+    if (durationMinutes > 15 && slot.reason !== 'past') return 'Unavailable';
     return disabledLabel(slot);
   }
-  if (durationMinutes === 30) return `until ${slotEndTime(slot, durationMinutes)} · ${slot.availableSims} open`;
+  if (durationMinutes > 15) return `until ${slotEndTime(slot, durationMinutes)} · ${slot.availableSims} open`;
   return `${slot.availableSims} open`;
 }
 
-function slotRangeLabel(slot: Slot, durationMinutes: 15 | 30) {
+function slotRangeLabel(slot: Slot, durationMinutes: number) {
   const start = formatSlotTime(slot.time);
   if (durationMinutes === 15) return start;
   return `${start} - ${slotEndTime(slot, durationMinutes)}`;
 }
 
-function addMinutesIso(value: string, minutesToAdd: number) {
-  return new Date(new Date(value).getTime() + minutesToAdd * 60_000).toISOString();
+function durationModeFor(durationMinutes: number): '15' | '25' | 'custom' {
+  if (durationMinutes === 15) return '15';
+  if (durationMinutes === 25) return '25';
+  return 'custom';
+}
+
+function isSlotInsideSelectedWindow(slot: Slot, selectedSlot: Slot | null, durationMinutes: number) {
+  if (!selectedSlot) return false;
+  const slotStart = new Date(slot.startsAt).getTime();
+  const windowStart = new Date(selectedSlot.startsAt).getTime();
+  const windowEnd = windowStart + durationMinutes * 60_000;
+  return slotStart >= windowStart && slotStart < windowEnd;
 }
 
 function formatDateTime(value: string) {
@@ -213,11 +232,15 @@ export function BookingClient({
   initialDurationMinutes = 15
 }: {
   stripePublishableKey: string;
-  initialDurationMinutes?: 15 | 30;
+  initialDurationMinutes?: number;
 }) {
   const stripePromise = useMemo(() => (stripePublishableKey ? loadStripe(stripePublishableKey) : null), [stripePublishableKey]);
   const [date, setDate] = useState(todayDate());
-  const [durationMinutes, setDurationMinutes] = useState<15 | 30>(initialDurationMinutes);
+  const [durationMinutes, setDurationMinutes] = useState(initialDurationMinutes);
+  const [durationMode, setDurationMode] = useState<'15' | '25' | 'custom'>(() => durationModeFor(initialDurationMinutes));
+  const [customDurationMinutes, setCustomDurationMinutes] = useState(() =>
+    String(durationModeFor(initialDurationMinutes) === 'custom' ? initialDurationMinutes : 45)
+  );
   const [simCount, setSimCount] = useState(1);
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
@@ -293,10 +316,27 @@ export function BookingClient({
     setError('');
   }
 
-  function changeDuration(value: 15 | 30 | null) {
+  function applyDuration(value: number | null) {
     if (!value || value === durationMinutes) return;
     resetPaymentState();
     setDurationMinutes(value);
+  }
+
+  function changeDurationMode(value: '15' | '25' | 'custom' | null) {
+    if (!value) return;
+    setDurationMode(value);
+    if (value === '15') applyDuration(15);
+    if (value === '25') applyDuration(25);
+    if (value === 'custom') {
+      const parsed = Number(customDurationMinutes);
+      applyDuration(supportedBookingDuration(parsed) ? parsed : 45);
+    }
+  }
+
+  function changeCustomDuration(value: string) {
+    setCustomDurationMinutes(value);
+    const parsed = Number(value);
+    if (supportedBookingDuration(parsed)) applyDuration(parsed);
   }
 
   async function startPayment() {
@@ -390,16 +430,32 @@ export function BookingClient({
                 </Grid>
                 <Grid size={{ xs: 12, sm: 7 }}>
                   <ToggleButtonGroup
-                    value={durationMinutes}
+                    value={durationMode}
                     exclusive
                     fullWidth
                     disabled={Boolean(clientSecret)}
-                    onChange={(_e, value) => changeDuration(value)}
+                    onChange={(_e, value) => changeDurationMode(value)}
                   >
-                    <ToggleButton value={15}>15 min</ToggleButton>
-                    <ToggleButton value={30}>30 min</ToggleButton>
+                    <ToggleButton value="15">15 min</ToggleButton>
+                    <ToggleButton value="25">25 min</ToggleButton>
+                    <ToggleButton value="custom">Custom</ToggleButton>
                   </ToggleButtonGroup>
                 </Grid>
+                {durationMode === 'custom' ? (
+                  <Grid size={{ xs: 12 }}>
+                    <TextField
+                      label="Custom minutes"
+                      type="number"
+                      value={customDurationMinutes}
+                      onChange={(e) => changeCustomDuration(e.target.value)}
+                      disabled={Boolean(clientSecret)}
+                      fullWidth
+                      inputProps={{ min: MIN_CUSTOM_DURATION_MINUTES, max: MAX_CUSTOM_DURATION_MINUTES, step: 5 }}
+                      helperText={`Custom races are ${money(CUSTOM_DURATION_BLOCK_PRICE_CENTS)} per started ${CUSTOM_DURATION_BLOCK_MINUTES}-minute block, per racer.`}
+                      error={customDurationMinutes.trim().length > 0 && !supportedBookingDuration(Number(customDurationMinutes))}
+                    />
+                  </Grid>
+                ) : null}
               </Grid>
 
               <Box>
@@ -413,10 +469,9 @@ export function BookingClient({
                   <Grid container spacing={1}>
                     {availability.slots.map((slot) => {
                       const isStartSelected = selectedSlot?.startsAt === slot.startsAt;
-                      const isWindowContinuation =
-                        durationMinutes === 30 && selectedSlot ? slot.startsAt === addMinutesIso(selectedSlot.startsAt, 15) : false;
-                      const isWindowSelected = isStartSelected || isWindowContinuation;
-                      const subtitle = durationMinutes === 30 && isWindowSelected ? 'selected window' : slotSubtitle(slot, durationMinutes);
+                      const isWindowSelected = isSlotInsideSelectedWindow(slot, selectedSlot, durationMinutes);
+                      const isWindowContinuation = isWindowSelected && !isStartSelected;
+                      const subtitle = durationMinutes > 15 && isWindowSelected ? 'selected window' : slotSubtitle(slot, durationMinutes);
                       return (
                         <Grid key={slot.startsAt} size={{ xs: 6, sm: 4, md: 3 }}>
                           <Button
@@ -491,7 +546,7 @@ export function BookingClient({
               </Stack>
               <Box>
                 <Typography color="text.secondary" sx={{ mb: 1 }}>
-                  Sims
+                  Racers / sims
                 </Typography>
                 <Grid container spacing={1}>
                   {[1, 2, 3, 4].map((count) => {
@@ -506,7 +561,7 @@ export function BookingClient({
                           onClick={() => setSimCount(count)}
                           sx={{ minHeight: 58, flexDirection: 'column' }}
                         >
-                          Sim {count}
+                          {count} racer{count === 1 ? '' : 's'}
                           <Typography component="span" sx={{ fontSize: 11, opacity: 0.7 }}>
                             {enabled ? 'Available' : 'Unavailable'}
                           </Typography>

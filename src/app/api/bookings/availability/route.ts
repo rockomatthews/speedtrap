@@ -2,11 +2,18 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { getBookingAvailability } from '@/lib/bookings/availability';
+import { MAX_CUSTOM_DURATION_MINUTES, MIN_CUSTOM_DURATION_MINUTES, supportedBookingDuration } from '@/lib/bookings/config';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const querySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  durationMinutes: z.coerce.number().int().refine((value) => value === 15 || value === 30).default(15),
+  durationMinutes: z.coerce
+    .number()
+    .int()
+    .min(MIN_CUSTOM_DURATION_MINUTES)
+    .max(MAX_CUSTOM_DURATION_MINUTES)
+    .refine(supportedBookingDuration, 'Unsupported booking duration.')
+    .default(15),
   simCount: z.coerce.number().int().min(1).max(4).default(1)
 });
 

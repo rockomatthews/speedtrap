@@ -7,6 +7,7 @@ import {
   invoiceSubscriptionId,
   stripeId,
   syncMembershipFromSubscription,
+  syncVmsMembershipStatusForProfiles,
   unixToIso
 } from '@/lib/stripe/membership-sync';
 
@@ -158,7 +159,13 @@ export async function POST(request: Request) {
         const subscription = event.data.object as Stripe.Subscription;
         const subscriptionId = subscription.id;
         const customerId = stripeId(subscription.customer);
-        await createSupabaseAdminClient()
+        const supabaseAdmin = createSupabaseAdminClient();
+        const filters = `stripe_subscription_id.eq.${subscriptionId}${customerId ? `,stripe_customer_id.eq.${customerId}` : ''}`;
+        const { data: profiles } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .or(filters);
+        await supabaseAdmin
           .from('profiles')
           .update({
             membership_status: 'inactive',
@@ -166,7 +173,12 @@ export async function POST(request: Request) {
             stripe_customer_id: customerId,
             membership_current_period_end: unixToIso((subscription as any).current_period_end)
           })
-          .or(`stripe_subscription_id.eq.${subscriptionId}${customerId ? `,stripe_customer_id.eq.${customerId}` : ''}`);
+          .or(filters);
+        await syncVmsMembershipStatusForProfiles({
+          supabaseAdmin,
+          profileIds: profiles?.map((profile) => profile.id) ?? [],
+          active: false
+        });
         break;
       }
       case 'invoice.paid':
@@ -191,7 +203,14 @@ export async function POST(request: Request) {
           .filter(Boolean)
           .join(',');
         if (filters) {
-          await createSupabaseAdminClient().from('profiles').update({ membership_status: 'inactive' }).or(filters);
+          const supabaseAdmin = createSupabaseAdminClient();
+          const { data: profiles } = await supabaseAdmin.from('profiles').select('id').or(filters);
+          await supabaseAdmin.from('profiles').update({ membership_status: 'inactive' }).or(filters);
+          await syncVmsMembershipStatusForProfiles({
+            supabaseAdmin,
+            profileIds: profiles?.map((profile) => profile.id) ?? [],
+            active: false
+          });
         }
         break;
       }

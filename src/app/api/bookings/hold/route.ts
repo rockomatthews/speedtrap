@@ -2,7 +2,13 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { assertSlotAvailable } from '@/lib/bookings/availability';
-import { BOOKING_BUFFER_MINUTES, BOOKING_HOLD_MINUTES } from '@/lib/bookings/config';
+import {
+  BOOKING_BUFFER_MINUTES,
+  BOOKING_HOLD_MINUTES,
+  MAX_CUSTOM_DURATION_MINUTES,
+  MIN_CUSTOM_DURATION_MINUTES,
+  supportedBookingDuration
+} from '@/lib/bookings/config';
 import { addMinutes, utcToVenueDate } from '@/lib/bookings/time';
 import { membershipBookingPrice, type MembershipProfile } from '@/lib/membership';
 import { normalizeUsPhone } from '@/lib/phone';
@@ -15,7 +21,12 @@ const holdSchema = z.object({
   customerPhone: z.string().trim().min(7).max(40),
   smsConsent: z.boolean().refine((value) => value === true, 'SMS reminder consent is required.'),
   startsAt: z.string().datetime(),
-  durationMinutes: z.number().int().refine((value) => value === 15 || value === 30),
+  durationMinutes: z
+    .number()
+    .int()
+    .min(MIN_CUSTOM_DURATION_MINUTES)
+    .max(MAX_CUSTOM_DURATION_MINUTES)
+    .refine(supportedBookingDuration, 'Unsupported booking duration.'),
   simCount: z.number().int().min(1).max(4)
 });
 

@@ -141,6 +141,24 @@ export function AdminRaceEventsClient() {
     }
   }
 
+  async function syncVmsEvents() {
+    setSubmitting(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/vms/admin/hotlap-events/sync', { method: 'POST' });
+      const json = (await res.json().catch(() => null)) as { synced?: number; skipped?: unknown[]; error?: string } | null;
+      if (!res.ok) throw new Error(json?.error ?? 'Failed to sync VMS events.');
+      const skippedCount = json?.skipped?.length ?? 0;
+      setMessage(`Synced ${json?.synced ?? 0} VMS hotlap event${json?.synced === 1 ? '' : 's'}${skippedCount ? `; skipped ${skippedCount}.` : '.'}`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to sync VMS events.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   if (loading) return <CircularProgress size={22} />;
 
   return (
@@ -281,9 +299,19 @@ export function AdminRaceEventsClient() {
       <Card variant="outlined" sx={{ borderColor: 'rgba(255,255,255,0.12)' }}>
         <CardContent>
           <Stack spacing={1}>
-            <Typography variant="h6" sx={{ fontWeight: 900 }}>
-              Site-managed events
-            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between">
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                  Site-managed events
+                </Typography>
+                <Typography color="text.secondary" sx={{ fontSize: 13 }}>
+                  Pull VMS dashboard-created hotlap events into the website leaderboards.
+                </Typography>
+              </Box>
+              <Button variant="contained" disabled={submitting} onClick={syncVmsEvents}>
+                {submitting ? 'Syncing...' : 'Sync from VMS'}
+              </Button>
+            </Stack>
             {events.length === 0 ? (
               <Typography color="text.secondary">No race events have been linked yet.</Typography>
             ) : (

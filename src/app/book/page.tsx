@@ -5,11 +5,20 @@ import Typography from '@mui/material/Typography';
 
 import { BookingClient } from '@/app/book/ui/BookingClient';
 import { AppShell } from '@/components/AppShell';
+import { MAX_CUSTOM_DURATION_MINUTES, MIN_CUSTOM_DURATION_MINUTES, supportedBookingDuration } from '@/lib/bookings/config';
 
 function parseInitialDuration(value: string | string[] | undefined) {
   const raw = Array.isArray(value) ? value[0] : value;
   const duration = Number(raw);
-  return duration === 30 ? 30 : 15;
+  if (
+    Number.isInteger(duration) &&
+    duration >= MIN_CUSTOM_DURATION_MINUTES &&
+    duration <= MAX_CUSTOM_DURATION_MINUTES &&
+    supportedBookingDuration(duration)
+  ) {
+    return duration;
+  }
+  return 15;
 }
 
 function validateStripePublishableKey(value: string) {
@@ -17,7 +26,7 @@ function validateStripePublishableKey(value: string) {
   return /^pk_(test|live)_[A-Za-z0-9]/.test(trimmed) ? trimmed : '';
 }
 
-const BOOKING_COMING_SOON = true;
+const BOOKING_COMING_SOON = false;
 
 export default async function BookPage({
   searchParams
@@ -37,7 +46,7 @@ export default async function BookPage({
             Book a Race
           </Typography>
           <Typography color="text.secondary">
-            Online booking coming soon. For now: walk-in and race!
+            Choose a race length, pick an available time, and reserve your sim session.
           </Typography>
         </Stack>
 

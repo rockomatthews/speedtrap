@@ -12,6 +12,10 @@ export type VmsBooking = {
   groupSize?: number | null;
   numberOfPods?: number | null;
   specificPods?: string | null;
+  requestedVehicleIds?: number[];
+  requestedCircuitIds?: number[];
+  participantIds?: number[];
+  staffingNotes?: string | null;
   paymentNotes?: string | null;
   notes?: string | null;
 };
@@ -125,6 +129,7 @@ export type VmsCustomerProfile = {
 export type VmsCustomerUpdateInput = {
   name?: string;
   email?: string | null;
+  membershipId?: number | null;
 };
 
 export type VmsCustomerCreateInput = {

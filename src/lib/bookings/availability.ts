@@ -4,7 +4,7 @@ import {
   BOOKING_BUFFER_MINUTES,
   BOOKING_SLOT_INTERVAL_MINUTES,
   bookingAmountCents,
-  raceProductForDuration
+  supportedBookingDuration
 } from '@/lib/bookings/config';
 import { addMinutes, dayOfWeekForVenueDate, localDateTimeToUtc, overlaps, utcToVenueTime } from '@/lib/bookings/time';
 
@@ -54,10 +54,9 @@ export async function getBookingAvailability(
   supabase: SupabaseClient,
   input: { date: string; durationMinutes: number; simCount: number; excludeHoldId?: string | null }
 ) {
-  const product = raceProductForDuration(input.durationMinutes);
-  if (!product) throw new Error('Unsupported booking duration.');
+  if (!supportedBookingDuration(input.durationMinutes)) throw new Error('Unsupported booking duration.');
   const simCount = Math.max(1, Math.min(4, Math.floor(input.simCount)));
-  const amountCents = bookingAmountCents(product.durationMinutes, simCount);
+  const amountCents = bookingAmountCents(input.durationMinutes, simCount);
   if (!amountCents) throw new Error('Unsupported booking product.');
 
   const resourcesRes = await supabase
@@ -114,7 +113,7 @@ export async function getBookingAvailability(
 
     while (cursor < close) {
       const startsAt = new Date(cursor);
-      const endsAt = addMinutes(startsAt, product.durationMinutes);
+      const endsAt = addMinutes(startsAt, input.durationMinutes);
       const bufferUntil = addMinutes(endsAt, BOOKING_BUFFER_MINUTES);
       let reason: BookingSlot['reason'] = 'available';
 
@@ -145,7 +144,7 @@ export async function getBookingAvailability(
 
   return {
     date: input.date,
-    durationMinutes: product.durationMinutes,
+    durationMinutes: input.durationMinutes,
     simCount,
     amountCents,
     currency: 'usd',

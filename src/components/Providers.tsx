@@ -5,7 +5,6 @@ import CssBaseline from '@mui/material/CssBaseline';
 import ThemeProvider from '@mui/material/styles/ThemeProvider';
 
 import { theme } from '@/lib/mui/theme';
-import { TemporaryBookingDialog } from '@/components/TemporaryBookingDialog';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -13,9 +12,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         {children}
-        <TemporaryBookingDialog />
       </ThemeProvider>
     </AppRouterCacheProvider>
   );
 }
-

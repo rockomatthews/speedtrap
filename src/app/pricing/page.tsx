@@ -25,8 +25,8 @@ const quickRacePricing = [
   },
   {
     name: 'Quick Race Session',
-    durationMinutes: 30,
-    duration: '30 minutes',
+    durationMinutes: 25,
+    duration: '25 minutes',
     price: '$26',
     description: 'More seat time, more attempts, and a better shot at climbing the STR leaderboard.'
   }
