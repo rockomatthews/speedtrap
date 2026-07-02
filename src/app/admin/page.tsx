@@ -29,9 +29,9 @@ export default async function AdminPage() {
           </Stack>
         ) : (
           <Stack spacing={1}>
-            <Typography color="text.secondary">Admin portal controls for race events and merch management are now available.</Typography>
+            <Typography color="text.secondary">Admin portal controls for daily bookings, race events, members, and merch management are now available.</Typography>
             <Button component={Link} href="/admin/bookings" variant="contained">
-              Manage Bookings
+              Today / Weekly Bookings
             </Button>
             <Button component={Link} href="/admin/members" variant="contained">
               Manage Members

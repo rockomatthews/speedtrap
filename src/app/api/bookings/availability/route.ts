@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { getBookingAvailability } from '@/lib/bookings/availability';
 import { MAX_CUSTOM_DURATION_MINUTES, MIN_CUSTOM_DURATION_MINUTES, supportedBookingDuration } from '@/lib/bookings/config';
+import { syncUpcomingVmsBookings } from '@/lib/bookings/vms-sync';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const querySchema = z.object({
@@ -23,7 +24,9 @@ export async function GET(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid availability query.' }, { status: 400 });
 
   try {
-    const availability = await getBookingAvailability(createSupabaseAdminClient(), parsed.data);
+    const supabase = createSupabaseAdminClient();
+    await syncUpcomingVmsBookings(supabase);
+    const availability = await getBookingAvailability(supabase, parsed.data);
     return NextResponse.json(availability);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to load availability.' }, { status: 500 });

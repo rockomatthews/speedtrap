@@ -10,6 +10,7 @@ import {
   supportedBookingDuration
 } from '@/lib/bookings/config';
 import { addMinutes, utcToVenueDate } from '@/lib/bookings/time';
+import { syncUpcomingVmsBookings } from '@/lib/bookings/vms-sync';
 import { membershipBookingPrice, type MembershipProfile } from '@/lib/membership';
 import { normalizeUsPhone } from '@/lib/phone';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
@@ -66,6 +67,8 @@ export async function POST(request: Request) {
       profile: membershipProfile
     });
     if (!price) return NextResponse.json({ error: 'Unsupported booking product.' }, { status: 400 });
+
+    await syncUpcomingVmsBookings(supabase);
 
     await assertSlotAvailable(supabase, {
       date: utcToVenueDate(start),
