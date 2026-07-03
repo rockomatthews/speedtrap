@@ -9,12 +9,21 @@ import {
   MIN_CUSTOM_DURATION_MINUTES,
   supportedBookingDuration
 } from '@/lib/bookings/config';
+import { raceRequestDbFields, validateRaceRequest } from '@/lib/bookings/race-request';
 import { addMinutes, utcToVenueDate } from '@/lib/bookings/time';
 import { syncUpcomingVmsBookings } from '@/lib/bookings/vms-sync';
 import { membershipBookingPrice, type MembershipProfile } from '@/lib/membership';
 import { normalizeUsPhone } from '@/lib/phone';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
+
+const raceRequestSchema = z
+  .discriminatedUnion('type', [
+    z.object({ type: z.literal('none') }),
+    z.object({ type: z.literal('vehicle_circuit'), vehicleId: z.number().int().positive(), circuitId: z.number().int().positive() }),
+    z.object({ type: z.literal('hotlap_event'), eventId: z.number().int().positive() })
+  ])
+  .optional();
 
 const holdSchema = z.object({
   customerName: z.string().trim().min(3).max(120),
@@ -28,7 +37,8 @@ const holdSchema = z.object({
     .min(MIN_CUSTOM_DURATION_MINUTES)
     .max(MAX_CUSTOM_DURATION_MINUTES)
     .refine(supportedBookingDuration, 'Unsupported booking duration.'),
-  simCount: z.number().int().min(1).max(4)
+  simCount: z.number().int().min(1).max(4),
+  raceRequest: raceRequestSchema
 });
 
 export async function POST(request: Request) {
@@ -67,6 +77,7 @@ export async function POST(request: Request) {
       profile: membershipProfile
     });
     if (!price) return NextResponse.json({ error: 'Unsupported booking product.' }, { status: 400 });
+    const raceRequest = await validateRaceRequest(parsed.data.raceRequest, start);
 
     await syncUpcomingVmsBookings(supabase);
 
@@ -95,6 +106,7 @@ export async function POST(request: Request) {
         membership_free_race_month: price.freeRaceMonth,
         membership_free_race_applied: price.freeRaceApplied,
         membership_discount_cents: price.discountCents,
+        ...raceRequestDbFields(raceRequest),
         expires_at: addMinutes(new Date(), BOOKING_HOLD_MINUTES).toISOString()
       })
       .select('id,amount_cents,currency,expires_at,membership_free_race_applied,membership_discount_cents')

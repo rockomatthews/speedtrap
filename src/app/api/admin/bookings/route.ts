@@ -6,7 +6,7 @@ import { syncUpcomingVmsBookings } from '@/lib/bookings/vms-sync';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const RACE_SELECT =
-  'id,source,customer_name,customer_email,customer_phone,duration_minutes,sim_count,starts_at,ends_at,amount_cents,currency,status,vms_booking_id,error,reminder_sent_at,reminder_error,membership_free_race_applied,membership_discount_cents,created_at';
+  'id,source,customer_name,customer_email,customer_phone,duration_minutes,sim_count,starts_at,ends_at,amount_cents,currency,status,vms_booking_id,error,reminder_sent_at,reminder_error,membership_free_race_applied,membership_discount_cents,race_request_type,requested_vehicle_id,requested_vehicle_name,requested_circuit_id,requested_circuit_name,requested_hotlap_event_id,requested_hotlap_event_name,created_at';
 const TOAST_SELECT =
   'id,toast_order_guid,customer_name,customer_email,session_quantity,session_minutes,status,vms_booking_id,error,ignored_reason,processed_at,created_at';
 

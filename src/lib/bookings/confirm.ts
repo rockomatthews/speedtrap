@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 
 import { allocateBookingResources } from '@/lib/bookings/availability';
 import { BOOKING_CANCELLATION_CUTOFF_HOURS } from '@/lib/bookings/config';
+import { raceRequestDbFields, raceRequestVmsFields } from '@/lib/bookings/race-request';
 import { utcToVenueDateTime } from '@/lib/bookings/time';
 import { env } from '@/lib/supabase/env';
 import { VmsClient } from '@/lib/vms/client';
@@ -21,6 +22,23 @@ async function redeemMembershipCreditIfNeeded(supabase: any, hold: any) {
     })
     .eq('id', hold.profile_id)
     .eq('membership_status', 'active-start');
+}
+
+function raceRequestFromHold(hold: any) {
+  return raceRequestDbFields({
+    raceRequestType: hold.race_request_type ?? 'none',
+    requestedVehicleId: hold.requested_vehicle_id ?? null,
+    requestedVehicleName: hold.requested_vehicle_name ?? null,
+    requestedCircuitId: hold.requested_circuit_id ?? null,
+    requestedCircuitName: hold.requested_circuit_name ?? null,
+    requestedHotlapEventId: hold.requested_hotlap_event_id ?? null,
+    requestedHotlapEventName: hold.requested_hotlap_event_name ?? null
+  });
+}
+
+function bookingNotes(base: string, booking: any) {
+  const request = raceRequestVmsFields(booking);
+  return [base, request.noteLine].filter(Boolean).join('\n');
 }
 
 export async function confirmRaceBookingFromPaymentIntent(input: {
@@ -75,7 +93,8 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
       stripe_charge_id: charge?.id ?? null,
       membership_free_race_month: hold.membership_free_race_month ?? null,
       membership_free_race_applied: Boolean(hold.membership_free_race_applied),
-      membership_discount_cents: hold.membership_discount_cents ?? 0
+      membership_discount_cents: hold.membership_discount_cents ?? 0,
+      ...raceRequestFromHold(hold)
     })
     .select('*')
     .single();
@@ -112,6 +131,7 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
         ifDuplicateEmailMakeSecondary: false
       }));
     if (!customer?.id) throw new Error('VMS did not return a customer for this booking.');
+    const raceRequest = raceRequestVmsFields(booking);
 
     const vmsBooking = await vms.createBooking({
       eventName: `Speed Trap Race - ${normalizeVmsName(booking.customer_name)}`,
@@ -123,8 +143,11 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
       eventActivity: 'Hotlapping',
       groupSize: booking.sim_count,
       numberOfPods: booking.sim_count,
+      requestedVehicleIds: raceRequest.requestedVehicleIds,
+      requestedCircuitIds: raceRequest.requestedCircuitIds,
       participantIds: [customer.id],
-      notes: 'Created automatically from a Speed Trap online booking.',
+      staffingNotes: raceRequest.noteLine,
+      notes: bookingNotes('Created automatically from a Speed Trap online booking.', booking),
       paymentNotes: [`Stripe payment intent: ${paymentIntent.id}`, charge?.id ? `Stripe charge: ${charge.id}` : null].filter(Boolean).join('\n')
     });
     if (!vmsBooking?.id) throw new Error('VMS did not return a booking id.');
@@ -189,7 +212,8 @@ export async function confirmRaceBookingFromHold(input: {
       status: 'confirmed',
       membership_free_race_month: hold.membership_free_race_month ?? null,
       membership_free_race_applied: Boolean(hold.membership_free_race_applied),
-      membership_discount_cents: hold.membership_discount_cents ?? 0
+      membership_discount_cents: hold.membership_discount_cents ?? 0,
+      ...raceRequestFromHold(hold)
     })
     .select('*')
     .single();
@@ -226,6 +250,7 @@ export async function confirmRaceBookingFromHold(input: {
         ifDuplicateEmailMakeSecondary: false
       }));
     if (!customer?.id) throw new Error('VMS did not return a customer for this booking.');
+    const raceRequest = raceRequestVmsFields(booking);
 
     const vmsBooking = await vms.createBooking({
       eventName: `Speed Trap Race - ${normalizeVmsName(booking.customer_name)}`,
@@ -237,8 +262,11 @@ export async function confirmRaceBookingFromHold(input: {
       eventActivity: 'Hotlapping',
       groupSize: booking.sim_count,
       numberOfPods: booking.sim_count,
+      requestedVehicleIds: raceRequest.requestedVehicleIds,
+      requestedCircuitIds: raceRequest.requestedCircuitIds,
       participantIds: [customer.id],
-      notes: 'Created automatically from a Speed Trap online booking.',
+      staffingNotes: raceRequest.noteLine,
+      notes: bookingNotes('Created automatically from a Speed Trap online booking.', booking),
       paymentNotes: 'Monthly membership free race.'
     });
     if (!vmsBooking?.id) throw new Error('VMS did not return a booking id.');

@@ -25,6 +25,10 @@ type RaceBooking = {
   status: string;
   vms_booking_id: number | null;
   error: string | null;
+  race_request_type: string | null;
+  requested_vehicle_name: string | null;
+  requested_circuit_name: string | null;
+  requested_hotlap_event_name: string | null;
 };
 
 function statusColor(status: string) {
@@ -36,6 +40,14 @@ function statusColor(status: string) {
 
 function canCancel(booking: RaceBooking) {
   return ['confirmed', 'payment_succeeded_vms_failed'].includes(booking.status) && new Date(booking.starts_at).getTime() - Date.now() >= 2 * 60 * 60 * 1000;
+}
+
+function raceRequestLabel(booking: RaceBooking) {
+  if (booking.race_request_type === 'vehicle_circuit') {
+    return [booking.requested_vehicle_name, booking.requested_circuit_name].filter(Boolean).join(' at ') || null;
+  }
+  if (booking.race_request_type === 'hotlap_event') return booking.requested_hotlap_event_name;
+  return null;
 }
 
 export function RaceBookingsList() {
@@ -116,6 +128,9 @@ export function RaceBookingsList() {
                     {new Date(booking.starts_at).toLocaleString()} ·{' '}
                     {booking.vms_booking_id ? `VMS booking #${booking.vms_booking_id}` : 'VMS sync pending'}
                   </Typography>
+                  {raceRequestLabel(booking) ? (
+                    <Typography color="text.secondary">Race request: {raceRequestLabel(booking)}</Typography>
+                  ) : null}
                   {booking.error ? <Typography color="error.main">{booking.error}</Typography> : null}
                 </Stack>
                 {canCancel(booking) ? (

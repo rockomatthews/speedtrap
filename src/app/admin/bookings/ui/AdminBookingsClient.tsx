@@ -55,6 +55,10 @@ type RaceBooking = {
   reminder_error: string | null;
   membership_free_race_applied: boolean;
   membership_discount_cents: number;
+  race_request_type: string | null;
+  requested_vehicle_name: string | null;
+  requested_circuit_name: string | null;
+  requested_hotlap_event_name: string | null;
   created_at: string;
 };
 
@@ -142,6 +146,14 @@ function statusColor(status: string) {
 
 function money(cents: number | null | undefined, currency = 'usd') {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format((cents ?? 0) / 100);
+}
+
+function raceRequestLabel(booking: RaceBooking) {
+  if (booking.race_request_type === 'vehicle_circuit') {
+    return [booking.requested_vehicle_name, booking.requested_circuit_name].filter(Boolean).join(' at ') || null;
+  }
+  if (booking.race_request_type === 'hotlap_event') return booking.requested_hotlap_event_name;
+  return null;
 }
 
 export function AdminBookingsClient() {
@@ -364,6 +376,11 @@ export function AdminBookingsClient() {
                         <Typography>
                           {booking.customer_name} · {booking.sim_count} racer{booking.sim_count === 1 ? '' : 's'} · {booking.duration_minutes} min
                         </Typography>
+                        {raceRequestLabel(booking) ? (
+                          <Typography variant="body2" color="primary" sx={{ fontWeight: 800 }}>
+                            Race request: {raceRequestLabel(booking)}
+                          </Typography>
+                        ) : null}
                         <Typography variant="body2" color="text.secondary">
                           {booking.customer_email}
                           {booking.customer_phone ? ` · ${booking.customer_phone}` : ''}
@@ -515,7 +532,7 @@ export function AdminBookingsClient() {
                 <Stack key={booking.id} direction={{ xs: 'column', md: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }}>
                   <Typography>
                     {venueDate(booking.starts_at)} · {formatBookingWindow(booking)} · {booking.customer_name} · {booking.sim_count} x{' '}
-                    {booking.duration_minutes} min
+                    {booking.duration_minutes} min{raceRequestLabel(booking) ? ` · ${raceRequestLabel(booking)}` : ''}
                   </Typography>
                   <Stack direction="row" spacing={0.75}>
                     <Chip size="small" label={money(booking.amount_cents, booking.currency)} />
