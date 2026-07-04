@@ -12,8 +12,8 @@ export const RACE_PRODUCTS = [
     description: 'Quick race session'
   },
   {
-    durationMinutes: 25,
-    label: '25 min',
+    durationMinutes: 30,
+    label: '30 min',
     priceCents: 2600,
     description: 'Full race session'
   }

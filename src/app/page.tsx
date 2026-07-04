@@ -15,7 +15,7 @@ import { NavBar } from '@/components/NavBar';
 
 const quickRacePricing = [
   { label: 'Quick Race', minutes: '15 min', price: '$15', note: 'Fast laps, first timers, and quick rematches.' },
-  { label: 'Full Session', minutes: '25 min', price: '$26', note: 'More attempts, better rhythm, bigger leaderboard swings.' }
+  { label: 'Full Session', minutes: '30 min', price: '$26', note: 'More attempts, better rhythm, bigger leaderboard swings.' }
 ];
 
 const experienceHighlights = [

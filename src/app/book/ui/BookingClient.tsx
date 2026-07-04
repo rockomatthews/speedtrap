@@ -129,9 +129,9 @@ function slotRangeLabel(slot: Slot, durationMinutes: number) {
   return `${start} - ${slotEndTime(slot, durationMinutes)}`;
 }
 
-function durationModeFor(durationMinutes: number): '15' | '25' | 'custom' {
+function durationModeFor(durationMinutes: number): '15' | '30' | 'custom' {
   if (durationMinutes === 15) return '15';
-  if (durationMinutes === 25) return '25';
+  if (durationMinutes === 30) return '30';
   return 'custom';
 }
 
@@ -366,7 +366,7 @@ export function BookingClient({
   const stripePromise = useMemo(() => (stripePublishableKey ? loadStripe(stripePublishableKey) : null), [stripePublishableKey]);
   const [date, setDate] = useState(todayDate());
   const [durationMinutes, setDurationMinutes] = useState(initialDurationMinutes);
-  const [durationMode, setDurationMode] = useState<'15' | '25' | 'custom'>(() => durationModeFor(initialDurationMinutes));
+  const [durationMode, setDurationMode] = useState<'15' | '30' | 'custom'>(() => durationModeFor(initialDurationMinutes));
   const [customDurationMinutes, setCustomDurationMinutes] = useState(() =>
     String(durationModeFor(initialDurationMinutes) === 'custom' ? initialDurationMinutes : 45)
   );
@@ -464,11 +464,11 @@ export function BookingClient({
     setDurationMinutes(value);
   }
 
-  function changeDurationMode(value: '15' | '25' | 'custom' | null) {
+  function changeDurationMode(value: '15' | '30' | 'custom' | null) {
     if (!value) return;
     setDurationMode(value);
     if (value === '15') applyDuration(15);
-    if (value === '25') applyDuration(25);
+    if (value === '30') applyDuration(30);
     if (value === 'custom') {
       const parsed = Number(customDurationMinutes);
       applyDuration(supportedBookingDuration(parsed) ? parsed : 45);
@@ -591,7 +591,7 @@ export function BookingClient({
                     onChange={(_e, value) => changeDurationMode(value)}
                   >
                     <ToggleButton value="15">15 min</ToggleButton>
-                    <ToggleButton value="25">25 min</ToggleButton>
+                    <ToggleButton value="30">30 min</ToggleButton>
                     <ToggleButton value="custom">Custom</ToggleButton>
                   </ToggleButtonGroup>
                 </Grid>
