@@ -39,9 +39,12 @@ export function supportedBookingDuration(durationMinutes: number) {
 
 export function bookingAmountCents(durationMinutes: number, simCount: number) {
   const product = raceProductForDuration(durationMinutes);
+  const fifteenMinuteProduct = raceProductForDuration(15);
+  const fullThirtyMinuteBlocks = Math.floor(durationMinutes / CUSTOM_DURATION_BLOCK_MINUTES);
+  const remainingMinutes = durationMinutes % CUSTOM_DURATION_BLOCK_MINUTES;
   const unitCents =
     product?.priceCents ??
-    Math.ceil(durationMinutes / CUSTOM_DURATION_BLOCK_MINUTES) * CUSTOM_DURATION_BLOCK_PRICE_CENTS;
+    fullThirtyMinuteBlocks * CUSTOM_DURATION_BLOCK_PRICE_CENTS + (remainingMinutes > 0 ? (fifteenMinuteProduct?.priceCents ?? 1500) : 0);
   if (!supportedBookingDuration(durationMinutes) || simCount < 1) return null;
   return unitCents * simCount;
 }
