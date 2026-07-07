@@ -16,6 +16,7 @@ import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Grid from '@mui/material/Grid2';
+import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
@@ -192,7 +193,7 @@ function RaceOptionAutocomplete({
   startsAt,
   helperText
 }: {
-  type: 'vehicle' | 'circuit' | 'event';
+  type: 'vehicle' | 'circuit';
   label: string;
   value: RaceOption | null;
   onChange: (option: RaceOption | null) => void;
@@ -210,7 +211,7 @@ function RaceOptionAutocomplete({
   }, [value]);
 
   useEffect(() => {
-    if (disabled || inputValue.trim().length < 2 || (type === 'event' && !startsAt)) {
+    if (disabled || inputValue.trim().length < 2) {
       setOptions([]);
       setLoading(false);
       setError('');
@@ -290,6 +291,100 @@ function RaceOptionAutocomplete({
         />
       )}
     />
+  );
+}
+
+function LiveEventSelect({
+  label,
+  value,
+  onChange,
+  disabled,
+  startsAt,
+  helperText
+}: {
+  label: string;
+  value: RaceOption | null;
+  onChange: (option: RaceOption | null) => void;
+  disabled?: boolean;
+  startsAt?: string;
+  helperText?: string;
+}) {
+  const [options, setOptions] = useState<RaceOption[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (disabled || !startsAt) {
+      setOptions([]);
+      setLoading(false);
+      setError('');
+      return;
+    }
+
+    const eventStartsAt = startsAt;
+    let cancelled = false;
+    async function loadEvents() {
+      setLoading(true);
+      setError('');
+      try {
+        const params = new URLSearchParams({ type: 'event', startsAt: eventStartsAt });
+        const res = await fetch(`/api/bookings/race-options?${params}`);
+        const json = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(json?.error ?? 'Live events are not available.');
+        if (!cancelled) setOptions(json.options ?? []);
+      } catch (e) {
+        if (!cancelled) {
+          setOptions([]);
+          setError(e instanceof Error ? e.message : 'Live events are not available.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadEvents();
+    return () => {
+      cancelled = true;
+    };
+  }, [disabled, startsAt]);
+
+  useEffect(() => {
+    if (value && options.length > 0 && !options.some((option) => option.id === value.id)) {
+      onChange(null);
+    }
+  }, [onChange, options, value]);
+
+  const selectedValue = value ? String(value.id) : '';
+  const emptyText = startsAt ? 'No live events are available for this booking time.' : 'Choose a time before selecting an event.';
+
+  return (
+    <TextField
+      select
+      fullWidth
+      label={label}
+      value={selectedValue}
+      disabled={disabled || loading || !startsAt}
+      error={Boolean(error)}
+      helperText={error || (loading ? 'Loading live events...' : options.length === 0 ? emptyText : helperText)}
+      onChange={(event) => {
+        const next = options.find((option) => String(option.id) === event.target.value) ?? null;
+        onChange(next);
+      }}
+    >
+      <MenuItem value="">Choose live event</MenuItem>
+      {options.map((option) => (
+        <MenuItem key={option.id} value={String(option.id)}>
+          <Stack spacing={0}>
+            <Typography sx={{ fontWeight: 800 }}>{option.name}</Typography>
+            {option.subtitle ? (
+              <Typography variant="caption" color="text.secondary">
+                {option.subtitle}
+              </Typography>
+            ) : null}
+          </Stack>
+        </MenuItem>
+      ))}
+    </TextField>
   );
 }
 
@@ -860,14 +955,13 @@ export function BookingClient({
                 </ToggleButtonGroup>
                 {raceRequestMode === 'hotlap_event' ? (
                   <Box sx={{ mt: 1.5 }}>
-                    <RaceOptionAutocomplete
-                      type="event"
+                    <LiveEventSelect
                       label="Live hotlap event"
                       value={selectedEvent}
                       onChange={setSelectedEvent}
                       disabled={Boolean(clientSecret) || !selectedSlot}
                       startsAt={selectedSlot?.startsAt}
-                      helperText={selectedSlot ? 'Only events live during this booking time are shown.' : 'Choose a time before searching events.'}
+                      helperText="Only events live during this booking time are shown."
                     />
                   </Box>
                 ) : null}

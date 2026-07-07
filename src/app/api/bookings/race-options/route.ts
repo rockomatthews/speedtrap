@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid race option request.' }, { status: 400 });
 
   const query = parsed.data.q.trim();
-  if (query.length < 2) return NextResponse.json({ options: [] });
+  if (parsed.data.type !== 'event' && query.length < 2) return NextResponse.json({ options: [] });
 
   try {
     const vms = VmsClient.fromEnv();
@@ -62,12 +62,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    if (!parsed.data.startsAt) return NextResponse.json({ error: 'Choose a booking time before searching events.' }, { status: 400 });
+    if (!parsed.data.startsAt) return NextResponse.json({ error: 'Choose a booking time before selecting events.' }, { status: 400 });
     const startsAt = new Date(parsed.data.startsAt);
     const activeEvents = (await vms.listHotlapEvents({ current: 1, future: 1, order: 'dateasc' })).filter((event) =>
       isHotlapEventActiveAt(event, startsAt)
     );
-    const events = filterByQuery(activeEvents, query);
+    const events = query ? filterByQuery(activeEvents, query) : activeEvents.slice(0, 25);
     return NextResponse.json({
       options: events.map((event) => ({
         id: event.id,
