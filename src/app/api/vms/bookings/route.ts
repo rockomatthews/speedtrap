@@ -90,7 +90,7 @@ export async function POST(request: Request) {
       endDate: body.end_date,
       status: body.status,
       venueId: body.venue_id ?? env.VMS_HOME_VENUE_ID ?? 1,
-      eventActivity: body.event_activity ?? 'Hotlapping',
+      eventActivity: body.event_activity ?? env.VMS_BOOKING_EVENT_ACTIVITY ?? null,
       groupSize,
       numberOfPods,
       specificPods: body.specific_pods,

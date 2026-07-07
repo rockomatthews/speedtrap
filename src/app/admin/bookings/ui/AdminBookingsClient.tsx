@@ -270,7 +270,19 @@ export function AdminBookingsClient() {
       {error ? <Alert severity="error">{error}</Alert> : null}
       {message ? <Alert severity="success">{message}</Alert> : null}
 
-      <Card variant="outlined" sx={{ borderColor: 'rgba(255,210,0,0.55)', background: 'linear-gradient(135deg, rgba(255,210,0,0.08), rgba(255,22,31,0.06))' }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+        <Button href="#daily-bookings" variant="contained">
+          Today&apos;s Bookings
+        </Button>
+        <Button href="#booking-hours" variant="contained" color="secondary">
+          Edit Hours & Sims
+        </Button>
+        <Button href="#booking-blackouts" variant="outlined">
+          Blackouts
+        </Button>
+      </Stack>
+
+      <Card id="daily-bookings" variant="outlined" sx={{ borderColor: 'rgba(255,210,0,0.55)', background: 'linear-gradient(135deg, rgba(255,210,0,0.08), rgba(255,22,31,0.06))' }}>
         <CardContent>
           <Stack spacing={2.5}>
             <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'stretch', lg: 'flex-end' }}>
@@ -410,12 +422,17 @@ export function AdminBookingsClient() {
         </CardContent>
       </Card>
 
-      <Card variant="outlined" sx={{ borderColor: 'rgba(255,255,255,0.12)' }}>
+      <Card id="booking-hours" variant="outlined" sx={{ scrollMarginTop: 120, borderColor: 'rgba(255,210,0,0.55)' }}>
         <CardContent>
           <Stack spacing={2}>
-            <Typography variant="h6" sx={{ fontWeight: 900 }}>
-              Weekly Booking Hours
-            </Typography>
+            <Stack spacing={0.5}>
+              <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                Weekly Booking Hours & Sim Availability
+              </Typography>
+              <Typography color="text.secondary">
+                Change open hours and choose how many sims are available online for each day.
+              </Typography>
+            </Stack>
             <Grid container spacing={1.25}>
               {rules.map((rule, index) => (
                 <Grid key={rule.id ?? `${rule.day_of_week}-${index}`} size={{ xs: 12, md: 6 }}>
@@ -468,7 +485,7 @@ export function AdminBookingsClient() {
         </CardContent>
       </Card>
 
-      <Card variant="outlined" sx={{ borderColor: 'rgba(255,255,255,0.12)' }}>
+      <Card id="booking-blackouts" variant="outlined" sx={{ scrollMarginTop: 120, borderColor: 'rgba(255,255,255,0.12)' }}>
         <CardContent>
           <Stack spacing={2}>
             <Typography variant="h6" sx={{ fontWeight: 900 }}>

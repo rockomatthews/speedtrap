@@ -187,7 +187,7 @@ export async function POST(request: Request) {
       endDate,
       status: 'Booked',
       venueId,
-      eventActivity: 'Hotlapping',
+      eventActivity: env.VMS_BOOKING_EVENT_ACTIVITY ?? null,
       groupSize: quantity,
       numberOfPods: config.sessionPods,
       participantIds: [customer.id],
