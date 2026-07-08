@@ -72,28 +72,28 @@ const partyPricing = [
 const membershipPerks = [
   {
     number: '01',
-    title: '10% off, everything.',
-    body: 'Sim sessions, food, drinks. One rate, every visit.'
+    title: '10% off.',
+    body: 'Food and merch, every visit.'
   },
   {
     number: '02',
     title: 'Priority booking.',
-    body: 'Reserve sim time 14 days out. Public books 7.'
+    body: 'Reserve 14 days out. Public books 7.'
   },
   {
     number: '03',
     title: 'Welcome kit.',
-    body: 'Member card and sticker pack at signup.'
+    body: 'Member card and sticker pack.'
   },
   {
     number: '04',
     title: 'Birthday perk.',
-    body: 'A free 30-minute sim session in your birthday month.'
+    body: 'Free 30-minute sim session your birthday month.'
   },
   {
     number: '05',
     title: 'Member events.',
-    body: 'Invitations to Cars & Coffee, watch parties, and private gatherings.'
+    body: 'Cars & Coffee, watch parties, private gatherings.'
   }
 ];
 
@@ -360,7 +360,7 @@ export default async function PricingPage() {
             >
               <Grid size={{ xs: 12, lg: 6 }}>
                 <Stack spacing={2.25}>
-                  <Chip label="Membership" color="primary" sx={{ alignSelf: 'flex-start', fontWeight: 900 }} />
+                  <Chip label="Apex Pass" color="primary" sx={{ alignSelf: 'flex-start', fontWeight: 900 }} />
                   <Box>
                     <Typography
                       component="h2"
@@ -380,7 +380,7 @@ export default async function PricingPage() {
                       </Box>
                     </Typography>
                     <Typography sx={{ mt: 1.5, fontSize: { xs: 34, md: 46 }, fontWeight: 950 }}>
-                      $25 / month.
+                      $45 / month.
                     </Typography>
                     <Typography color="text.secondary" sx={{ mt: 0.5, fontSize: 18 }}>
                       Five perks. One rate. Built simple.
@@ -397,7 +397,7 @@ export default async function PricingPage() {
                     </Stack>
                   ) : (
                     <Stack spacing={1.5}>
-                      <MembershipCheckoutButton>Join for $25/month</MembershipCheckoutButton>
+                      <MembershipCheckoutButton>Join for $45/month</MembershipCheckoutButton>
                       {!user ? (
                         <Typography color="text.secondary" sx={{ fontSize: 13 }}>
                           You’ll sign in first so Stripe can attach the membership to your Speed Trap profile.

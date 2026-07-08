@@ -7,7 +7,7 @@ import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 
 export function MembershipCheckoutButton({
-  children = 'Join for $25/month',
+  children = 'Join for $45/month',
   manage = false
 }: {
   children?: ReactNode;

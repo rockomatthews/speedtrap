@@ -35,15 +35,16 @@ export function MemberPassCard({ profile, email }: { profile: Profile | null; em
           <Stack spacing={2}>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between">
               <Stack spacing={0.75}>
-                <Chip label="Membership" color="primary" sx={{ alignSelf: 'flex-start', fontWeight: 900 }} />
+                <Chip label="Apex Pass" color="primary" sx={{ alignSelf: 'flex-start', fontWeight: 900 }} />
                 <Typography variant="h5" sx={{ fontWeight: 950 }}>
                   Not a member yet
                 </Typography>
                 <Typography color="text.secondary">
-                  Join for $25/month to unlock 10% off, one monthly race credit, priority booking, and member events.
+                  Join for $45/month to unlock 10% off food and merch, priority booking, a welcome kit, birthday race time,
+                  and member events.
                 </Typography>
               </Stack>
-              <MembershipCheckoutButton>Join for $25/month</MembershipCheckoutButton>
+              <MembershipCheckoutButton>Join for $45/month</MembershipCheckoutButton>
             </Stack>
           </Stack>
         </CardContent>
@@ -83,7 +84,7 @@ export function MemberPassCard({ profile, email }: { profile: Profile | null; em
                   <Typography variant="h5" sx={{ fontWeight: 950, overflowWrap: 'anywhere' }}>
                     {displayName}
                   </Typography>
-                  <Chip label="Active Member" color="primary" sx={{ fontWeight: 950 }} />
+                  <Chip label="Active Apex Pass" color="primary" sx={{ fontWeight: 950 }} />
                 </Stack>
                 <Typography color="text.secondary">Show this member pass to staff for Speed Trap perks.</Typography>
               </Box>

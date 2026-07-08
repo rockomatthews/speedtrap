@@ -155,7 +155,7 @@ export default async function AdminMembersPage() {
                               <TableCell>
                                 <Chip
                                   size="small"
-                                  label={state.active ? 'Active Member' : 'Inactive'}
+                                  label={state.active ? 'Active Apex Pass' : 'Inactive'}
                                   color={state.active ? 'primary' : 'default'}
                                   sx={{ fontWeight: 900 }}
                                 />

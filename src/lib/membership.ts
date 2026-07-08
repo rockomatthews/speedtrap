@@ -30,7 +30,7 @@ export function membershipState(profile: MembershipProfile | null | undefined, n
     active,
     freeRaceAvailable,
     status: active ? profile?.membership_status ?? 'inactive' : 'inactive',
-    label: active ? 'Active Member' : 'Not a Member',
+    label: active ? 'Active Apex Pass' : 'Not an Apex Pass member',
     creditLabel: !active ? 'No member credit' : freeRaceAvailable ? 'Monthly race credit available' : 'Monthly race credit used'
   };
 }
