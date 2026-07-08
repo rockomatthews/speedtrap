@@ -1,8 +1,6 @@
 import {
   BOOKING_TIMEZONE,
-  CUSTOM_DURATION_BLOCK_PRICE_CENTS,
   bookingAmountCents,
-  raceProductForDuration
 } from '@/lib/bookings/config';
 
 export type MembershipStatus = 'inactive' | 'active-start' | 'active';
@@ -83,11 +81,8 @@ export function membershipBookingPrice(input: {
   }
 
   const freeRaceApplied = hasUnusedMonthlyRace(input.profile, now) && input.simCount > 0;
-  const product = raceProductForDuration(input.durationMinutes);
   const oneDriverPriceCents = bookingAmountCents(input.durationMinutes, 1) ?? 0;
-  const freeRaceCreditCents = freeRaceApplied
-    ? Math.min(product?.priceCents ?? oneDriverPriceCents, CUSTOM_DURATION_BLOCK_PRICE_CENTS)
-    : 0;
+  const freeRaceCreditCents = freeRaceApplied ? oneDriverPriceCents : 0;
   const discountableCents = Math.max(0, baseAmountCents - freeRaceCreditCents);
   const discountCents = Math.round(discountableCents * (MEMBERSHIP_DISCOUNT_PERCENT / 100));
 

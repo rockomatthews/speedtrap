@@ -21,6 +21,15 @@ function parseInitialDuration(value: string | string[] | undefined) {
   return 15;
 }
 
+function parseInitialSimCount(value: string | string[] | undefined) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const simCount = Number(raw);
+  if (Number.isInteger(simCount) && simCount >= 1 && simCount <= 4) {
+    return simCount;
+  }
+  return 1;
+}
+
 function validateStripePublishableKey(value: string) {
   const trimmed = value.trim();
   return /^pk_(test|live)_[A-Za-z0-9]/.test(trimmed) ? trimmed : '';
@@ -37,6 +46,7 @@ export default async function BookPage({
   const rawPublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
   const publishableKey = validateStripePublishableKey(rawPublishableKey);
   const initialDurationMinutes = parseInitialDuration(sp.duration ?? sp.minutes);
+  const initialSimCount = parseInitialSimCount(sp.sims ?? sp.simCount ?? sp.pods);
 
   return (
     <AppShell>
@@ -66,7 +76,11 @@ export default async function BookPage({
               filter: BOOKING_COMING_SOON ? 'grayscale(0.35) blur(1px)' : 'none'
             }}
           >
-            <BookingClient stripePublishableKey={publishableKey} initialDurationMinutes={initialDurationMinutes} />
+            <BookingClient
+              stripePublishableKey={publishableKey}
+              initialDurationMinutes={initialDurationMinutes}
+              initialSimCount={initialSimCount}
+            />
           </Box>
 
           {BOOKING_COMING_SOON ? (

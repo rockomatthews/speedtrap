@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 
 import { allocateBookingResources } from '@/lib/bookings/availability';
-import { BOOKING_CANCELLATION_CUTOFF_HOURS } from '@/lib/bookings/config';
+import { BOOKING_CANCELLATION_CUTOFF_HOURS, bookingPackageLabel } from '@/lib/bookings/config';
 import { raceRequestDbFields, raceRequestVmsFields } from '@/lib/bookings/race-request';
 import { utcToVenueDateTime } from '@/lib/bookings/time';
 import { env } from '@/lib/supabase/env';
@@ -39,6 +39,27 @@ function raceRequestFromHold(hold: any) {
 function bookingNotes(base: string, booking: any) {
   const request = raceRequestVmsFields(booking);
   return [base, request.noteLine].filter(Boolean).join('\n');
+}
+
+function formatMoneyFromBooking(booking: any) {
+  const currency = String(booking.currency ?? 'usd').toUpperCase();
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format((booking.amount_cents ?? 0) / 100);
+}
+
+function vmsEventName(booking: any) {
+  const packageLabel = bookingPackageLabel(booking.duration_minutes, booking.sim_count);
+  const bookingType = booking.sim_count > 1 ? 'Party' : 'Race';
+  return `Speed Trap ${bookingType} - ${packageLabel} - ${normalizeVmsName(booking.customer_name)}`;
+}
+
+function bookingPaymentNotes(booking: any, lines: Array<string | null | undefined>) {
+  return [
+    `Package: ${bookingPackageLabel(booking.duration_minutes, booking.sim_count)}`,
+    `Total charged: ${formatMoneyFromBooking(booking)}`,
+    ...lines
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 export async function confirmRaceBookingFromPaymentIntent(input: {
@@ -134,7 +155,7 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
     const raceRequest = raceRequestVmsFields(booking);
 
     const vmsBooking = await vms.createBooking({
-      eventName: `Speed Trap Race - ${normalizeVmsName(booking.customer_name)}`,
+      eventName: vmsEventName(booking),
       customerId: customer.id,
       startDate: utcToVenueDateTime(booking.starts_at),
       endDate: utcToVenueDateTime(booking.ends_at),
@@ -148,7 +169,10 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
       participantIds: [customer.id],
       staffingNotes: raceRequest.noteLine,
       notes: bookingNotes('Created automatically from a Speed Trap online booking.', booking),
-      paymentNotes: [`Stripe payment intent: ${paymentIntent.id}`, charge?.id ? `Stripe charge: ${charge.id}` : null].filter(Boolean).join('\n')
+      paymentNotes: bookingPaymentNotes(booking, [
+        `Stripe payment intent: ${paymentIntent.id}`,
+        charge?.id ? `Stripe charge: ${charge.id}` : null
+      ])
     });
     if (!vmsBooking?.id) throw new Error('VMS did not return a booking id.');
 
@@ -253,7 +277,7 @@ export async function confirmRaceBookingFromHold(input: {
     const raceRequest = raceRequestVmsFields(booking);
 
     const vmsBooking = await vms.createBooking({
-      eventName: `Speed Trap Race - ${normalizeVmsName(booking.customer_name)}`,
+      eventName: vmsEventName(booking),
       customerId: customer.id,
       startDate: utcToVenueDateTime(booking.starts_at),
       endDate: utcToVenueDateTime(booking.ends_at),
@@ -267,7 +291,7 @@ export async function confirmRaceBookingFromHold(input: {
       participantIds: [customer.id],
       staffingNotes: raceRequest.noteLine,
       notes: bookingNotes('Created automatically from a Speed Trap online booking.', booking),
-      paymentNotes: 'Monthly membership free race.'
+      paymentNotes: bookingPaymentNotes(booking, ['Monthly membership free race.'])
     });
     if (!vmsBooking?.id) throw new Error('VMS did not return a booking id.');
 

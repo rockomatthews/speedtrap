@@ -15,7 +15,7 @@ import { MembershipCheckoutButton } from '@/components/MembershipCheckoutButton'
 import { MEMBERSHIP_DISCOUNT_PERCENT, hasUnusedMonthlyRace, isMembershipActive, membershipBookingPrice } from '@/lib/membership';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 
-const quickRacePricing = [
+const soloPricing = [
   {
     name: 'Quick Race Session',
     durationMinutes: 15,
@@ -27,16 +27,46 @@ const quickRacePricing = [
     name: 'Quick Race Session',
     durationMinutes: 30,
     duration: '30 minutes',
-    price: '$26',
+    price: '$28',
     description: 'More seat time, more attempts, and a better shot at climbing the STR leaderboard.'
+  },
+  {
+    name: 'Feature Race Session',
+    durationMinutes: 60,
+    duration: '60 minutes',
+    price: '$52',
+    description: 'A full hour for rhythm, setup comfort, and proper leaderboard runs.'
   }
 ];
 
-const futureOptions = [
-  'Private group racing',
-  'Gift cards',
-  'League nights',
-  'Restaurant event packages'
+const partyPricing = [
+  {
+    name: '2 Pods',
+    simCount: 2,
+    description: 'Side-by-side racing for couples, friends, and head-to-head battles.',
+    packages: [
+      { durationMinutes: 30, duration: '30 minutes', price: '$60' },
+      { durationMinutes: 60, duration: '60 minutes', price: '$110' }
+    ]
+  },
+  {
+    name: '3 Pods',
+    simCount: 3,
+    description: 'A compact party lane with room for a small crew to run together.',
+    packages: [
+      { durationMinutes: 30, duration: '30 minutes', price: '$88' },
+      { durationMinutes: 60, duration: '60 minutes', price: '$162' }
+    ]
+  },
+  {
+    name: '4 Pods / Full Venue',
+    simCount: 4,
+    description: 'Take over all four connected rigs for the full Speed Trap race-night feel.',
+    packages: [
+      { durationMinutes: 30, duration: '30 minutes', price: '$115' },
+      { durationMinutes: 60, duration: '60 minutes', price: '$210' }
+    ]
+  }
 ];
 
 const membershipPerks = [
@@ -131,14 +161,24 @@ export default async function PricingPage() {
                 Pick a session. Chase a faster lap.
               </Typography>
               <Typography color="text.secondary" sx={{ maxWidth: 680, fontSize: { xs: 18, md: 22 }, lineHeight: 1.45 }}>
-                Pick your pace with 2 simple pricing options, tailored for casual group nights or official leaderboard title shots.
+                Pick your pace with solo sessions, party pod packages, and a monthly membership built for regulars.
               </Typography>
             </Stack>
           </Box>
 
-          <Grid container spacing={2}>
-            {quickRacePricing.map((item) => (
-              <Grid key={item.duration} size={{ xs: 12, md: 6 }}>
+          <Stack spacing={2}>
+            <Box>
+              <Chip label="Solo Driver" color="primary" sx={{ fontWeight: 900, mb: 1.5 }} />
+              <Typography variant="h3" sx={{ fontWeight: 950 }}>
+                Quick sessions for one driver.
+              </Typography>
+              <Typography color="text.secondary" sx={{ mt: 0.75, maxWidth: 760 }}>
+                Book one sim, run clean laps, and let STR timing feed the leaderboard.
+              </Typography>
+            </Box>
+            <Grid container spacing={2}>
+              {soloPricing.map((item) => (
+                <Grid key={item.duration} size={{ xs: 12, md: 4 }}>
                 <Card
                   variant="outlined"
                   sx={{
@@ -185,7 +225,7 @@ export default async function PricingPage() {
                       <Typography color="text.secondary">{item.description}</Typography>
                       <Button
                         component={Link}
-                        href={`/book?duration=${item.durationMinutes}`}
+                        href={`/book?duration=${item.durationMinutes}&sims=1`}
                         variant="contained"
                         size="large"
                         sx={{ alignSelf: 'flex-start' }}
@@ -195,9 +235,101 @@ export default async function PricingPage() {
                     </Stack>
                   </CardContent>
                 </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Stack>
+
+          <Box
+            component="section"
+            sx={{
+              p: { xs: 2.5, md: 4 },
+              border: '1px solid rgba(255,22,31,0.55)',
+              bgcolor: '#080808',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                opacity: 0.16,
+                background:
+                  'repeating-linear-gradient(135deg, rgba(255,210,0,0.26) 0 2px, transparent 2px 24px)'
+              }
+            }}
+          >
+            <Stack spacing={2.5} sx={{ position: 'relative', zIndex: 1 }}>
+              <Box>
+                <Chip label="Group Party" sx={{ bgcolor: '#FF161F', color: '#fff', fontWeight: 900, mb: 1.5 }} />
+                <Typography variant="h3" sx={{ fontWeight: 950 }}>
+                  Reserve pods for the whole crew.
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 0.75, maxWidth: 780 }}>
+                  Pick 2, 3, or all 4 rigs. The site books one operational VMS reservation with the right pod count and party notes for staff.
+                </Typography>
+              </Box>
+              <Grid container spacing={2}>
+                {partyPricing.map((group) => (
+                  <Grid key={group.name} size={{ xs: 12, md: 4 }}>
+                    <Card
+                      variant="outlined"
+                      sx={{
+                        height: '100%',
+                        borderColor: 'rgba(255,210,0,0.52)',
+                        bgcolor: 'rgba(255,255,255,0.055)'
+                      }}
+                    >
+                      <CardContent sx={{ p: { xs: 2.5, md: 3 } }}>
+                        <Stack spacing={2}>
+                          <Box>
+                            <Typography color="primary" sx={{ fontWeight: 950, textTransform: 'uppercase' }}>
+                              {group.name}
+                            </Typography>
+                            <Typography color="text.secondary" sx={{ mt: 0.75 }}>
+                              {group.description}
+                            </Typography>
+                          </Box>
+                          {group.packages.map((pkg) => (
+                            <Box
+                              key={`${group.simCount}-${pkg.durationMinutes}`}
+                              sx={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr auto',
+                                gap: 2,
+                                alignItems: 'center',
+                                p: 2,
+                                border: '1px solid rgba(255,255,255,0.12)',
+                                bgcolor: 'rgba(0,0,0,0.34)'
+                              }}
+                            >
+                              <Box>
+                                <Typography sx={{ fontWeight: 950 }}>{pkg.duration}</Typography>
+                                <Typography color="text.secondary" sx={{ fontSize: 13 }}>
+                                  {group.simCount} racer{group.simCount === 1 ? '' : 's'} / pods
+                                </Typography>
+                              </Box>
+                              <Typography sx={{ color: '#FFD200', fontWeight: 950, fontSize: 30 }}>
+                                {pkg.price}
+                              </Typography>
+                              <Button
+                                component={Link}
+                                href={`/book?duration=${pkg.durationMinutes}&sims=${group.simCount}`}
+                                variant="outlined"
+                                sx={{ gridColumn: '1 / -1' }}
+                              >
+                                Book {group.name}
+                              </Button>
+                            </Box>
+                          ))}
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
               </Grid>
-            ))}
-          </Grid>
+            </Stack>
+          </Box>
 
           <Box
             component="section"
@@ -320,14 +452,15 @@ export default async function PricingPage() {
               >
                 <Box>
                   <Typography variant="h3" sx={{ fontWeight: 950 }}>
-                    Group racing is coming soon.
+                    Need a larger private event?
                   </Typography>
                   <Typography color="text.secondary" sx={{ mt: 1.5, maxWidth: 680 }}>
-                    Check back soon for private event bookings, group rates, and gift cards!
+                    The packages above cover standard pod reservations. For birthdays, company nights, buyouts, or a custom food-and-race plan,
+                    send the details and the team will shape the night around your group.
                   </Typography>
                 </Box>
-                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 3 }}>
-                  {futureOptions.map((option) => (
+                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 3, gap: 1 }}>
+                  {['Private events', 'Gift cards', 'League nights', 'Food and racing'].map((option) => (
                     <Chip key={option} label={option} variant="outlined" />
                   ))}
                 </Stack>

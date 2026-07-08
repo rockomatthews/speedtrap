@@ -26,7 +26,6 @@ import Typography from '@mui/material/Typography';
 import {
   BOOKING_SLOT_INTERVAL_MINUTES,
   CUSTOM_DURATION_BLOCK_MINUTES,
-  CUSTOM_DURATION_BLOCK_PRICE_CENTS,
   bookingAmountCents,
 } from '@/lib/bookings/config';
 
@@ -79,7 +78,7 @@ function memberBookingPrice(durationMinutes: number, simCount: number, membershi
 
   const freeRaceApplied = membership.freeRaceAvailable && simCount > 0;
   const oneDriverPrice = bookingPrice(durationMinutes, 1);
-  const freeCredit = freeRaceApplied ? Math.min(oneDriverPrice, CUSTOM_DURATION_BLOCK_PRICE_CENTS) : 0;
+  const freeCredit = freeRaceApplied ? oneDriverPrice : 0;
   const discountable = Math.max(0, base - freeCredit);
   const discount = Math.round(discountable * (membership.discountPercent / 100));
   return {
@@ -467,18 +466,22 @@ function PaymentForm({
 
 export function BookingClient({
   stripePublishableKey,
-  initialDurationMinutes = 15
+  initialDurationMinutes = 15,
+  initialSimCount = 1
 }: {
   stripePublishableKey: string;
   initialDurationMinutes?: number;
+  initialSimCount?: number;
 }) {
-  const initialBaseDurationMinutes: 15 | 30 = initialDurationMinutes === 30 ? 30 : 15;
+  const initialBaseDurationMinutes: 15 | 30 = initialDurationMinutes >= 30 ? 30 : 15;
+  const initialExtraBlockCount = Math.max(0, Math.floor((initialDurationMinutes - initialBaseDurationMinutes) / CUSTOM_DURATION_BLOCK_MINUTES));
   const stripePromise = useMemo(() => (stripePublishableKey ? loadStripe(stripePublishableKey) : null), [stripePublishableKey]);
   const [date, setDate] = useState(todayDate());
   const [baseDurationMinutes, setBaseDurationMinutes] = useState<15 | 30>(initialBaseDurationMinutes);
-  const [extraBlockCount, setExtraBlockCount] = useState(0);
+  const [useInitialDurationPreset, setUseInitialDurationPreset] = useState(initialExtraBlockCount > 0);
+  const [extraBlockCount, setExtraBlockCount] = useState(initialExtraBlockCount);
   const [durationMode, setDurationMode] = useState<'15' | '30'>(() => durationModeFor(initialBaseDurationMinutes));
-  const [simCount, setSimCount] = useState(1);
+  const [simCount, setSimCount] = useState(Math.max(1, Math.min(4, Math.floor(initialSimCount))));
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [customerName, setCustomerName] = useState('');
@@ -497,6 +500,7 @@ export function BookingClient({
   const [startingPayment, setStartingPayment] = useState(false);
   const [error, setError] = useState('');
   const durationMinutes = selectedSlot ? baseDurationMinutes + extraBlockCount * CUSTOM_DURATION_BLOCK_MINUTES : baseDurationMinutes;
+  const presetExtraBlockCount = useInitialDurationPreset ? initialExtraBlockCount : 0;
   const selectedWindowAvailableSims = useMemo(() => {
     if (!availability || !selectedSlot) return 0;
     return availableSimsForWindow(availability.slots, selectedSlot.startsAt, durationMinutes);
@@ -527,7 +531,7 @@ export function BookingClient({
       setError('');
       setAvailability(null);
       setSelectedSlot(null);
-      setExtraBlockCount(0);
+      setExtraBlockCount(presetExtraBlockCount);
       resetRaceRequest();
       setClientSecret('');
       setPaymentIntentId('');
@@ -551,7 +555,7 @@ export function BookingClient({
     return () => {
       cancelled = true;
     };
-  }, [date, baseDurationMinutes]);
+  }, [date, baseDurationMinutes, presetExtraBlockCount]);
 
   useEffect(() => {
     if (selectedSlot && selectedWindowAvailableSims > 0 && simCount > selectedWindowAvailableSims) {
@@ -577,6 +581,7 @@ export function BookingClient({
 
   function applyBaseDuration(value: 15 | 30) {
     if (value === baseDurationMinutes) return;
+    setUseInitialDurationPreset(false);
     resetPaymentState();
     setBaseDurationMinutes(value);
   }
@@ -599,10 +604,12 @@ export function BookingClient({
 
   function selectStartSlot(slot: Slot) {
     if (!availability) return;
-    const availableSims = availableSimsForWindow(availability.slots, slot.startsAt, baseDurationMinutes);
+    const initialDurationForSelection = baseDurationMinutes + presetExtraBlockCount * CUSTOM_DURATION_BLOCK_MINUTES;
+    const availableSims = availableSimsForWindow(availability.slots, slot.startsAt, initialDurationForSelection);
     if (availableSims < 1) return;
     setSelectedSlot(slot);
-    setExtraBlockCount(0);
+    setExtraBlockCount(presetExtraBlockCount);
+    if (simCount > availableSims) setSimCount(Math.max(1, availableSims));
     setClientSecret('');
     setPaymentIntentId('');
     resetRaceRequest();
