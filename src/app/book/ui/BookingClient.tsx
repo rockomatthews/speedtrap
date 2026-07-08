@@ -6,7 +6,6 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 
 import Alert from '@mui/material/Alert';
-import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -58,7 +57,7 @@ type RaceOption = {
   circuitName?: string | null;
 };
 
-type RaceRequestMode = 'none' | 'hotlap_event' | 'vehicle_circuit';
+type RaceRequestMode = 'none' | 'hotlap_event';
 
 function todayDate() {
   return new Date().toISOString().slice(0, 10);
@@ -181,116 +180,6 @@ function raceRequestSummary(booking: any) {
   }
   if (booking?.race_request_type === 'hotlap_event') return booking.requested_hotlap_event_name ?? null;
   return null;
-}
-
-function RaceOptionAutocomplete({
-  type,
-  label,
-  value,
-  onChange,
-  disabled,
-  startsAt,
-  helperText
-}: {
-  type: 'vehicle' | 'circuit';
-  label: string;
-  value: RaceOption | null;
-  onChange: (option: RaceOption | null) => void;
-  disabled?: boolean;
-  startsAt?: string;
-  helperText?: string;
-}) {
-  const [inputValue, setInputValue] = useState(value?.name ?? '');
-  const [options, setOptions] = useState<RaceOption[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    setInputValue(value?.name ?? '');
-  }, [value]);
-
-  useEffect(() => {
-    if (disabled || inputValue.trim().length < 2) {
-      setOptions([]);
-      setLoading(false);
-      setError('');
-      return;
-    }
-    let cancelled = false;
-    const timeout = window.setTimeout(async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const params = new URLSearchParams({ type, q: inputValue.trim() });
-        if (startsAt) params.set('startsAt', startsAt);
-        const res = await fetch(`/api/bookings/race-options?${params}`);
-        const json = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(json?.error ?? 'VMS options are not available.');
-        if (!cancelled) setOptions(json.options ?? []);
-      } catch (e) {
-        if (!cancelled) {
-          setOptions([]);
-          setError(e instanceof Error ? e.message : 'VMS options are not available.');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }, 250);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeout);
-    };
-  }, [disabled, inputValue, startsAt, type]);
-
-  return (
-    <Autocomplete
-      value={value}
-      inputValue={inputValue}
-      options={options}
-      loading={loading}
-      disabled={disabled}
-      isOptionEqualToValue={(option, selected) => option.id === selected.id}
-      getOptionLabel={(option) => option.name}
-      noOptionsText={inputValue.trim().length < 2 ? 'Type at least 2 characters' : 'No VMS matches'}
-      onInputChange={(_event, nextValue) => setInputValue(nextValue)}
-      onChange={(_event, nextValue) => onChange(nextValue)}
-      onBlur={() => {
-        if (!value || inputValue.trim() !== value.name) {
-          onChange(null);
-          setInputValue('');
-        }
-      }}
-      renderOption={(props, option) => (
-        <Box component="li" {...props}>
-          <Stack spacing={0}>
-            <Typography sx={{ fontWeight: 800 }}>{option.name}</Typography>
-            {option.subtitle ? (
-              <Typography variant="caption" color="text.secondary">
-                {option.subtitle}
-              </Typography>
-            ) : null}
-          </Stack>
-        </Box>
-      )}
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          label={label}
-          helperText={error || helperText}
-          error={Boolean(error)}
-          InputProps={{
-            ...params.InputProps,
-            endAdornment: (
-              <>
-                {loading ? <CircularProgress color="inherit" size={16} /> : null}
-                {params.InputProps.endAdornment}
-              </>
-            )
-          }}
-        />
-      )}
-    />
-  );
 }
 
 function LiveEventSelect({
@@ -490,8 +379,6 @@ export function BookingClient({
   const [smsConsent, setSmsConsent] = useState(false);
   const [membership, setMembership] = useState<MembershipSummary | null>(null);
   const [raceRequestMode, setRaceRequestMode] = useState<RaceRequestMode>('none');
-  const [selectedVehicle, setSelectedVehicle] = useState<RaceOption | null>(null);
-  const [selectedCircuit, setSelectedCircuit] = useState<RaceOption | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<RaceOption | null>(null);
   const [clientSecret, setClientSecret] = useState('');
   const [paymentIntentId, setPaymentIntentId] = useState('');
@@ -574,8 +461,6 @@ export function BookingClient({
 
   function resetRaceRequest() {
     setRaceRequestMode('none');
-    setSelectedVehicle(null);
-    setSelectedCircuit(null);
     setSelectedEvent(null);
   }
 
@@ -684,12 +569,7 @@ export function BookingClient({
           startsAt: selectedSlot.startsAt,
           durationMinutes,
           simCount,
-          raceRequest:
-            raceRequestMode === 'vehicle_circuit'
-              ? { type: 'vehicle_circuit', vehicleId: selectedVehicle?.id, circuitId: selectedCircuit?.id }
-              : raceRequestMode === 'hotlap_event'
-                ? { type: 'hotlap_event', eventId: selectedEvent?.id }
-                : { type: 'none' }
+          raceRequest: raceRequestMode === 'hotlap_event' ? { type: 'hotlap_event', eventId: selectedEvent?.id } : { type: 'none' }
         })
       });
       const holdJson = await holdRes.json().catch(() => null);
@@ -718,10 +598,7 @@ export function BookingClient({
   const baseAmountCents = bookingPrice(durationMinutes, simCount);
   const memberPrice = memberBookingPrice(durationMinutes, simCount, membership);
   const amountCents = memberPrice.amountCents;
-  const raceRequestReady =
-    raceRequestMode === 'none' ||
-    (raceRequestMode === 'hotlap_event' && Boolean(selectedEvent)) ||
-    (raceRequestMode === 'vehicle_circuit' && Boolean(selectedVehicle && selectedCircuit));
+  const raceRequestReady = raceRequestMode === 'none' || (raceRequestMode === 'hotlap_event' && Boolean(selectedEvent));
   const canStartPayment = Boolean(
     selectedSlot &&
       simCount >= 1 &&
@@ -949,8 +826,6 @@ export function BookingClient({
                   onChange={(_event, value: RaceRequestMode | null) => {
                     if (!value) return;
                     setRaceRequestMode(value);
-                    setSelectedVehicle(null);
-                    setSelectedCircuit(null);
                     setSelectedEvent(null);
                   }}
                 >
@@ -958,7 +833,6 @@ export function BookingClient({
                   <ToggleButton value="hotlap_event" disabled={!selectedSlot}>
                     Live event
                   </ToggleButton>
-                  <ToggleButton value="vehicle_circuit">Car + track</ToggleButton>
                 </ToggleButtonGroup>
                 {raceRequestMode === 'hotlap_event' ? (
                   <Box sx={{ mt: 1.5 }}>
@@ -971,30 +845,6 @@ export function BookingClient({
                       helperText="Only events live during this booking time are shown."
                     />
                   </Box>
-                ) : null}
-                {raceRequestMode === 'vehicle_circuit' ? (
-                  <Grid container spacing={1.25} sx={{ mt: 1.5 }}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <RaceOptionAutocomplete
-                        type="vehicle"
-                        label="Vehicle"
-                        value={selectedVehicle}
-                        onChange={setSelectedVehicle}
-                        disabled={Boolean(clientSecret)}
-                        helperText="Pick a VMS vehicle result."
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <RaceOptionAutocomplete
-                        type="circuit"
-                        label="Track"
-                        value={selectedCircuit}
-                        onChange={setSelectedCircuit}
-                        disabled={Boolean(clientSecret)}
-                        helperText="Pick a VMS circuit result."
-                      />
-                    </Grid>
-                  </Grid>
                 ) : null}
               </Box>
               {!clientSecret ? (
