@@ -130,6 +130,8 @@ export async function syncMembershipFromSubscription(input: {
   if (shouldResetCredit) {
     update.membership_free_race_month = null;
     update.membership_free_race_redeemed_at = null;
+    update.membership_monthly_15_race_month = null;
+    update.membership_monthly_15_race_redeemed_at = null;
   }
 
   await input.supabaseAdmin.from('profiles').update(update).eq('id', profileId);
@@ -178,7 +180,9 @@ export async function syncMembershipFromCheckoutSession(input: {
         stripe_customer_id: stripeId(session.customer),
         stripe_subscription_id: null,
         membership_free_race_month: null,
-        membership_free_race_redeemed_at: null
+        membership_free_race_redeemed_at: null,
+        membership_monthly_15_race_month: null,
+        membership_monthly_15_race_redeemed_at: null
       })
       .eq('id', input.profileId);
     await syncVmsMembershipForProfile({ supabaseAdmin: input.supabaseAdmin, profileId: input.profileId, active: true });

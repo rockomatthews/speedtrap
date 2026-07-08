@@ -55,6 +55,7 @@ type RaceBooking = {
   reminder_error: string | null;
   membership_free_race_applied: boolean;
   membership_discount_cents: number;
+  membership_credit_type: string | null;
   race_request_type: string | null;
   requested_vehicle_name: string | null;
   requested_circuit_name: string | null;
@@ -154,6 +155,12 @@ function raceRequestLabel(booking: RaceBooking) {
   }
   if (booking.race_request_type === 'hotlap_event') return booking.requested_hotlap_event_name;
   return null;
+}
+
+function membershipCreditLabel(booking: RaceBooking) {
+  if (!booking.membership_free_race_applied) return null;
+  if (booking.membership_credit_type === 'birthday_30') return 'Birthday 30 credit';
+  return 'Monthly 15 credit';
 }
 
 export function AdminBookingsClient() {
@@ -402,7 +409,7 @@ export function AdminBookingsClient() {
                         </Typography>
                       </Stack>
                       <Stack direction="row" spacing={0.75} flexWrap="wrap" justifyContent={{ xs: 'flex-start', lg: 'flex-end' }}>
-                        {booking.membership_free_race_applied ? <Chip size="small" color="primary" label="Member free race" sx={{ fontWeight: 900 }} /> : null}
+                        {membershipCreditLabel(booking) ? <Chip size="small" color="primary" label={membershipCreditLabel(booking)} sx={{ fontWeight: 900 }} /> : null}
                         {Number(booking.membership_discount_cents ?? 0) > 0 ? (
                           <Chip size="small" color="success" label={`Member savings ${money(booking.membership_discount_cents, booking.currency)}`} sx={{ fontWeight: 900 }} />
                         ) : null}

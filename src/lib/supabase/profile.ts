@@ -10,16 +10,21 @@ export type Profile = {
   avatar_url: string | null;
   vms_customer_id: number | null;
   membership_status: 'inactive' | 'active-start' | 'active';
+  birthday: string | null;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   membership_current_period_start: string | null;
   membership_current_period_end: string | null;
   membership_free_race_month: string | null;
   membership_free_race_redeemed_at: string | null;
+  membership_monthly_15_race_month: string | null;
+  membership_monthly_15_race_redeemed_at: string | null;
+  membership_birthday_30_race_year: number | null;
+  membership_birthday_30_race_redeemed_at: string | null;
 };
 
 const PROFILE_SELECT =
-  'id, role, username, display_name, phone, avatar_url, vms_customer_id, membership_status, stripe_customer_id, stripe_subscription_id, membership_current_period_start, membership_current_period_end, membership_free_race_month, membership_free_race_redeemed_at';
+  'id, role, username, display_name, phone, avatar_url, vms_customer_id, membership_status, birthday, stripe_customer_id, stripe_subscription_id, membership_current_period_start, membership_current_period_end, membership_free_race_month, membership_free_race_redeemed_at, membership_monthly_15_race_month, membership_monthly_15_race_redeemed_at, membership_birthday_30_race_year, membership_birthday_30_race_redeemed_at';
 const LEGACY_PROFILE_SELECT = 'id, role, display_name, phone, vms_customer_id';
 
 function withDefaults(
@@ -30,12 +35,17 @@ function withDefaults(
     username: profile.username ?? null,
     avatar_url: profile.avatar_url ?? null,
     membership_status: profile.membership_status ?? 'inactive',
+    birthday: profile.birthday ?? null,
     stripe_customer_id: profile.stripe_customer_id ?? null,
     stripe_subscription_id: profile.stripe_subscription_id ?? null,
     membership_current_period_start: profile.membership_current_period_start ?? null,
     membership_current_period_end: profile.membership_current_period_end ?? null,
     membership_free_race_month: profile.membership_free_race_month ?? null,
-    membership_free_race_redeemed_at: profile.membership_free_race_redeemed_at ?? null
+    membership_free_race_redeemed_at: profile.membership_free_race_redeemed_at ?? null,
+    membership_monthly_15_race_month: profile.membership_monthly_15_race_month ?? null,
+    membership_monthly_15_race_redeemed_at: profile.membership_monthly_15_race_redeemed_at ?? null,
+    membership_birthday_30_race_year: profile.membership_birthday_30_race_year ?? null,
+    membership_birthday_30_race_redeemed_at: profile.membership_birthday_30_race_redeemed_at ?? null
   };
 }
 

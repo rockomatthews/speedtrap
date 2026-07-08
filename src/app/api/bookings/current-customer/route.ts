@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { hasUnusedMonthlyRace, isMembershipActive, MEMBERSHIP_DISCOUNT_PERCENT } from '@/lib/membership';
+import { hasUnusedBirthdayRace, hasUnusedMonthlyRace, isBirthdayMonth, isMembershipActive, MEMBERSHIP_DISCOUNT_PERCENT } from '@/lib/membership';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 import { VmsClient } from '@/lib/vms/client';
 
@@ -26,6 +26,10 @@ export async function GET() {
       ? {
           status: isMembershipActive(profile) ? profile.membership_status : 'inactive',
           freeRaceAvailable: hasUnusedMonthlyRace(profile),
+          monthly15Available: hasUnusedMonthlyRace(profile),
+          birthday30Available: hasUnusedBirthdayRace(profile),
+          birthdayMonthActive: isBirthdayMonth(profile),
+          birthday: profile.birthday,
           discountPercent: MEMBERSHIP_DISCOUNT_PERCENT
         }
       : null,

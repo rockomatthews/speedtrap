@@ -76,7 +76,9 @@ export async function POST(request: Request) {
                 stripe_customer_id: stripeId(session.customer),
                 stripe_subscription_id: null,
                 membership_free_race_month: null,
-                membership_free_race_redeemed_at: null
+                membership_free_race_redeemed_at: null,
+                membership_monthly_15_race_month: null,
+                membership_monthly_15_race_redeemed_at: null
               })
               .eq('id', session.metadata?.profile_id ?? session.client_reference_id);
           }

@@ -6,8 +6,19 @@ import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
 import { getStripeMembershipEnv } from '@/lib/stripe/env';
 
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
 export const runtime = 'nodejs';
+
+const checkoutSchema = z
+  .object({
+    birthday: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .nullable()
+      .optional()
+  })
+  .optional();
 
 export async function POST(request: Request) {
   const supabase = await createRouteHandlerClient();
@@ -20,6 +31,12 @@ export async function POST(request: Request) {
   }
 
   const origin = new URL(request.url).origin || env.NEXT_PUBLIC_SITE_URL;
+  const raw = await request.json().catch(() => null);
+  const parsed = checkoutSchema.safeParse(raw ?? undefined);
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Enter birthday as YYYY-MM-DD.' }, { status: 400 });
+  }
+  const birthday = parsed.data?.birthday || null;
 
   try {
     const stripeEnv = getStripeMembershipEnv();
@@ -33,6 +50,10 @@ export async function POST(request: Request) {
       .maybeSingle<{ id: string; stripe_customer_id: string | null; stripe_subscription_id: string | null }>();
     if (error) throw new Error(error.message);
 
+    if (birthday) {
+      await admin.from('profiles').update({ birthday }).eq('id', user.id);
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: profile?.stripe_customer_id ?? undefined,
@@ -43,12 +64,14 @@ export async function POST(request: Request) {
       cancel_url: `${origin}/pricing?membership=cancelled`,
       metadata: {
         source: 'speedtrap_membership',
-        profile_id: user.id
+        profile_id: user.id,
+        birthday: birthday ?? ''
       },
       subscription_data: {
         metadata: {
           source: 'speedtrap_membership',
-          profile_id: user.id
+          profile_id: user.id,
+          birthday: birthday ?? ''
         }
       }
     });

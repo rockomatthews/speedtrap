@@ -27,12 +27,17 @@ type MemberProfile = {
   phone: string | null;
   avatar_url: string | null;
   membership_status: MembershipStatus | null;
+  birthday: string | null;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   membership_current_period_start: string | null;
   membership_current_period_end: string | null;
   membership_free_race_month: string | null;
   membership_free_race_redeemed_at: string | null;
+  membership_monthly_15_race_month: string | null;
+  membership_monthly_15_race_redeemed_at: string | null;
+  membership_birthday_30_race_year: number | null;
+  membership_birthday_30_race_redeemed_at: string | null;
   updated_at: string | null;
 };
 
@@ -60,7 +65,7 @@ export default async function AdminMembersPage() {
         supabase
           .from('profiles')
           .select(
-            'id,display_name,phone,avatar_url,membership_status,stripe_customer_id,stripe_subscription_id,membership_current_period_start,membership_current_period_end,membership_free_race_month,membership_free_race_redeemed_at,updated_at'
+            'id,display_name,phone,avatar_url,membership_status,birthday,stripe_customer_id,stripe_subscription_id,membership_current_period_start,membership_current_period_end,membership_free_race_month,membership_free_race_redeemed_at,membership_monthly_15_race_month,membership_monthly_15_race_redeemed_at,membership_birthday_30_race_year,membership_birthday_30_race_redeemed_at,updated_at'
           )
           .order('updated_at', { ascending: false })
           .limit(250),
@@ -77,7 +82,8 @@ export default async function AdminMembersPage() {
   }
 
   const activeMembers = members.filter((member) => membershipState(member).active);
-  const creditAvailable = activeMembers.filter((member) => membershipState(member).freeRaceAvailable);
+  const monthlyCreditAvailable = activeMembers.filter((member) => membershipState(member).monthly15Available);
+  const birthdayCreditAvailable = activeMembers.filter((member) => membershipState(member).birthday30Available);
 
   return (
     <AppShell>
@@ -103,9 +109,9 @@ export default async function AdminMembersPage() {
             <Grid container spacing={1.25}>
               {[
                 ['Active members', String(activeMembers.length)],
-                ['Monthly credits available', String(creditAvailable.length)],
+                ['Monthly 15 credits', String(monthlyCreditAvailable.length)],
+                ['Birthday 30 credits', String(birthdayCreditAvailable.length)],
                 ['Member discount', `${MEMBERSHIP_DISCOUNT_PERCENT}%`],
-                ['Profiles shown', String(members.length)]
               ].map(([label, value]) => (
                 <Grid key={label} size={{ xs: 12, sm: 6, md: 3 }}>
                   <Card variant="outlined" sx={{ borderColor: 'rgba(255,255,255,0.12)' }}>
@@ -134,7 +140,7 @@ export default async function AdminMembersPage() {
                         <TableRow>
                           <TableCell>Customer</TableCell>
                           <TableCell>Status</TableCell>
-                          <TableCell>Free race</TableCell>
+                          <TableCell>Member credits</TableCell>
                           <TableCell>Period</TableCell>
                           <TableCell>Stripe</TableCell>
                         </TableRow>
@@ -161,12 +167,17 @@ export default async function AdminMembersPage() {
                                 />
                               </TableCell>
                               <TableCell>
-                                <Typography sx={{ fontWeight: 800 }}>{state.freeRaceAvailable ? 'Available' : state.active ? 'Used' : '—'}</Typography>
-                                {member.membership_free_race_redeemed_at ? (
+                                <Typography sx={{ fontWeight: 800 }}>
+                                  Monthly 15: {state.active ? (state.monthly15Available ? 'Available' : 'Used') : '—'}
+                                </Typography>
+                                {member.membership_monthly_15_race_redeemed_at || member.membership_free_race_redeemed_at ? (
                                   <Typography variant="body2" color="text.secondary">
-                                    Used {formatDate(member.membership_free_race_redeemed_at)}
+                                    Used {formatDate(member.membership_monthly_15_race_redeemed_at ?? member.membership_free_race_redeemed_at)}
                                   </Typography>
                                 ) : null}
+                                <Typography variant="body2" color="text.secondary">
+                                  Birthday 30: {!member.birthday ? 'No birthday' : state.birthdayMonthActive ? (state.birthday30Available ? 'Available' : 'Used') : 'Birthday month only'}
+                                </Typography>
                               </TableCell>
                               <TableCell>
                                 <Typography variant="body2">

@@ -12,7 +12,13 @@ import Typography from '@mui/material/Typography';
 
 import { AppShell } from '@/components/AppShell';
 import { MembershipCheckoutButton } from '@/components/MembershipCheckoutButton';
-import { MEMBERSHIP_DISCOUNT_PERCENT, hasUnusedMonthlyRace, isMembershipActive, membershipBookingPrice } from '@/lib/membership';
+import {
+  MEMBERSHIP_DISCOUNT_PERCENT,
+  hasUnusedBirthdayRace,
+  hasUnusedMonthlyRace,
+  isMembershipActive,
+  membershipBookingPrice
+} from '@/lib/membership';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 
 const soloPricing = [
@@ -108,6 +114,7 @@ export default async function PricingPage() {
   const { user, profile } = await getAuthedProfile().catch(() => ({ user: null, profile: null }));
   const membershipActive = isMembershipActive(profile);
   const monthlyRaceAvailable = hasUnusedMonthlyRace(profile);
+  const birthdayRaceAvailable = hasUnusedBirthdayRace(profile);
 
   return (
     <Box
@@ -389,15 +396,19 @@ export default async function PricingPage() {
                   {membershipActive ? (
                     <Stack spacing={1}>
                       <Alert severity="success">
-                        {monthlyRaceAvailable
-                          ? 'Your membership is active. This month’s race credit is ready.'
+                        {birthdayRaceAvailable
+                          ? 'Your membership is active. Your birthday-month 30-minute race credit is ready.'
+                          : monthlyRaceAvailable
+                            ? 'Your membership is active. This month’s 15-minute race credit is ready.'
                           : `Your membership is active. You still get ${MEMBERSHIP_DISCOUNT_PERCENT}% off member pricing.`}
                       </Alert>
                       <MembershipCheckoutButton manage>Manage membership</MembershipCheckoutButton>
                     </Stack>
                   ) : (
                     <Stack spacing={1.5}>
-                      <MembershipCheckoutButton>Join for $45/month</MembershipCheckoutButton>
+                      <MembershipCheckoutButton collectBirthday existingBirthday={profile?.birthday}>
+                        Join for $45/month
+                      </MembershipCheckoutButton>
                       {!user ? (
                         <Typography color="text.secondary" sx={{ fontSize: 13 }}>
                           You’ll sign in first so Stripe can attach the membership to your Speed Trap profile.

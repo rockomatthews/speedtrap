@@ -23,6 +23,10 @@ type SuccessProfile = {
   membership_status: MembershipStatus;
   membership_current_period_end: string | null;
   membership_free_race_redeemed_at: string | null;
+  birthday: string | null;
+  membership_monthly_15_race_month: string | null;
+  membership_monthly_15_race_redeemed_at: string | null;
+  membership_birthday_30_race_redeemed_at: string | null;
 } | null;
 
 function isActive(profile: SuccessProfile) {
@@ -75,9 +79,14 @@ export function MembershipSuccessPanel({ initialProfile }: { initialProfile: Suc
   }, [initialProfile]);
 
   const active = isActive(profile);
-  const creditLabel = useMemo(() => {
+  const monthlyCreditLabel = useMemo(() => {
     if (!active) return 'Pending';
-    return profile?.membership_status === 'active-start' && !profile.membership_free_race_redeemed_at ? 'Available' : 'Used';
+    return profile?.membership_monthly_15_race_redeemed_at || profile?.membership_free_race_redeemed_at ? 'Used' : 'Available';
+  }, [active, profile]);
+  const birthdayCreditLabel = useMemo(() => {
+    if (!active) return 'Pending';
+    if (!profile?.birthday) return 'Add birthday';
+    return profile.membership_birthday_30_race_redeemed_at ? 'Used this year' : 'Ready in birthday month';
   }, [active, profile]);
 
   return (
@@ -116,7 +125,8 @@ export function MembershipSuccessPanel({ initialProfile }: { initialProfile: Suc
           <Grid container spacing={1.25}>
             {[
               ['Discount', `${MEMBERSHIP_DISCOUNT_PERCENT}% off everything`],
-              ['Monthly race', creditLabel],
+              ['Monthly 15', monthlyCreditLabel],
+              ['Birthday 30', birthdayCreditLabel],
               ['Renewal', formatDate(profile?.membership_current_period_end)],
               ['Member events', 'Invited']
             ].map(([label, value]) => (

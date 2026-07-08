@@ -40,11 +40,13 @@ export function MemberPassCard({ profile, email }: { profile: Profile | null; em
                   Not a member yet
                 </Typography>
                 <Typography color="text.secondary">
-                  Join for $45/month to unlock 10% off food and merch, priority booking, a welcome kit, birthday race time,
-                  and member events.
+                  Join for $45/month to unlock 10% off food and merch, priority booking, a monthly 15-minute session,
+                  birthday-month 30-minute session, and member events.
                 </Typography>
               </Stack>
-              <MembershipCheckoutButton>Join for $45/month</MembershipCheckoutButton>
+              <MembershipCheckoutButton collectBirthday existingBirthday={profile?.birthday}>
+                Join for $45/month
+              </MembershipCheckoutButton>
             </Stack>
           </Stack>
         </CardContent>
@@ -116,20 +118,25 @@ export function MemberPassCard({ profile, email }: { profile: Profile | null; em
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Box sx={{ p: 1.5, border: '1px solid rgba(255,255,255,0.12)', bgcolor: 'rgba(0,0,0,0.25)' }}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
-                  Monthly race
+                  Monthly 15
                 </Typography>
-                <Typography sx={{ fontWeight: 950 }}>{state.freeRaceAvailable ? 'Available' : 'Used'}</Typography>
+                <Typography sx={{ fontWeight: 950 }}>{state.monthly15Available ? 'Available' : 'Used'}</Typography>
               </Box>
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Box sx={{ p: 1.5, border: '1px solid rgba(255,255,255,0.12)', bgcolor: 'rgba(0,0,0,0.25)' }}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
-                  Current period
+                  Birthday 30
                 </Typography>
-                <Typography sx={{ fontWeight: 950 }}>Ends {formatDate(profile?.membership_current_period_end)}</Typography>
+                <Typography sx={{ fontWeight: 950 }}>
+                  {!state.birthdayOnFile ? 'Add birthday' : state.birthdayMonthActive ? (state.birthday30Available ? 'Available' : 'Used') : 'Birthday month'}
+                </Typography>
               </Box>
             </Grid>
           </Grid>
+          <Typography color="text.secondary" sx={{ fontSize: 13 }}>
+            Current period ends {formatDate(profile?.membership_current_period_end)}.
+          </Typography>
         </Stack>
       </CardContent>
     </Card>

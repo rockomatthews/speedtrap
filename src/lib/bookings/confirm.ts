@@ -13,15 +13,23 @@ function normalizeVmsName(name: string) {
 
 async function redeemMembershipCreditIfNeeded(supabase: any, hold: any) {
   if (!hold.profile_id || !hold.membership_free_race_applied) return;
-  await supabase
-    .from('profiles')
-    .update({
-      membership_status: 'active',
-      membership_free_race_month: hold.membership_free_race_month,
-      membership_free_race_redeemed_at: new Date().toISOString()
-    })
-    .eq('id', hold.profile_id)
-    .eq('membership_status', 'active-start');
+  const redeemedAt = new Date().toISOString();
+  const creditType = hold.membership_credit_type ?? 'monthly_15';
+  const update =
+    creditType === 'birthday_30'
+      ? {
+          membership_birthday_30_race_year: hold.membership_credit_year,
+          membership_birthday_30_race_redeemed_at: redeemedAt
+        }
+      : {
+          membership_status: 'active',
+          membership_free_race_month: hold.membership_free_race_month,
+          membership_free_race_redeemed_at: redeemedAt,
+          membership_monthly_15_race_month: hold.membership_credit_month ?? hold.membership_free_race_month,
+          membership_monthly_15_race_redeemed_at: redeemedAt
+        };
+
+  await supabase.from('profiles').update(update).eq('id', hold.profile_id);
 }
 
 function raceRequestFromHold(hold: any) {
@@ -60,6 +68,12 @@ function bookingPaymentNotes(booking: any, lines: Array<string | null | undefine
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+function membershipCreditPaymentNote(booking: any) {
+  if (!booking.membership_free_race_applied) return null;
+  if (booking.membership_credit_type === 'birthday_30') return 'Birthday membership 30-minute race credit.';
+  return 'Monthly membership 15-minute race credit.';
 }
 
 export async function confirmRaceBookingFromPaymentIntent(input: {
@@ -115,6 +129,9 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
       membership_free_race_month: hold.membership_free_race_month ?? null,
       membership_free_race_applied: Boolean(hold.membership_free_race_applied),
       membership_discount_cents: hold.membership_discount_cents ?? 0,
+      membership_credit_type: hold.membership_credit_type ?? (hold.membership_free_race_applied ? 'monthly_15' : 'none'),
+      membership_credit_month: hold.membership_credit_month ?? hold.membership_free_race_month ?? null,
+      membership_credit_year: hold.membership_credit_year ?? null,
       ...raceRequestFromHold(hold)
     })
     .select('*')
@@ -171,7 +188,8 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
       notes: bookingNotes('Created automatically from a Speed Trap online booking.', booking),
       paymentNotes: bookingPaymentNotes(booking, [
         `Stripe payment intent: ${paymentIntent.id}`,
-        charge?.id ? `Stripe charge: ${charge.id}` : null
+        charge?.id ? `Stripe charge: ${charge.id}` : null,
+        membershipCreditPaymentNote(booking)
       ])
     });
     if (!vmsBooking?.id) throw new Error('VMS did not return a booking id.');
@@ -237,6 +255,9 @@ export async function confirmRaceBookingFromHold(input: {
       membership_free_race_month: hold.membership_free_race_month ?? null,
       membership_free_race_applied: Boolean(hold.membership_free_race_applied),
       membership_discount_cents: hold.membership_discount_cents ?? 0,
+      membership_credit_type: hold.membership_credit_type ?? (hold.membership_free_race_applied ? 'monthly_15' : 'none'),
+      membership_credit_month: hold.membership_credit_month ?? hold.membership_free_race_month ?? null,
+      membership_credit_year: hold.membership_credit_year ?? null,
       ...raceRequestFromHold(hold)
     })
     .select('*')
@@ -291,7 +312,7 @@ export async function confirmRaceBookingFromHold(input: {
       participantIds: [customer.id],
       staffingNotes: raceRequest.noteLine,
       notes: bookingNotes('Created automatically from a Speed Trap online booking.', booking),
-      paymentNotes: bookingPaymentNotes(booking, ['Monthly membership free race.'])
+      paymentNotes: bookingPaymentNotes(booking, [membershipCreditPaymentNote(booking)])
     });
     if (!vmsBooking?.id) throw new Error('VMS did not return a booking id.');
 

@@ -64,7 +64,7 @@ export async function POST(request: Request) {
       const { data: profile } = await supabase
         .from('profiles')
         .select(
-          'id,membership_status,membership_current_period_end,membership_free_race_month,membership_free_race_redeemed_at'
+          'id,membership_status,membership_current_period_end,birthday,membership_free_race_month,membership_free_race_redeemed_at,membership_monthly_15_race_month,membership_monthly_15_race_redeemed_at,membership_birthday_30_race_year,membership_birthday_30_race_redeemed_at'
         )
         .eq('id', user.id)
         .maybeSingle<MembershipProfile>();
@@ -74,7 +74,8 @@ export async function POST(request: Request) {
     const price = membershipBookingPrice({
       durationMinutes: parsed.data.durationMinutes,
       simCount: parsed.data.simCount,
-      profile: membershipProfile
+      profile: membershipProfile,
+      creditDate: start
     });
     if (!price) return NextResponse.json({ error: 'Unsupported booking product.' }, { status: 400 });
     const raceRequest = await validateRaceRequest(parsed.data.raceRequest, start);
@@ -106,6 +107,9 @@ export async function POST(request: Request) {
         membership_free_race_month: price.freeRaceMonth,
         membership_free_race_applied: price.freeRaceApplied,
         membership_discount_cents: price.discountCents,
+        membership_credit_type: price.creditType,
+        membership_credit_month: price.creditMonth,
+        membership_credit_year: price.creditYear,
         ...raceRequestDbFields(raceRequest),
         expires_at: addMinutes(new Date(), BOOKING_HOLD_MINUTES).toISOString()
       })

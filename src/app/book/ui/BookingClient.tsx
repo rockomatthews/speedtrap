@@ -46,6 +46,8 @@ type Availability = {
 type MembershipSummary = {
   status: 'inactive' | 'active-start' | 'active';
   freeRaceAvailable: boolean;
+  monthly15Available?: boolean;
+  birthday30Available?: boolean;
   discountPercent: number;
 };
 
@@ -73,17 +75,26 @@ function bookingPrice(durationMinutes: number, simCount: number) {
 
 function memberBookingPrice(durationMinutes: number, simCount: number, membership: MembershipSummary | null) {
   const base = bookingPrice(durationMinutes, simCount);
-  if (!membership || membership.status === 'inactive') return { amountCents: base, discountCents: 0, freeRaceApplied: false };
+  if (!membership || membership.status === 'inactive') {
+    return { amountCents: base, discountCents: 0, freeRaceApplied: false, creditLabel: null as string | null };
+  }
 
-  const freeRaceApplied = membership.freeRaceAvailable && simCount > 0;
-  const oneDriverPrice = bookingPrice(durationMinutes, 1);
-  const freeCredit = freeRaceApplied ? oneDriverPrice : 0;
+  let creditLabel: string | null = null;
+  let freeCredit = 0;
+  if (simCount > 0 && durationMinutes >= 30 && membership.birthday30Available) {
+    freeCredit = bookingPrice(30, 1);
+    creditLabel = 'birthday 30-minute race';
+  } else if (simCount > 0 && durationMinutes >= 15 && (membership.monthly15Available ?? membership.freeRaceAvailable)) {
+    freeCredit = bookingPrice(15, 1);
+    creditLabel = 'monthly 15-minute race';
+  }
   const discountable = Math.max(0, base - freeCredit);
   const discount = Math.round(discountable * (membership.discountPercent / 100));
   return {
     amountCents: Math.max(0, discountable - discount),
     discountCents: freeCredit + discount,
-    freeRaceApplied
+    freeRaceApplied: Boolean(creditLabel),
+    creditLabel
   };
 }
 
@@ -762,7 +773,7 @@ export function BookingClient({
                 {memberPrice.discountCents > 0 ? (
                   <Typography color="primary" sx={{ fontSize: 13, fontWeight: 800 }}>
                     Member savings: {money(memberPrice.discountCents)}
-                    {memberPrice.freeRaceApplied ? ' including this month’s free race' : ''}
+                    {memberPrice.creditLabel ? ` including your ${memberPrice.creditLabel}` : ''}
                   </Typography>
                 ) : null}
                 {memberPrice.discountCents > 0 && baseAmountCents !== amountCents ? (
