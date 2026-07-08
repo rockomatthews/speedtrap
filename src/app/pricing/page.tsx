@@ -352,19 +352,26 @@ export default async function PricingPage() {
               }
             }}
           >
-            <Grid container spacing={{ xs: 3, md: 5 }} alignItems="center" sx={{ position: 'relative', zIndex: 1 }}>
-              <Grid size={{ xs: 12, md: 5 }}>
+            <Grid
+              container
+              spacing={{ xs: 3, md: 5 }}
+              alignItems={{ xs: 'stretch', lg: 'center' }}
+              sx={{ position: 'relative', zIndex: 1 }}
+            >
+              <Grid size={{ xs: 12, lg: 6 }}>
                 <Stack spacing={2.25}>
                   <Chip label="Membership" color="primary" sx={{ alignSelf: 'flex-start', fontWeight: 900 }} />
                   <Box>
                     <Typography
                       component="h2"
                       sx={{
-                        fontSize: { xs: 52, md: 82 },
+                        fontSize: { xs: 48, sm: 58, md: 68, lg: 70, xl: 78 },
                         lineHeight: 0.9,
                         fontWeight: 950,
                         letterSpacing: 0,
-                        textTransform: 'uppercase'
+                        textTransform: 'uppercase',
+                        maxWidth: '100%',
+                        overflowWrap: 'break-word'
                       }}
                     >
                       The
@@ -400,7 +407,7 @@ export default async function PricingPage() {
                   )}
                 </Stack>
               </Grid>
-              <Grid size={{ xs: 12, md: 7 }}>
+              <Grid size={{ xs: 12, lg: 6 }}>
                 <Stack spacing={1.5}>
                   <Typography color="primary" sx={{ fontWeight: 950, letterSpacing: 0, textTransform: 'uppercase' }}>
                     What you get
