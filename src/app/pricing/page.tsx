@@ -93,8 +93,8 @@ const membershipPerks = [
   },
   {
     number: '04',
-    title: 'Birthday perk.',
-    body: 'Free 30-minute sim session your birthday month.'
+    title: 'Free Monthly Race perk.',
+    body: 'Free 30-minute sim session each month.'
   },
   {
     number: '05',
