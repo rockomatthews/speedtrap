@@ -12,6 +12,9 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
 import { NavBar } from '@/components/NavBar';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+
+export const dynamic = 'force-dynamic';
 
 const quickRacePricing = [
   { label: 'Quick Race', minutes: '15 min', price: '$15', note: 'Fast laps, first timers, and quick rematches.' },
@@ -40,6 +43,71 @@ const footerLinks = ['How It Works', 'Pricing', 'Race Radar', 'Menu', 'Merch'];
 
 const bookHref = '/book?duration=15';
 
+const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+type FooterScheduleRule = {
+  day_of_week: number;
+  opens_at: string;
+  closes_at: string;
+  active: boolean;
+};
+
+function formatFooterTime(value: string) {
+  const [hourPart, minutePart = '00'] = value.split(':');
+  const hour = Number(hourPart);
+  const minute = Number(minutePart);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value;
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 || 12;
+  return minute === 0 ? `${displayHour} ${period}` : `${displayHour}:${String(minute).padStart(2, '0')} ${period}`;
+}
+
+function dayRangeLabel(start: number, end: number) {
+  return start === end ? dayLabels[start] : `${dayLabels[start]}-${dayLabels[end]}`;
+}
+
+function formatFooterHours(rules: FooterScheduleRule[]) {
+  const orderedRules = [...rules]
+    .filter((rule) => Number.isInteger(rule.day_of_week) && rule.day_of_week >= 0 && rule.day_of_week <= 6)
+    .sort((a, b) => a.day_of_week - b.day_of_week);
+
+  if (orderedRules.length === 0) return 'Hours: 11 AM-11 PM';
+
+  const dailyHours = Array.from({ length: 7 }, (_item, day) => {
+    const rule = orderedRules.find((item) => item.day_of_week === day);
+    if (!rule || !rule.active) return { day, label: 'Closed' };
+    return { day, label: `${formatFooterTime(rule.opens_at)}-${formatFooterTime(rule.closes_at)}` };
+  });
+
+  const groups: Array<{ start: number; end: number; label: string }> = [];
+  for (const item of dailyHours) {
+    const current = groups.at(-1);
+    if (current && current.label === item.label && current.end === item.day - 1) {
+      current.end = item.day;
+    } else {
+      groups.push({ start: item.day, end: item.day, label: item.label });
+    }
+  }
+
+  return groups.map((group) => `${dayRangeLabel(group.start, group.end)}: ${group.label}`).join(' | ');
+}
+
+async function getFooterHours() {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from('venue_schedule_rules')
+      .select('day_of_week, opens_at, closes_at, active')
+      .order('day_of_week')
+      .order('opens_at');
+    if (error) throw error;
+    return formatFooterHours(data ?? []);
+  } catch (error) {
+    console.error('Failed to load homepage footer hours', error);
+    return 'Hours: 11 AM-11 PM';
+  }
+}
+
 export default async function HomePage({
   searchParams
 }: {
@@ -50,6 +118,7 @@ export default async function HomePage({
   if (typeof code === 'string' && code.length > 0) {
     redirect(`/auth/callback?code=${encodeURIComponent(code)}&redirectTo=${encodeURIComponent('/dashboard')}`);
   }
+  const footerHours = await getFooterHours();
 
   return (
     <Box
@@ -511,7 +580,7 @@ export default async function HomePage({
                   <Typography>Speed Trap Racing</Typography>
                   <Typography color="text.secondary">14718 Detroit Ave. Lakewood, OH 44107</Typography>
                   <Typography color="text.secondary">216-712-4039</Typography>
-                  <Typography color="text.secondary">Hours: 11 AM-11 PM</Typography>
+                  <Typography color="text.secondary">{footerHours}</Typography>
                 </Stack>
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
