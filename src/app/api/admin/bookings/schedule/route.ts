@@ -11,6 +11,8 @@ const ruleSchema = z.object({
   closes_at: z.string().regex(/^\d{2}:\d{2}/),
   active: z.boolean(),
   max_sims: z.coerce.number().int().min(1).max(4).default(4)
+}).refine((rule) => rule.opens_at.slice(0, 5) !== rule.closes_at.slice(0, 5), {
+  message: 'Open and close time cannot be the same.'
 });
 
 const scheduleSchema = z.object({

@@ -18,6 +18,7 @@ export type BookingSlot = {
 };
 
 type ScheduleRule = {
+  day_of_week?: number;
   opens_at: string;
   closes_at: string;
   max_sims: number | null;
@@ -37,6 +38,13 @@ type Blackout = {
 
 function timePart(value: string) {
   return value.slice(0, 8);
+}
+
+function scheduleRange(date: string, rule: ScheduleRule) {
+  const open = localDateTimeToUtc(date, timePart(rule.opens_at));
+  let close = localDateTimeToUtc(date, timePart(rule.closes_at));
+  if (close <= open) close = addMinutes(close, 24 * 60);
+  return { open, close };
 }
 
 function slotRange(date: string) {
@@ -70,7 +78,7 @@ export async function getBookingAvailability(
   const dayOfWeek = dayOfWeekForVenueDate(input.date);
   const scheduleRes = await supabase
     .from('venue_schedule_rules')
-    .select('opens_at,closes_at,max_sims')
+    .select('day_of_week,opens_at,closes_at,max_sims')
     .eq('day_of_week', dayOfWeek)
     .eq('active', true)
     .order('opens_at', { ascending: true });
@@ -107,8 +115,8 @@ export async function getBookingAvailability(
     schedule.length > 0 ? Math.max(...schedule.map((rule) => Math.min(physicalTotalSims, Number(rule.max_sims ?? 4)))) : 0;
 
   for (const rule of schedule) {
-    let cursor = localDateTimeToUtc(input.date, timePart(rule.opens_at));
-    const close = localDateTimeToUtc(input.date, timePart(rule.closes_at));
+    const { open, close } = scheduleRange(input.date, rule);
+    let cursor = open;
     const publicSimCap = Math.min(physicalTotalSims, Number(rule.max_sims ?? 4));
 
     while (cursor < close) {
