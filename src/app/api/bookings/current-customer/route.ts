@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { bookingDateWindow } from '@/lib/bookings/advance-window';
 import { hasUnusedBirthdayRace, hasUnusedMonthlyRace, isBirthdayMonth, isMembershipActive, MEMBERSHIP_DISCOUNT_PERCENT } from '@/lib/membership';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 import { VmsClient } from '@/lib/vms/client';
@@ -33,6 +34,7 @@ export async function GET() {
           discountPercent: MEMBERSHIP_DISCOUNT_PERCENT
         }
       : null,
+    bookingWindow: bookingDateWindow(profile),
     customer
   });
 }

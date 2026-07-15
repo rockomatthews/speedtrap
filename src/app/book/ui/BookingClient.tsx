@@ -51,6 +51,12 @@ type MembershipSummary = {
   discountPercent: number;
 };
 
+type BookingWindow = {
+  minDate: string;
+  maxDate: string;
+  advanceDays: number;
+};
+
 type RaceOption = {
   id: number;
   name: string;
@@ -63,6 +69,11 @@ type RaceRequestMode = 'none' | 'hotlap_event';
 
 function todayDate() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function addDateDays(date: string, days: number) {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days, 12)).toISOString().slice(0, 10);
 }
 
 function money(cents: number) {
@@ -389,6 +400,10 @@ export function BookingClient({
   const [customerPhone, setCustomerPhone] = useState('');
   const [smsConsent, setSmsConsent] = useState(false);
   const [membership, setMembership] = useState<MembershipSummary | null>(null);
+  const [bookingWindow, setBookingWindow] = useState<BookingWindow>(() => {
+    const today = todayDate();
+    return { minDate: today, maxDate: addDateDays(today, 7), advanceDays: 7 };
+  });
   const [raceRequestMode, setRaceRequestMode] = useState<RaceRequestMode>('none');
   const [selectedEvent, setSelectedEvent] = useState<RaceOption | null>(null);
   const [clientSecret, setClientSecret] = useState('');
@@ -415,12 +430,20 @@ export function BookingClient({
       if (name) setCustomerName(name);
       if (email) setCustomerEmail(email);
       if (json.membership) setMembership(json.membership);
+      if (json.bookingWindow?.minDate && json.bookingWindow?.maxDate) {
+        setBookingWindow(json.bookingWindow);
+      }
     }
     void loadCustomer();
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (date < bookingWindow.minDate) setDate(bookingWindow.minDate);
+    if (date > bookingWindow.maxDate) setDate(bookingWindow.maxDate);
+  }, [bookingWindow.maxDate, bookingWindow.minDate, date]);
 
   useEffect(() => {
     let cancelled = false;
@@ -653,7 +676,25 @@ export function BookingClient({
             <Stack spacing={2.5}>
               <Grid container spacing={1.5}>
                 <Grid size={{ xs: 12, sm: 5 }}>
-                  <TextField label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={Boolean(clientSecret)} fullWidth />
+                  <TextField
+                    label="Date"
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    disabled={Boolean(clientSecret)}
+                    fullWidth
+                    slotProps={{
+                      htmlInput: {
+                        min: bookingWindow.minDate,
+                        max: bookingWindow.maxDate
+                      }
+                    }}
+                    helperText={
+                      bookingWindow.advanceDays >= 14
+                        ? 'Member perk: book up to 14 days out.'
+                        : 'Book up to 7 days out. Members can book 14 days out.'
+                    }
+                  />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 7 }}>
                   <ToggleButtonGroup

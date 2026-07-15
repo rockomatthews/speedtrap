@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { validateBookingDateWithinWindow } from '@/lib/bookings/advance-window';
 import { assertSlotAvailable } from '@/lib/bookings/availability';
 import {
   BOOKING_BUFFER_MINUTES,
@@ -58,9 +59,10 @@ export async function POST(request: Request) {
     const customerPhone = normalizeUsPhone(parsed.data.customerPhone);
     if (!customerPhone) return NextResponse.json({ error: 'Enter a valid mobile phone number.' }, { status: 400 });
 
+    let signedInProfile: MembershipProfile | null = null;
     let membershipProfile: MembershipProfile | null = null;
     const userEmail = user?.email?.toLowerCase() ?? null;
-    if (user?.id && userEmail && userEmail === parsed.data.customerEmail) {
+    if (user?.id) {
       const { data: profile } = await supabase
         .from('profiles')
         .select(
@@ -68,8 +70,14 @@ export async function POST(request: Request) {
         )
         .eq('id', user.id)
         .maybeSingle<MembershipProfile>();
-      membershipProfile = profile ?? null;
+      signedInProfile = profile ?? null;
+      if (userEmail && userEmail === parsed.data.customerEmail) {
+        membershipProfile = profile ?? null;
+      }
     }
+
+    const windowCheck = validateBookingDateWithinWindow(utcToVenueDate(start), signedInProfile);
+    if (!windowCheck.ok) return NextResponse.json({ error: windowCheck.error }, { status: 403 });
 
     const price = membershipBookingPrice({
       durationMinutes: parsed.data.durationMinutes,
