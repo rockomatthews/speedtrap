@@ -41,12 +41,32 @@ export async function PATCH(request: Request) {
 
   const supabase = createSupabaseAdminClient();
   const rows = parsed.data.rules.map((rule) => ({
-    ...rule,
+    id: rule.id,
+    day_of_week: rule.day_of_week,
     opens_at: rule.opens_at.slice(0, 5),
     closes_at: rule.closes_at.slice(0, 5),
+    active: rule.active,
     max_sims: rule.max_sims
   }));
-  const { data, error } = await supabase.from('venue_schedule_rules').upsert(rows).select('*').order('day_of_week').order('opens_at');
+
+  const { data: existingRules, error: existingError } = await supabase
+    .from('venue_schedule_rules')
+    .select('id, day_of_week')
+    .order('day_of_week')
+    .order('opens_at');
+  if (existingError) return NextResponse.json({ error: existingError.message }, { status: 500 });
+
+  for (const row of rows) {
+    const { id, ...payload } = row;
+    const targetId = id ?? existingRules?.find((rule) => rule.day_of_week === row.day_of_week)?.id;
+    const result = targetId
+      ? await supabase.from('venue_schedule_rules').update(payload).eq('id', targetId)
+      : await supabase.from('venue_schedule_rules').insert(payload);
+
+    if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
+  }
+
+  const { data, error } = await supabase.from('venue_schedule_rules').select('*').order('day_of_week').order('opens_at');
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ rules: data ?? [] });
 }
