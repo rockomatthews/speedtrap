@@ -365,28 +365,54 @@ export default async function PricingPage() {
               alignItems={{ xs: 'stretch', lg: 'center' }}
               sx={{ position: 'relative', zIndex: 1 }}
             >
-              <Grid size={{ xs: 12, lg: 6 }}>
-                <Stack spacing={2.25}>
+              <Grid size={{ xs: 12, lg: 6 }} sx={{ minWidth: 0 }}>
+                <Stack spacing={2.25} sx={{ minWidth: 0 }}>
                   <Chip label="Apex Pass" color="primary" sx={{ alignSelf: 'flex-start', fontWeight: 900 }} />
                   <Box>
                     <Typography
                       component="h2"
                       sx={{
-                        fontSize: { xs: 48, sm: 58, md: 68, lg: 70, xl: 78 },
-                        lineHeight: 0.9,
+                        fontSize: {
+                          xs: 'clamp(2.65rem, 13vw, 4rem)',
+                          sm: 'clamp(3.5rem, 9vw, 5.2rem)',
+                          lg: 'clamp(4.25rem, 6vw, 5rem)'
+                        },
+                        lineHeight: 0.86,
                         fontWeight: 950,
                         letterSpacing: 0,
                         textTransform: 'uppercase',
                         maxWidth: '100%',
-                        overflowWrap: 'break-word'
+                        overflowWrap: 'anywhere'
                       }}
                     >
                       The
-                      <Box component="span" sx={{ display: 'block', color: '#FF161F', fontStyle: 'italic' }}>
+                      <Box
+                        component="span"
+                        sx={{
+                          display: 'block',
+                          color: '#FF161F',
+                          fontStyle: 'italic',
+                          fontSize: {
+                            xs: 'clamp(2.85rem, 15vw, 4.45rem)',
+                            sm: 'clamp(3.8rem, 10vw, 5.8rem)',
+                            lg: 'clamp(4.6rem, 6.5vw, 5.65rem)'
+                          },
+                          lineHeight: 0.86,
+                          maxWidth: '100%',
+                          overflowWrap: 'anywhere'
+                        }}
+                      >
                         Membership.
                       </Box>
                     </Typography>
-                    <Typography sx={{ mt: 1.5, fontSize: { xs: 34, md: 46 }, fontWeight: 950 }}>
+                    <Typography
+                      sx={{
+                        mt: 1.5,
+                        fontSize: { xs: 'clamp(1.9rem, 9vw, 2.65rem)', md: 46 },
+                        fontWeight: 950,
+                        lineHeight: 1
+                      }}
+                    >
                       $45 / month.
                     </Typography>
                     <Typography color="text.secondary" sx={{ mt: 0.5, fontSize: 18 }}>

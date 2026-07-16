@@ -67,7 +67,7 @@ export function MemberPassCard({ profile, email }: { profile: Profile | null; em
       <CardContent>
         <Stack spacing={2.25}>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }}>
-            <Stack direction="row" spacing={1.5} alignItems="center">
+            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
               <Avatar
                 src={profile?.avatar_url ?? undefined}
                 sx={{
@@ -81,9 +81,19 @@ export function MemberPassCard({ profile, email }: { profile: Profile | null; em
               >
                 {profile?.avatar_url ? null : initials || <WorkspacePremiumIcon />}
               </Avatar>
-              <Box>
-                <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
-                  <Typography variant="h5" sx={{ fontWeight: 950, overflowWrap: 'anywhere' }}>
+              <Box sx={{ minWidth: 0 }}>
+                <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center" sx={{ minWidth: 0 }}>
+                  <Typography
+                    variant="h5"
+                    sx={{
+                      fontWeight: 950,
+                      minWidth: 0,
+                      maxWidth: '100%',
+                      overflowWrap: 'anywhere',
+                      fontSize: { xs: 'clamp(1.55rem, 8vw, 2rem)', sm: '1.8rem' },
+                      lineHeight: 1
+                    }}
+                  >
                     {displayName}
                   </Typography>
                   <Chip label="Active Apex Pass" color="primary" sx={{ fontWeight: 950 }} />

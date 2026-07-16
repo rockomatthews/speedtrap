@@ -107,7 +107,20 @@ export function MembershipSuccessPanel({ initialProfile }: { initialProfile: Suc
               color={active ? 'primary' : 'default'}
               sx={{ fontWeight: 950 }}
             />
-            <Typography variant="h3" sx={{ fontWeight: 950, lineHeight: 0.95 }}>
+            <Typography
+              component="h1"
+              sx={{
+                fontWeight: 950,
+                lineHeight: 0.94,
+                maxWidth: '100%',
+                overflowWrap: 'anywhere',
+                fontSize: {
+                  xs: 'clamp(2.2rem, 12vw, 4rem)',
+                  sm: 'clamp(3rem, 8vw, 5rem)',
+                  md: 'clamp(3.8rem, 6vw, 5.75rem)'
+                }
+              }}
+            >
               {active ? 'You are now a Speed Trap member.' : 'We are syncing your member pass.'}
             </Typography>
             <Typography color="text.secondary" sx={{ maxWidth: 760 }}>
