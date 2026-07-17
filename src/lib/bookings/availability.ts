@@ -47,6 +47,19 @@ function scheduleRange(date: string, rule: ScheduleRule) {
   return { open, close };
 }
 
+function addDaysToVenueDate(date: string, days: number) {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days, 12, 0, 0)).toISOString().slice(0, 10);
+}
+
+function previousVenueDate(date: string) {
+  return addDaysToVenueDate(date, -1);
+}
+
+function isOvernightRule(rule: ScheduleRule) {
+  return timePart(rule.closes_at) <= timePart(rule.opens_at);
+}
+
 function slotRange(date: string) {
   const start = localDateTimeToUtc(date, '00:00:00');
   const end = localDateTimeToUtc(date, '23:59:59');
@@ -76,14 +89,22 @@ export async function getBookingAvailability(
   const physicalTotalSims = resourcesRes.data?.length ?? 0;
 
   const dayOfWeek = dayOfWeekForVenueDate(input.date);
+  const previousDate = previousVenueDate(input.date);
+  const previousDayOfWeek = dayOfWeekForVenueDate(previousDate);
   const scheduleRes = await supabase
     .from('venue_schedule_rules')
     .select('day_of_week,opens_at,closes_at,max_sims')
-    .eq('day_of_week', dayOfWeek)
+    .in('day_of_week', [previousDayOfWeek, dayOfWeek])
     .eq('active', true)
     .order('opens_at', { ascending: true });
   if (scheduleRes.error) throw new Error(scheduleRes.error.message);
-  const schedule = (scheduleRes.data ?? []) as ScheduleRule[];
+  const schedule = ((scheduleRes.data ?? []) as ScheduleRule[])
+    .map((rule) => {
+      if (rule.day_of_week === dayOfWeek) return { date: input.date, rule };
+      if (rule.day_of_week === previousDayOfWeek && isOvernightRule(rule)) return { date: previousDate, rule };
+      return null;
+    })
+    .filter((candidate): candidate is { date: string; rule: ScheduleRule } => Boolean(candidate));
 
   const range = slotRange(input.date);
   const [blackoutRes, bookingsRes, holdsRes] = await Promise.all([
@@ -112,15 +133,19 @@ export async function getBookingAvailability(
   const now = new Date();
   const slots: BookingSlot[] = [];
   const dailyPublicSimCap =
-    schedule.length > 0 ? Math.max(...schedule.map((rule) => Math.min(physicalTotalSims, Number(rule.max_sims ?? 4)))) : 0;
+    schedule.length > 0 ? Math.max(...schedule.map(({ rule }) => Math.min(physicalTotalSims, Number(rule.max_sims ?? 4)))) : 0;
 
-  for (const rule of schedule) {
-    const { open, close } = scheduleRange(input.date, rule);
+  for (const { date, rule } of schedule) {
+    const { open, close } = scheduleRange(date, rule);
     let cursor = open;
     const publicSimCap = Math.min(physicalTotalSims, Number(rule.max_sims ?? 4));
 
     while (cursor < close) {
       const startsAt = new Date(cursor);
+      if (startsAt < range.start || startsAt > range.end) {
+        cursor = addMinutes(cursor, BOOKING_SLOT_INTERVAL_MINUTES);
+        continue;
+      }
       const endsAt = addMinutes(startsAt, input.durationMinutes);
       const bufferUntil = addMinutes(endsAt, BOOKING_BUFFER_MINUTES);
       let reason: BookingSlot['reason'] = 'available';
@@ -149,6 +174,8 @@ export async function getBookingAvailability(
       cursor = addMinutes(cursor, BOOKING_SLOT_INTERVAL_MINUTES);
     }
   }
+
+  slots.sort((left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime());
 
   return {
     date: input.date,
