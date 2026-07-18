@@ -77,6 +77,28 @@ type ToastSession = {
   created_at: string;
 };
 
+type BookingSlot = {
+  startsAt: string;
+  endsAt: string;
+  time: string;
+  available: boolean;
+  availableSims: number;
+  reason: 'available' | 'closed' | 'full' | 'blackout' | 'past';
+};
+
+type OperationsAvailability = {
+  date: string;
+  durationMinutes: number;
+  simCount: number;
+  totalSims: number;
+  slots: BookingSlot[];
+};
+
+type OperationsBoard = {
+  timeline: OperationsAvailability;
+  walkIn: OperationsAvailability;
+};
+
 function venueParts(value: Date | string) {
   const date = typeof value === 'string' ? new Date(value) : value;
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -134,6 +156,10 @@ function formatBookingWindow(booking: RaceBooking) {
   return `${formatTime(booking.starts_at)} - ${formatTime(booking.ends_at)}`;
 }
 
+function formatSlotWindow(slot: BookingSlot) {
+  return `${formatTime(slot.startsAt)} - ${formatTime(slot.endsAt)}`;
+}
+
 function timeValue(value: string) {
   return value?.slice(0, 5) || '12:00';
 }
@@ -163,11 +189,40 @@ function membershipCreditLabel(booking: RaceBooking) {
   return 'Monthly 15 credit';
 }
 
+function slotStatusColor(slot: BookingSlot, totalSims: number) {
+  if (slot.reason === 'past') return { border: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.035)', color: 'text.disabled' };
+  if (slot.reason === 'closed' || slot.reason === 'blackout') {
+    return { border: 'rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'text.secondary' };
+  }
+  if (slot.availableSims <= 0) return { border: 'rgba(255,22,31,0.45)', background: 'rgba(255,22,31,0.14)', color: 'text.primary' };
+  if (slot.availableSims < totalSims) return { border: 'rgba(255,210,0,0.7)', background: 'rgba(255,210,0,0.14)', color: 'text.primary' };
+  return { border: 'rgba(86,196,125,0.55)', background: 'rgba(86,196,125,0.12)', color: 'text.primary' };
+}
+
+function openWindowSummaries(slots: BookingSlot[]) {
+  const windows: Array<{ startsAt: string; endsAt: string; minAvailableSims: number }> = [];
+  for (const slot of slots) {
+    if (!slot.available || slot.availableSims < 1) continue;
+    const previous = windows[windows.length - 1];
+    if (previous && new Date(previous.endsAt).getTime() === new Date(slot.startsAt).getTime()) {
+      previous.endsAt = slot.endsAt;
+      previous.minAvailableSims = Math.min(previous.minAvailableSims, slot.availableSims);
+    } else {
+      windows.push({ startsAt: slot.startsAt, endsAt: slot.endsAt, minAvailableSims: slot.availableSims });
+    }
+  }
+  return windows;
+}
+
 export function AdminBookingsClient() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [blackouts, setBlackouts] = useState<Blackout[]>([]);
   const [raceBookings, setRaceBookings] = useState<RaceBooking[]>([]);
   const [toastSessions, setToastSessions] = useState<ToastSession[]>([]);
+  const [operations, setOperations] = useState<OperationsBoard | null>(null);
+  const [operationsLoading, setOperationsLoading] = useState(false);
+  const [walkInSims, setWalkInSims] = useState(1);
+  const [walkInDuration, setWalkInDuration] = useState(15);
   const [selectedDate, setSelectedDate] = useState(todayVenueDate);
   const [blackoutStart, setBlackoutStart] = useState('');
   const [blackoutEnd, setBlackoutEnd] = useState('');
@@ -184,6 +239,9 @@ export function AdminBookingsClient() {
   );
   const selectedSims = selectedBookings.reduce((sum, booking) => sum + Number(booking.sim_count ?? 0), 0);
   const selectedRevenue = selectedBookings.reduce((sum, booking) => sum + Number(booking.amount_cents ?? 0), 0);
+  const openWindows = useMemo(() => openWindowSummaries(operations?.timeline.slots ?? []), [operations]);
+  const firstWalkInSlot = useMemo(() => operations?.walkIn.slots.find((slot) => slot.available) ?? null, [operations]);
+  const walkInIsNow = firstWalkInSlot ? new Date(firstWalkInSlot.startsAt).getTime() - Date.now() <= 15 * 60 * 1000 : false;
 
   async function load() {
     setLoading(true);
@@ -208,9 +266,33 @@ export function AdminBookingsClient() {
     }
   }
 
+  async function loadOperationsBoard() {
+    setOperationsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        date: selectedDate,
+        durationMinutes: String(walkInDuration),
+        simCount: String(walkInSims)
+      });
+      const res = await fetch(`/api/admin/bookings/operations?${params.toString()}`);
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error ?? 'Failed to load operations board.');
+      setOperations(json);
+    } catch (e) {
+      setOperations(null);
+      setError(e instanceof Error ? e.message : 'Failed to load operations board.');
+    } finally {
+      setOperationsLoading(false);
+    }
+  }
+
   useEffect(() => {
     void load();
   }, [weekStart]);
+
+  useEffect(() => {
+    void loadOperationsBoard();
+  }, [selectedDate, walkInDuration, walkInSims]);
 
   function updateRule(index: number, patch: Partial<Rule>) {
     setRules((prev) => prev.map((rule, i) => (i === index ? { ...rule, ...patch } : rule)));
@@ -230,6 +312,7 @@ export function AdminBookingsClient() {
       if (!res.ok) throw new Error(json?.error ?? 'Failed to save schedule.');
       setRules(json.rules ?? rules);
       setMessage('Schedule saved.');
+      await loadOperationsBoard();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save schedule.');
     } finally {
@@ -258,6 +341,7 @@ export function AdminBookingsClient() {
       setBlackoutReason('');
       setMessage('Blackout added.');
       await load();
+      await loadOperationsBoard();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to add blackout.');
     } finally {
@@ -267,7 +351,10 @@ export function AdminBookingsClient() {
 
   async function deleteBlackout(id: string) {
     const res = await fetch(`/api/admin/bookings/blackouts/${id}`, { method: 'DELETE' });
-    if (res.ok) await load();
+    if (res.ok) {
+      await load();
+      await loadOperationsBoard();
+    }
   }
 
   if (loading) return <CircularProgress size={24} />;
@@ -365,12 +452,188 @@ export function AdminBookingsClient() {
 
             <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
 
+            <Grid container spacing={1.5}>
+              <Grid size={{ xs: 12, lg: 4 }}>
+                <Box
+                  sx={{
+                    height: '100%',
+                    p: 2,
+                    border: '1px solid rgba(255,210,0,0.42)',
+                    background: 'linear-gradient(135deg, rgba(255,210,0,0.12), rgba(255,22,31,0.08))'
+                  }}
+                >
+                  <Stack spacing={1.5}>
+                    <Stack spacing={0.25}>
+                      <Typography variant="overline" color="primary" sx={{ fontWeight: 900, letterSpacing: 0 }}>
+                        Walk-in helper
+                      </Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                        {firstWalkInSlot ? (walkInIsNow ? 'Available now' : `Next at ${formatTime(firstWalkInSlot.startsAt)}`) : 'No remaining slots'}
+                      </Typography>
+                      <Typography color="text.secondary">
+                        {firstWalkInSlot
+                          ? `${walkInSims} racer${walkInSims === 1 ? '' : 's'} · ${walkInDuration} min · ${formatSlotWindow(firstWalkInSlot)}`
+                          : 'Try fewer racers, a shorter session, or another day.'}
+                      </Typography>
+                    </Stack>
+
+                    <Stack direction="row" spacing={1}>
+                      <TextField select label="Racers" size="small" value={walkInSims} onChange={(event) => setWalkInSims(Number(event.target.value))} fullWidth>
+                        {[1, 2, 3, 4].map((count) => (
+                          <MenuItem key={count} value={count}>
+                            {count}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                      <TextField
+                        select
+                        label="Session"
+                        size="small"
+                        value={walkInDuration}
+                        onChange={(event) => setWalkInDuration(Number(event.target.value))}
+                        fullWidth
+                      >
+                        {[15, 30, 60].map((minutes) => (
+                          <MenuItem key={minutes} value={minutes}>
+                            {minutes} min
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Stack>
+
+                    {operationsLoading ? (
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <CircularProgress size={16} />
+                        <Typography variant="body2" color="text.secondary">
+                          Checking today&apos;s capacity...
+                        </Typography>
+                      </Stack>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        Based on confirmed site bookings, synced VMS bookings, active holds, blackouts, and daily sim limits.
+                      </Typography>
+                    )}
+                  </Stack>
+                </Box>
+              </Grid>
+
+              <Grid size={{ xs: 12, lg: 8 }}>
+                <Box sx={{ height: '100%', p: 2, border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(0,0,0,0.24)' }}>
+                  <Stack spacing={1.25}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between">
+                      <Stack spacing={0.25}>
+                        <Typography variant="overline" color="primary" sx={{ fontWeight: 900, letterSpacing: 0 }}>
+                          Open windows
+                        </Typography>
+                        <Typography color="text.secondary">Quick answer blocks for walk-ins between existing bookings.</Typography>
+                      </Stack>
+                      <Chip
+                        label={`${operations?.timeline.totalSims ?? 0} sim${(operations?.timeline.totalSims ?? 0) === 1 ? '' : 's'} offered`}
+                        color="primary"
+                        sx={{ alignSelf: { xs: 'flex-start', sm: 'center' }, fontWeight: 900 }}
+                      />
+                    </Stack>
+
+                    {openWindows.length ? (
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        {openWindows.slice(0, 10).map((window) => (
+                          <Chip
+                            key={`${window.startsAt}-${window.endsAt}`}
+                            label={`${formatTime(window.startsAt)} - ${formatTime(window.endsAt)} · up to ${window.minAvailableSims}`}
+                            sx={{
+                              borderColor: 'rgba(86,196,125,0.55)',
+                              backgroundColor: 'rgba(86,196,125,0.12)',
+                              color: 'text.primary',
+                              fontWeight: 800
+                            }}
+                            variant="outlined"
+                          />
+                        ))}
+                        {openWindows.length > 10 ? <Chip label={`+${openWindows.length - 10} more`} variant="outlined" /> : null}
+                      </Stack>
+                    ) : (
+                      <Alert severity="warning">No open windows for this date.</Alert>
+                    )}
+                  </Stack>
+                </Box>
+              </Grid>
+            </Grid>
+
+            <Box sx={{ p: 1.5, border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(0,0,0,0.18)' }}>
+              <Stack spacing={1.25}>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} justifyContent="space-between">
+                  <Stack spacing={0.25}>
+                    <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                      15-minute capacity timeline
+                    </Typography>
+                    <Typography color="text.secondary">Each block shows booked sims / offered sims for that start time.</Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                    <Chip size="small" label="Open" sx={{ backgroundColor: 'rgba(86,196,125,0.14)', border: '1px solid rgba(86,196,125,0.55)' }} />
+                    <Chip size="small" label="Partial" sx={{ backgroundColor: 'rgba(255,210,0,0.14)', border: '1px solid rgba(255,210,0,0.7)' }} />
+                    <Chip size="small" label="Full" sx={{ backgroundColor: 'rgba(255,22,31,0.14)', border: '1px solid rgba(255,22,31,0.45)' }} />
+                  </Stack>
+                </Stack>
+
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: {
+                      xs: 'repeat(2, minmax(0, 1fr))',
+                      sm: 'repeat(3, minmax(0, 1fr))',
+                      md: 'repeat(4, minmax(0, 1fr))',
+                      lg: 'repeat(6, minmax(0, 1fr))'
+                    },
+                    gap: 0.75
+                  }}
+                >
+                  {(operations?.timeline.slots ?? []).map((slot) => {
+                    const totalSims = operations?.timeline.totalSims ?? 0;
+                    const bookedSims = Math.max(0, totalSims - slot.availableSims);
+                    const colors = slotStatusColor(slot, totalSims);
+                    return (
+                      <Box
+                        key={slot.startsAt}
+                        sx={{
+                          minHeight: 74,
+                          p: 1,
+                          border: `1px solid ${colors.border}`,
+                          backgroundColor: colors.background,
+                          color: colors.color
+                        }}
+                      >
+                        <Stack spacing={0.25}>
+                          <Typography sx={{ fontWeight: 900 }}>{formatTime(slot.startsAt)}</Typography>
+                          <Typography variant="caption" sx={{ fontWeight: 900 }}>
+                            {slot.reason === 'available' || slot.reason === 'full' ? `${bookedSims}/${totalSims} booked` : slot.reason}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {slot.reason === 'available' ? `${slot.availableSims} open` : slot.reason === 'full' ? 'wait for next gap' : 'not bookable'}
+                          </Typography>
+                        </Stack>
+                      </Box>
+                    );
+                  })}
+                </Box>
+
+                {!operations?.timeline.slots.length ? (
+                  <Alert severity="info">No schedule slots are configured for this date.</Alert>
+                ) : null}
+              </Stack>
+            </Box>
+
             <Stack spacing={1.25}>
               <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1}>
                 <Typography variant="h6" sx={{ fontWeight: 900 }}>
                   Bookings for {formatDateHeading(selectedDate)}
                 </Typography>
-                <Button variant="text" onClick={() => void load()}>
+                <Button
+                  variant="text"
+                  onClick={() => {
+                    void load();
+                    void loadOperationsBoard();
+                  }}
+                >
                   Refresh VMS + Site Bookings
                 </Button>
               </Stack>
