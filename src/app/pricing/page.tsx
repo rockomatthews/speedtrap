@@ -75,6 +75,9 @@ const partyPricing = [
   }
 ];
 
+const privateEventsEmail = 'andrew@speedtrapracing.com';
+const privateEventsSubject = 'Speed Trap private event inquiry';
+
 const membershipPerks = [
   {
     number: '01',
@@ -480,7 +483,7 @@ export default async function PricingPage() {
             </Grid>
           </Box>
 
-          <Grid container spacing={3} alignItems="stretch">
+          <Grid id="private-events" container spacing={3} alignItems="stretch" sx={{ scrollMarginTop: { xs: 96, md: 120 } }}>
             <Grid size={{ xs: 12, md: 7 }}>
               <Box
                 sx={{
@@ -496,18 +499,34 @@ export default async function PricingPage() {
               >
                 <Box>
                   <Typography variant="h3" sx={{ fontWeight: 950 }}>
-                    Need a larger private event?
+                    Contact us for private events.
                   </Typography>
                   <Typography color="text.secondary" sx={{ mt: 1.5, maxWidth: 680 }}>
                     The packages above cover standard pod reservations. For birthdays, company nights, buyouts, or a custom food-and-race plan,
                     send the details and the team will shape the night around your group.
                   </Typography>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} sx={{ mt: 3, maxWidth: { xs: 360, sm: 'none' } }}>
+                    <Button
+                      component="a"
+                      href={`mailto:${privateEventsEmail}?subject=${encodeURIComponent(privateEventsSubject)}`}
+                      variant="contained"
+                      size="large"
+                    >
+                      Email Andrew
+                    </Button>
+                    <Button component="a" href={`mailto:${privateEventsEmail}`} variant="outlined" size="large">
+                      {privateEventsEmail}
+                    </Button>
+                  </Stack>
                 </Box>
                 <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 3, gap: 1 }}>
                   {['Private events', 'Gift cards', 'League nights', 'Food and racing'].map((option) => (
                     <Chip key={option} label={option} variant="outlined" />
                   ))}
                 </Stack>
+                <Typography color="text.secondary" sx={{ mt: 2, fontWeight: 850 }}>
+                  Phone number coming soon.
+                </Typography>
               </Box>
             </Grid>
             <Grid size={{ xs: 12, md: 5 }}>

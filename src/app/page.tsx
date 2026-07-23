@@ -531,20 +531,20 @@ export default async function HomePage({
             <Grid container spacing={3} alignItems="center">
               <Grid size={{ xs: 12, md: 8 }}>
                 <Typography variant="h3" sx={{ fontWeight: 950 }}>
-                  Private events, gift cards, and leaderboard bragging rights.
+                  Private events, team nights, and leaderboard bragging rights.
                 </Typography>
                 <Typography color="text.secondary" sx={{ mt: 1.5, maxWidth: 780 }}>
-                  Group racing and gift options are coming into focus. For now, book a race through the portal and keep an eye on Race Radar
-                  for event drops.
+                  Planning a birthday, company outing, watch party, or full-venue race night? Send the group details and Speed Trap will help
+                  shape the event around your crew.
                 </Typography>
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
                 <Stack spacing={1}>
-                  <Button component={Link} href={bookHref} variant="contained" size="large">
-                    Book a Race
+                  <Button component={Link} href="/pricing#private-events" variant="contained" size="large">
+                    Contact for Private Events
                   </Button>
-                  <Button component={Link} href="/race-radar" variant="outlined" size="large">
-                    Read Race Radar
+                  <Button component={Link} href="/pricing" variant="outlined" size="large">
+                    View Pricing
                   </Button>
                 </Stack>
               </Grid>
