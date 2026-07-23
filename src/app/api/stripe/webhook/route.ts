@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { confirmRaceBookingFromPaymentIntent } from '@/lib/bookings/confirm';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getStripeWebhookEnv } from '@/lib/stripe/env';
+import { VmsClient } from '@/lib/vms/client';
 import {
   invoiceSubscriptionId,
   stripeId,
@@ -14,6 +15,75 @@ import {
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
+
+type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
+
+async function markRaceBookingRefundedFromStripe(input: {
+  supabaseAdmin: SupabaseAdminClient;
+  paymentIntentId?: string | null;
+  chargeId?: string | null;
+  refundId?: string | null;
+  refundAmountCents?: number | null;
+}) {
+  const { supabaseAdmin, paymentIntentId, chargeId, refundId, refundAmountCents } = input;
+  if (!paymentIntentId && !chargeId) return;
+
+  let query = supabaseAdmin
+    .from('race_bookings')
+    .select('id,status,amount_cents,stripe_refund_id,vms_booking_id,stripe_payment_intent_id,stripe_charge_id')
+    .limit(1);
+
+  if (paymentIntentId) {
+    query = query.eq('stripe_payment_intent_id', paymentIntentId);
+  } else if (chargeId) {
+    query = query.eq('stripe_charge_id', chargeId);
+  }
+
+  const { data: booking, error } = await query.maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!booking) return;
+
+  if (refundAmountCents != null && booking.amount_cents > 0 && refundAmountCents < booking.amount_cents) {
+    if (refundId && !booking.stripe_refund_id) {
+      await supabaseAdmin.from('race_bookings').update({ stripe_refund_id: refundId }).eq('id', booking.id);
+    }
+    return;
+  }
+
+  if (['refunded', 'cancelled'].includes(booking.status)) {
+    if (refundId && !booking.stripe_refund_id) {
+      await supabaseAdmin.from('race_bookings').update({ stripe_refund_id: refundId }).eq('id', booking.id);
+    }
+    return;
+  }
+
+  let vmsError: string | null = null;
+  if (booking.vms_booking_id) {
+    try {
+      await VmsClient.fromEnv().updateBooking(Number(booking.vms_booking_id), { status: 'Cancelled' });
+    } catch (error) {
+      vmsError = error instanceof Error ? error.message : 'Failed to cancel VMS booking after Stripe refund.';
+    }
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from('race_bookings')
+    .update({
+      status: 'refunded',
+      stripe_refund_id: refundId ?? booking.stripe_refund_id,
+      error: vmsError ? `Stripe refund received, but VMS cancellation failed: ${vmsError}` : null
+    })
+    .eq('id', booking.id);
+  if (updateError) throw new Error(updateError.message);
+
+  if (paymentIntentId) {
+    await supabaseAdmin
+      .from('race_booking_holds')
+      .update({ status: 'cancelled' })
+      .eq('stripe_payment_intent_id', paymentIntentId)
+      .eq('status', 'active');
+  }
+}
 
 export async function POST(request: Request) {
   const signature = request.headers.get('stripe-signature');
@@ -55,6 +125,33 @@ export async function POST(request: Request) {
             .update({ status: 'cancelled' })
             .eq('id', holdId)
             .eq('status', 'active');
+        }
+        break;
+      }
+      case 'charge.refunded': {
+        const charge = event.data.object as Stripe.Charge;
+        if (charge.refunded) {
+          await markRaceBookingRefundedFromStripe({
+            supabaseAdmin: createSupabaseAdminClient(),
+            paymentIntentId: stripeId(charge.payment_intent),
+            chargeId: charge.id,
+            refundId: typeof charge.refunds?.data?.[0]?.id === 'string' ? charge.refunds.data[0].id : null,
+            refundAmountCents: typeof charge.amount_refunded === 'number' ? charge.amount_refunded : null
+          });
+        }
+        break;
+      }
+      case 'refund.created':
+      case 'refund.updated': {
+        const refund = event.data.object as Stripe.Refund;
+        if (refund.status === 'succeeded') {
+          await markRaceBookingRefundedFromStripe({
+            supabaseAdmin: createSupabaseAdminClient(),
+            paymentIntentId: stripeId(refund.payment_intent),
+            chargeId: stripeId(refund.charge),
+            refundId: refund.id,
+            refundAmountCents: typeof refund.amount === 'number' ? refund.amount : null
+          });
         }
         break;
       }
