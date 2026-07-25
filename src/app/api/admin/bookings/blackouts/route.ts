@@ -7,6 +7,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 const blackoutSchema = z.object({
   starts_at: z.string().datetime(),
   ends_at: z.string().datetime(),
+  resource_id: z.string().uuid().nullable().optional(),
   reason: z.string().trim().max(200).optional()
 });
 
@@ -18,11 +19,23 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid blackout.' }, { status: 400 });
 
   const supabase = createSupabaseAdminClient();
+  if (parsed.data.resource_id) {
+    const { data: resource, error: resourceError } = await supabase
+      .from('booking_resources')
+      .select('id')
+      .eq('id', parsed.data.resource_id)
+      .eq('active', true)
+      .maybeSingle();
+    if (resourceError) return NextResponse.json({ error: resourceError.message }, { status: 500 });
+    if (!resource) return NextResponse.json({ error: 'Selected sim is not available.' }, { status: 400 });
+  }
+
   const { data, error } = await supabase
     .from('venue_blackouts')
     .insert({
       starts_at: parsed.data.starts_at,
       ends_at: parsed.data.ends_at,
+      resource_id: parsed.data.resource_id ?? null,
       reason: parsed.data.reason ?? null,
       created_by: admin.user.id
     })

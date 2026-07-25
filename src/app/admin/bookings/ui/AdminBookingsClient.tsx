@@ -33,7 +33,19 @@ type Blackout = {
   id: string;
   starts_at: string;
   ends_at: string;
+  resource_id: string | null;
+  booking_resources?: {
+    name: string | null;
+    display_order: number | null;
+  } | null;
   reason: string | null;
+};
+
+type Resource = {
+  id: string;
+  name: string;
+  display_order: number;
+  active: boolean;
 };
 
 type RaceBooking = {
@@ -217,6 +229,7 @@ function openWindowSummaries(slots: BookingSlot[]) {
 export function AdminBookingsClient() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [blackouts, setBlackouts] = useState<Blackout[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
   const [raceBookings, setRaceBookings] = useState<RaceBooking[]>([]);
   const [toastSessions, setToastSessions] = useState<ToastSession[]>([]);
   const [operations, setOperations] = useState<OperationsBoard | null>(null);
@@ -226,6 +239,7 @@ export function AdminBookingsClient() {
   const [selectedDate, setSelectedDate] = useState(todayVenueDate);
   const [blackoutStart, setBlackoutStart] = useState('');
   const [blackoutEnd, setBlackoutEnd] = useState('');
+  const [blackoutResourceId, setBlackoutResourceId] = useState('all');
   const [blackoutReason, setBlackoutReason] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -257,6 +271,7 @@ export function AdminBookingsClient() {
       if (!bookingsRes.ok) throw new Error(bookings?.error ?? 'Failed to load bookings.');
       setRules((schedule.rules ?? []).map((rule: Rule) => ({ ...rule, max_sims: Number(rule.max_sims ?? 4) })));
       setBlackouts(schedule.blackouts ?? []);
+      setResources(schedule.resources ?? []);
       setRaceBookings(bookings.raceBookings ?? []);
       setToastSessions(bookings.toastSessions ?? []);
     } catch (e) {
@@ -331,6 +346,7 @@ export function AdminBookingsClient() {
         body: JSON.stringify({
           starts_at: new Date(blackoutStart).toISOString(),
           ends_at: new Date(blackoutEnd).toISOString(),
+          resource_id: blackoutResourceId === 'all' ? null : blackoutResourceId,
           reason: blackoutReason
         })
       });
@@ -338,6 +354,7 @@ export function AdminBookingsClient() {
       if (!res.ok) throw new Error(json?.error ?? 'Failed to add blackout.');
       setBlackoutStart('');
       setBlackoutEnd('');
+      setBlackoutResourceId('all');
       setBlackoutReason('');
       setMessage('Blackout added.');
       await load();
@@ -372,7 +389,7 @@ export function AdminBookingsClient() {
           Edit Hours & Sims
         </Button>
         <Button href="#booking-blackouts" variant="outlined">
-          Blackouts
+          Pod Busy Times
         </Button>
       </Stack>
 
@@ -759,7 +776,11 @@ export function AdminBookingsClient() {
         <CardContent>
           <Stack spacing={2}>
             <Typography variant="h6" sx={{ fontWeight: 900 }}>
-              Blackouts
+              Pod Busy Times
+            </Typography>
+            <Typography color="text.secondary">
+              Mark one sim or all sims as unavailable for a time period. Use this to hold a buffer pod for walk-ins,
+              private use, maintenance, or staff-managed racing.
             </Typography>
             <Grid container spacing={1.25}>
               <Grid size={{ xs: 12, md: 3 }}>
@@ -782,7 +803,23 @@ export function AdminBookingsClient() {
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
+              <Grid size={{ xs: 12, md: 3 }}>
+                <TextField
+                  select
+                  label="Applies to"
+                  value={blackoutResourceId}
+                  onChange={(e) => setBlackoutResourceId(e.target.value)}
+                  fullWidth
+                >
+                  <MenuItem value="all">All sims</MenuItem>
+                  {resources.map((resource) => (
+                    <MenuItem key={resource.id} value={resource.id}>
+                      {resource.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 12, md: 3 }}>
                 <TextField label="Reason" value={blackoutReason} onChange={(e) => setBlackoutReason(e.target.value)} fullWidth />
               </Grid>
               <Grid size={{ xs: 12, md: 2 }}>
@@ -796,6 +833,7 @@ export function AdminBookingsClient() {
                 <Stack key={blackout.id} direction={{ xs: 'column', md: 'row' }} spacing={1} justifyContent="space-between">
                   <Typography color="text.secondary">
                     {new Date(blackout.starts_at).toLocaleString()} - {new Date(blackout.ends_at).toLocaleString()} ·{' '}
+                    {blackout.resource_id ? blackout.booking_resources?.name : 'All sims'} ·{' '}
                     {blackout.reason ?? 'Blackout'}
                   </Typography>
                   <Button color="error" onClick={() => void deleteBlackout(blackout.id)}>

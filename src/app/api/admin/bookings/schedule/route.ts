@@ -25,8 +25,12 @@ export async function GET() {
   const supabase = createSupabaseAdminClient();
   const [rules, blackouts, resources] = await Promise.all([
     supabase.from('venue_schedule_rules').select('*').order('day_of_week').order('opens_at'),
-    supabase.from('venue_blackouts').select('*').order('starts_at', { ascending: false }).limit(100),
-    supabase.from('booking_resources').select('*').order('display_order')
+    supabase
+      .from('venue_blackouts')
+      .select('*,booking_resources(name,display_order)')
+      .order('starts_at', { ascending: false })
+      .limit(100),
+    supabase.from('booking_resources').select('*').eq('active', true).order('display_order')
   ]);
   if (rules.error) return NextResponse.json({ error: rules.error.message }, { status: 500 });
   if (blackouts.error) return NextResponse.json({ error: blackouts.error.message }, { status: 500 });

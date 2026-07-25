@@ -34,6 +34,7 @@ type Blackout = {
   starts_at: string;
   ends_at: string;
   reason: string | null;
+  resource_id: string | null;
 };
 
 function timePart(value: string) {
@@ -108,7 +109,7 @@ export async function getBookingAvailability(
 
   const range = slotRange(input.date);
   const [blackoutRes, bookingsRes, holdsRes] = await Promise.all([
-    supabase.from('venue_blackouts').select('starts_at,ends_at,reason').lt('starts_at', range.queryEnd).gt('ends_at', range.queryStart),
+    supabase.from('venue_blackouts').select('starts_at,ends_at,reason,resource_id').lt('starts_at', range.queryEnd).gt('ends_at', range.queryStart),
     supabase
       .from('race_bookings')
       .select('starts_at,buffer_until,sim_count')
@@ -128,6 +129,7 @@ export async function getBookingAvailability(
   if (holdsRes.error) throw new Error(holdsRes.error.message);
 
   const blackouts = (blackoutRes.data ?? []) as Blackout[];
+  const resourceIds = (resourcesRes.data ?? []).map((resource) => String(resource.id));
   const bookings = (bookingsRes.data ?? []) as Occupancy[];
   const holds = ((holdsRes.data ?? []) as Array<Occupancy & { id: string }>).filter((hold) => hold.id !== input.excludeHoldId);
   const now = new Date();
@@ -153,13 +155,23 @@ export async function getBookingAvailability(
       if (startsAt <= now) reason = 'past';
       if (bufferUntil > close) reason = 'closed';
 
-      const blackout = blackouts.some((item) => overlaps(startsAt, bufferUntil, new Date(item.starts_at), new Date(item.ends_at)));
-      if (blackout) reason = 'blackout';
+      const publicResourceIds = new Set(resourceIds.slice(0, publicSimCap));
+      const venueBlackout = blackouts.some((item) => !item.resource_id && overlaps(startsAt, bufferUntil, new Date(item.starts_at), new Date(item.ends_at)));
+      if (venueBlackout) reason = 'blackout';
+
+      const blockedResourceIds = new Set<string>();
+      for (const item of blackouts) {
+        if (!item.resource_id) continue;
+        const resourceId = String(item.resource_id);
+        if (!publicResourceIds.has(resourceId)) continue;
+        if (overlaps(startsAt, bufferUntil, new Date(item.starts_at), new Date(item.ends_at))) blockedResourceIds.add(resourceId);
+      }
 
       const occupied = [...bookings, ...holds].reduce((count, item) => {
         return overlaps(startsAt, bufferUntil, new Date(item.starts_at), new Date(item.buffer_until)) ? count + Number(item.sim_count ?? 0) : count;
       }, 0);
-      const availableSims = Math.max(0, publicSimCap - occupied);
+      const availableSims = Math.max(0, publicSimCap - blockedResourceIds.size - occupied);
+      if (reason === 'available' && blockedResourceIds.size >= publicSimCap) reason = 'blackout';
       if (reason === 'available' && availableSims < simCount) reason = 'full';
 
       slots.push({
@@ -225,7 +237,18 @@ export async function allocateBookingResources(
     .gt('buffer_until', input.startsAt);
   if (overlappingRes.error) throw new Error(overlappingRes.error.message);
 
+  const blackoutRes = await supabase
+    .from('venue_blackouts')
+    .select('resource_id')
+    .not('resource_id', 'is', null)
+    .lt('starts_at', input.bufferUntil)
+    .gt('ends_at', input.startsAt);
+  if (blackoutRes.error) throw new Error(blackoutRes.error.message);
+
   const used = new Set<string>();
+  for (const blackout of blackoutRes.data ?? []) {
+    if (blackout.resource_id) used.add(String(blackout.resource_id));
+  }
   for (const booking of overlappingRes.data ?? []) {
     const assigned = (booking as any).race_booking_resources;
     for (const row of Array.isArray(assigned) ? assigned : []) {
