@@ -14,7 +14,6 @@ import { AppShell } from '@/components/AppShell';
 import { MembershipCheckoutButton } from '@/components/MembershipCheckoutButton';
 import {
   MEMBERSHIP_DISCOUNT_PERCENT,
-  hasUnusedBirthdayRace,
   hasUnusedMonthlyRace,
   isMembershipActive,
   membershipBookingPrice
@@ -117,7 +116,6 @@ export default async function PricingPage() {
   const { user, profile } = await getAuthedProfile().catch(() => ({ user: null, profile: null }));
   const membershipActive = isMembershipActive(profile);
   const monthlyRaceAvailable = hasUnusedMonthlyRace(profile);
-  const birthdayRaceAvailable = hasUnusedBirthdayRace(profile);
 
   return (
     <Box
@@ -364,11 +362,11 @@ export default async function PricingPage() {
           >
             <Grid
               container
-              spacing={{ xs: 3, md: 5 }}
-              alignItems={{ xs: 'stretch', lg: 'center' }}
+              spacing={{ xs: 3, md: 4, xl: 5 }}
+              alignItems={{ xs: 'stretch', xl: 'center' }}
               sx={{ position: 'relative', zIndex: 1 }}
             >
-              <Grid size={{ xs: 12, lg: 6 }} sx={{ minWidth: 0 }}>
+              <Grid size={{ xs: 12, xl: 5 }} sx={{ minWidth: 0 }}>
                 <Stack spacing={2.25} sx={{ minWidth: 0 }}>
                   <Chip label="Apex Pass" color="primary" sx={{ alignSelf: 'flex-start', fontWeight: 900 }} />
                   <Box>
@@ -376,16 +374,18 @@ export default async function PricingPage() {
                       component="h2"
                       sx={{
                         fontSize: {
-                          xs: 'clamp(2.65rem, 13vw, 4rem)',
-                          sm: 'clamp(3.5rem, 9vw, 5.2rem)',
-                          lg: 'clamp(4.25rem, 6vw, 5rem)'
+                          xs: 'clamp(2.25rem, 10vw, 3.35rem)',
+                          sm: 'clamp(3rem, 6.8vw, 4.25rem)',
+                          lg: 'clamp(3.45rem, 5.1vw, 4.75rem)',
+                          xl: 'clamp(3.6rem, 4.4vw, 5rem)'
                         },
-                        lineHeight: 0.86,
+                        lineHeight: 0.9,
                         fontWeight: 950,
                         letterSpacing: 0,
                         textTransform: 'uppercase',
-                        maxWidth: '100%',
-                        overflowWrap: 'anywhere'
+                        maxWidth: { xs: 360, sm: 520, xl: 620 },
+                        overflowWrap: 'normal',
+                        wordBreak: 'normal'
                       }}
                     >
                       The
@@ -396,13 +396,15 @@ export default async function PricingPage() {
                           color: '#FF161F',
                           fontStyle: 'italic',
                           fontSize: {
-                            xs: 'clamp(2.85rem, 15vw, 4.45rem)',
-                            sm: 'clamp(3.8rem, 10vw, 5.8rem)',
-                            lg: 'clamp(4.6rem, 6.5vw, 5.65rem)'
+                            xs: 'clamp(2.45rem, 11vw, 3.7rem)',
+                            sm: 'clamp(3.2rem, 7.3vw, 4.8rem)',
+                            lg: 'clamp(3.75rem, 5.6vw, 5.35rem)',
+                            xl: 'clamp(3.9rem, 4.8vw, 5.65rem)'
                           },
-                          lineHeight: 0.86,
+                          lineHeight: 0.9,
                           maxWidth: '100%',
-                          overflowWrap: 'anywhere'
+                          overflowWrap: 'normal',
+                          wordBreak: 'normal'
                         }}
                       >
                         Membership.
@@ -425,10 +427,8 @@ export default async function PricingPage() {
                   {membershipActive ? (
                     <Stack spacing={1}>
                       <Alert severity="success">
-                        {birthdayRaceAvailable
-                          ? 'Your membership is active. Your birthday-month 30-minute race credit is ready.'
-                          : monthlyRaceAvailable
-                            ? 'Your membership is active. This month’s 15-minute race credit is ready.'
+                        {monthlyRaceAvailable
+                          ? 'Your membership is active. This month’s free monthly race perk is ready.'
                           : `Your membership is active. You still get ${MEMBERSHIP_DISCOUNT_PERCENT}% off member pricing.`}
                       </Alert>
                       <MembershipCheckoutButton manage>Manage membership</MembershipCheckoutButton>
@@ -447,7 +447,7 @@ export default async function PricingPage() {
                   )}
                 </Stack>
               </Grid>
-              <Grid size={{ xs: 12, lg: 6 }}>
+              <Grid size={{ xs: 12, xl: 7 }} sx={{ minWidth: 0 }}>
                 <Stack spacing={1.5}>
                   <Typography color="primary" sx={{ fontWeight: 950, letterSpacing: 0, textTransform: 'uppercase' }}>
                     What you get
