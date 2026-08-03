@@ -74,7 +74,7 @@ const partyPricing = [
   }
 ];
 
-const privateEventsEmail = 'andrew@speedtrapracing.com';
+const privateEventsEmail = 'events@speedtrapracing.com';
 const privateEventsSubject = 'Speed Trap private event inquiry';
 
 const membershipPerks = [
@@ -512,7 +512,7 @@ export default async function PricingPage() {
                       variant="contained"
                       size="large"
                     >
-                      Email Andrew
+                      Email Us
                     </Button>
                     <Button component="a" href={`mailto:${privateEventsEmail}`} variant="outlined" size="large">
                       {privateEventsEmail}
