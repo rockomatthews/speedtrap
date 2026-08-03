@@ -85,6 +85,81 @@ async function markRaceBookingRefundedFromStripe(input: {
   }
 }
 
+async function markPrivateEventDepositPaid(input: {
+  supabaseAdmin: SupabaseAdminClient;
+  checkoutSessionId?: string | null;
+  paymentIntentId?: string | null;
+  chargeId?: string | null;
+  quoteId?: string | null;
+}) {
+  const { supabaseAdmin, checkoutSessionId, paymentIntentId, chargeId, quoteId } = input;
+  if (!quoteId && !checkoutSessionId && !paymentIntentId && !chargeId) return;
+
+  let query = supabaseAdmin
+    .from('private_event_deposit_quotes')
+    .select('id,status')
+    .limit(1);
+
+  if (quoteId) {
+    query = query.eq('id', quoteId);
+  } else if (checkoutSessionId) {
+    query = query.eq('stripe_checkout_session_id', checkoutSessionId);
+  } else if (paymentIntentId) {
+    query = query.eq('stripe_payment_intent_id', paymentIntentId);
+  } else if (chargeId) {
+    query = query.eq('stripe_charge_id', chargeId);
+  }
+
+  const { data: quote, error } = await query.maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!quote || quote.status === 'deposit_paid') return;
+
+  const updates = {
+    status: 'deposit_paid',
+    stripe_checkout_session_id: checkoutSessionId ?? undefined,
+    stripe_payment_intent_id: paymentIntentId ?? undefined,
+    stripe_charge_id: chargeId ?? undefined,
+    deposit_paid_at: new Date().toISOString()
+  };
+
+  const { error: updateError } = await supabaseAdmin
+    .from('private_event_deposit_quotes')
+    .update(updates)
+    .eq('id', quote.id)
+    .neq('status', 'cancelled');
+  if (updateError) throw new Error(updateError.message);
+}
+
+async function markPrivateEventDepositRefunded(input: {
+  supabaseAdmin: SupabaseAdminClient;
+  paymentIntentId?: string | null;
+  chargeId?: string | null;
+}) {
+  const { supabaseAdmin, paymentIntentId, chargeId } = input;
+  if (!paymentIntentId && !chargeId) return;
+
+  let query = supabaseAdmin
+    .from('private_event_deposit_quotes')
+    .select('id,status')
+    .limit(1);
+
+  if (paymentIntentId) {
+    query = query.eq('stripe_payment_intent_id', paymentIntentId);
+  } else if (chargeId) {
+    query = query.eq('stripe_charge_id', chargeId);
+  }
+
+  const { data: quote, error } = await query.maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!quote || quote.status !== 'deposit_paid') return;
+
+  const { error: updateError } = await supabaseAdmin
+    .from('private_event_deposit_quotes')
+    .update({ status: 'refunded' })
+    .eq('id', quote.id);
+  if (updateError) throw new Error(updateError.message);
+}
+
 export async function POST(request: Request) {
   const signature = request.headers.get('stripe-signature');
   if (!signature) {
@@ -113,6 +188,13 @@ export async function POST(request: Request) {
             stripe,
             paymentIntentId: paymentIntent.id
           });
+        } else if (paymentIntent.metadata?.source === 'speedtrap_private_event_deposit') {
+          await markPrivateEventDepositPaid({
+            supabaseAdmin: createSupabaseAdminClient(),
+            paymentIntentId: paymentIntent.id,
+            chargeId: stripeId(paymentIntent.latest_charge),
+            quoteId: paymentIntent.metadata.quote_id
+          });
         }
         break;
       }
@@ -131,6 +213,11 @@ export async function POST(request: Request) {
       case 'charge.refunded': {
         const charge = event.data.object as Stripe.Charge;
         if (charge.refunded) {
+          await markPrivateEventDepositRefunded({
+            supabaseAdmin: createSupabaseAdminClient(),
+            paymentIntentId: stripeId(charge.payment_intent),
+            chargeId: charge.id
+          });
           await markRaceBookingRefundedFromStripe({
             supabaseAdmin: createSupabaseAdminClient(),
             paymentIntentId: stripeId(charge.payment_intent),
@@ -145,6 +232,11 @@ export async function POST(request: Request) {
       case 'refund.updated': {
         const refund = event.data.object as Stripe.Refund;
         if (refund.status === 'succeeded') {
+          await markPrivateEventDepositRefunded({
+            supabaseAdmin: createSupabaseAdminClient(),
+            paymentIntentId: stripeId(refund.payment_intent),
+            chargeId: stripeId(refund.charge)
+          });
           await markRaceBookingRefundedFromStripe({
             supabaseAdmin: createSupabaseAdminClient(),
             paymentIntentId: stripeId(refund.payment_intent),
@@ -159,6 +251,16 @@ export async function POST(request: Request) {
         const session = event.data.object as Stripe.Checkout.Session;
         const supabaseAdmin = createSupabaseAdminClient();
         const merchCartMeta = session.metadata?.merch_cart ?? '';
+
+        if (session.mode === 'payment' && session.metadata?.source === 'speedtrap_private_event_deposit') {
+          await markPrivateEventDepositPaid({
+            supabaseAdmin,
+            checkoutSessionId: session.id,
+            paymentIntentId: stripeId(session.payment_intent),
+            quoteId: session.metadata.quote_id
+          });
+          break;
+        }
 
         if (session.mode === 'subscription' && session.metadata?.source === 'speedtrap_membership') {
           const subscriptionId = stripeId(session.subscription);
