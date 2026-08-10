@@ -1,9 +1,9 @@
 import Stripe from 'stripe';
 
-import { allocateBookingResources } from '@/lib/bookings/availability';
+import { allocateBookingResources, assertSlotAvailable } from '@/lib/bookings/availability';
 import { BOOKING_CANCELLATION_CUTOFF_HOURS, bookingPackageLabel } from '@/lib/bookings/config';
 import { raceRequestDbFields, raceRequestVmsFields } from '@/lib/bookings/race-request';
-import { utcToVenueDateTime } from '@/lib/bookings/time';
+import { utcToVenueDate, utcToVenueDateTime } from '@/lib/bookings/time';
 import { env } from '@/lib/supabase/env';
 import { VmsClient } from '@/lib/vms/client';
 
@@ -76,6 +76,29 @@ function membershipCreditPaymentNote(booking: any) {
   return 'Monthly membership 15-minute race credit.';
 }
 
+async function assertHoldStillFits(supabase: any, hold: any) {
+  await assertSlotAvailable(supabase, {
+    date: utcToVenueDate(new Date(hold.starts_at)),
+    startsAt: hold.starts_at,
+    durationMinutes: hold.duration_minutes,
+    simCount: hold.sim_count,
+    excludeHoldId: hold.id
+  });
+}
+
+async function refundStalePaidHold(input: { supabase: any; stripe: Stripe; paymentIntent: Stripe.PaymentIntent; hold: any; charge: Stripe.Charge | null }) {
+  await input.supabase.from('race_booking_holds').update({ status: 'cancelled' }).eq('id', input.hold.id);
+  if (!input.charge?.refunded) {
+    await input.stripe.refunds.create({
+      payment_intent: input.paymentIntent.id,
+      metadata: {
+        booking_hold_id: input.hold.id,
+        reason: 'booking_capacity_unavailable'
+      }
+    });
+  }
+}
+
 export async function confirmRaceBookingFromPaymentIntent(input: {
   supabase: any;
   stripe: Stripe;
@@ -107,6 +130,14 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
   if (existingBooking.data) return existingBooking.data;
 
   const charge = typeof paymentIntent.latest_charge === 'string' ? null : paymentIntent.latest_charge;
+  try {
+    await assertHoldStillFits(input.supabase, hold);
+  } catch (error) {
+    await refundStalePaidHold({ supabase: input.supabase, stripe: input.stripe, paymentIntent, hold, charge });
+    const reason = error instanceof Error ? error.message : 'That slot is no longer available.';
+    throw new Error(`${reason} The payment was refunded because the race time was no longer available.`);
+  }
+
   const bookingInsert = await input.supabase
     .from('race_bookings')
     .insert({
@@ -234,6 +265,12 @@ export async function confirmRaceBookingFromHold(input: {
   if (holdError) throw new Error(holdError.message);
   if (!hold) throw new Error('Booking hold was not found.');
   if (hold.amount_cents !== 0) throw new Error('This booking requires payment.');
+  try {
+    await assertHoldStillFits(input.supabase, hold);
+  } catch (error) {
+    await input.supabase.from('race_booking_holds').update({ status: 'cancelled' }).eq('id', hold.id);
+    throw error;
+  }
 
   const bookingInsert = await input.supabase
     .from('race_bookings')

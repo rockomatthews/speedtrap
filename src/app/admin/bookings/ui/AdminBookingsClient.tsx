@@ -73,6 +73,13 @@ type RaceBooking = {
   requested_circuit_name: string | null;
   requested_hotlap_event_name: string | null;
   created_at: string;
+  race_booking_resources?: Array<{
+    resource_id: string;
+    booking_resources?: {
+      name: string | null;
+      display_order: number | null;
+    } | null;
+  }> | null;
 };
 
 type ToastSession = {
@@ -195,6 +202,75 @@ function raceRequestLabel(booking: RaceBooking) {
   return null;
 }
 
+function isBlockingBooking(booking: RaceBooking) {
+  return ['confirmed', 'booked', 'payment_succeeded_vms_failed'].includes(booking.status);
+}
+
+function overlaps(startA: string, endA: string, startB: string, endB: string) {
+  return new Date(startA).getTime() < new Date(endB).getTime() && new Date(endA).getTime() > new Date(startB).getTime();
+}
+
+function bookingPodLabels(booking: RaceBooking) {
+  const rows = Array.isArray(booking.race_booking_resources) ? booking.race_booking_resources : [];
+  return rows
+    .map((row) => ({
+      name: row.booking_resources?.name ?? null,
+      displayOrder: Number(row.booking_resources?.display_order ?? 999)
+    }))
+    .filter((row): row is { name: string; displayOrder: number } => Boolean(row.name))
+    .sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name, undefined, { numeric: true }))
+    .map((row) => row.name);
+}
+
+function bookingPodsText(booking: RaceBooking) {
+  const labels = bookingPodLabels(booking);
+  if (labels.length) return labels.join(', ');
+  const count = Number(booking.sim_count ?? 0);
+  return `${count} pod${count === 1 ? '' : 's'} pending assignment`;
+}
+
+type BookingConflict = {
+  startsAt: string;
+  endsAt: string;
+  bookedSims: number;
+  totalSims: number;
+  resourceNames: string[];
+};
+
+function bookingConflicts(bookings: RaceBooking[], slots: BookingSlot[], totalSims: number) {
+  const conflicts: BookingConflict[] = [];
+  const slotWindows = slots.length
+    ? slots.map((slot) => ({ startsAt: slot.startsAt, endsAt: slot.endsAt }))
+    : bookings.map((booking) => ({ startsAt: booking.starts_at, endsAt: booking.ends_at }));
+
+  for (const slot of slotWindows) {
+    const activeBookings = bookings.filter((booking) => isBlockingBooking(booking) && overlaps(booking.starts_at, booking.ends_at, slot.startsAt, slot.endsAt));
+    if (!activeBookings.length) continue;
+
+    const bookedSims = activeBookings.reduce((sum, booking) => sum + Number(booking.sim_count ?? 0), 0);
+    const resourceUsage = new Map<string, number>();
+    for (const booking of activeBookings) {
+      for (const label of bookingPodLabels(booking)) {
+        resourceUsage.set(label, (resourceUsage.get(label) ?? 0) + 1);
+      }
+    }
+    const resourceNames = Array.from(resourceUsage.entries())
+      .filter((entry) => entry[1] > 1)
+      .map((entry) => entry[0]);
+    if (bookedSims > totalSims || resourceNames.length) {
+      conflicts.push({
+        startsAt: slot.startsAt,
+        endsAt: slot.endsAt,
+        bookedSims,
+        totalSims,
+        resourceNames
+      });
+    }
+  }
+
+  return conflicts;
+}
+
 function membershipCreditLabel(booking: RaceBooking) {
   if (!booking.membership_free_race_applied) return null;
   if (booking.membership_credit_type === 'birthday_30') return 'Birthday 30 credit';
@@ -251,11 +327,19 @@ export function AdminBookingsClient() {
     () => raceBookings.filter((booking) => venueDate(booking.starts_at) === selectedDate),
     [raceBookings, selectedDate]
   );
+  const conflictSlots = useMemo(
+    () => bookingConflicts(selectedBookings, operations?.timeline.slots ?? [], operations?.timeline.totalSims ?? 4),
+    [operations, selectedBookings]
+  );
   const selectedSims = selectedBookings.reduce((sum, booking) => sum + Number(booking.sim_count ?? 0), 0);
   const selectedRevenue = selectedBookings.reduce((sum, booking) => sum + Number(booking.amount_cents ?? 0), 0);
   const openWindows = useMemo(() => openWindowSummaries(operations?.timeline.slots ?? []), [operations]);
   const firstWalkInSlot = useMemo(() => operations?.walkIn.slots.find((slot) => slot.available) ?? null, [operations]);
   const walkInIsNow = firstWalkInSlot ? new Date(firstWalkInSlot.startsAt).getTime() - Date.now() <= 15 * 60 * 1000 : false;
+
+  function bookingHasConflict(booking: RaceBooking) {
+    return conflictSlots.some((slot) => overlaps(booking.starts_at, booking.ends_at, slot.startsAt, slot.endsAt));
+  }
 
   async function load() {
     setLoading(true);
@@ -469,6 +553,20 @@ export function AdminBookingsClient() {
 
             <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
 
+            {conflictSlots.length ? (
+              <Alert severity="error">
+                Capacity conflict detected:{' '}
+                {conflictSlots
+                  .slice(0, 3)
+                  .map((slot) => {
+                    const duplicatePods = slot.resourceNames.length ? ` · duplicate ${slot.resourceNames.join(', ')}` : '';
+                    return `${formatTime(slot.startsAt)} has ${slot.bookedSims}/${slot.totalSims} sims booked${duplicatePods}`;
+                  })
+                  .join('; ')}
+                {conflictSlots.length > 3 ? `; +${conflictSlots.length - 3} more` : ''}
+              </Alert>
+            ) : null}
+
             <Grid container spacing={1.5}>
               <Grid size={{ xs: 12, lg: 4 }}>
                 <Box
@@ -655,13 +753,15 @@ export function AdminBookingsClient() {
                 </Button>
               </Stack>
               {selectedBookings.length ? (
-                selectedBookings.map((booking) => (
+                selectedBookings.map((booking) => {
+                  const hasConflict = bookingHasConflict(booking);
+                  return (
                   <Box
                     key={booking.id}
                     sx={{
                       p: 1.5,
-                      border: '1px solid rgba(255,255,255,0.12)',
-                      backgroundColor: 'rgba(0,0,0,0.22)'
+                      border: hasConflict ? '1px solid rgba(255,22,31,0.75)' : '1px solid rgba(255,255,255,0.12)',
+                      backgroundColor: hasConflict ? 'rgba(255,22,31,0.1)' : 'rgba(0,0,0,0.22)'
                     }}
                   >
                     <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.25} justifyContent="space-between" alignItems={{ xs: 'flex-start', lg: 'center' }}>
@@ -670,6 +770,8 @@ export function AdminBookingsClient() {
                           <Typography sx={{ fontWeight: 900 }}>{formatBookingWindow(booking)}</Typography>
                           <Chip size="small" label={booking.status} color={statusColor(booking.status) as any} />
                           <Chip size="small" label={booking.source.replaceAll('_', ' ')} />
+                          <Chip size="small" color={hasConflict ? 'error' : 'info'} label={`Pods: ${bookingPodsText(booking)}`} />
+                          {hasConflict ? <Chip size="small" color="error" label="Capacity conflict" /> : null}
                           {booking.vms_booking_id ? <Chip size="small" color="success" label={`VMS #${booking.vms_booking_id}`} /> : null}
                         </Stack>
                         <Typography>
@@ -697,7 +799,8 @@ export function AdminBookingsClient() {
                       </Stack>
                     </Stack>
                   </Box>
-                ))
+                  );
+                })
               ) : (
                 <Box sx={{ p: 2, border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.03)' }}>
                   <Typography sx={{ fontWeight: 900 }}>No bookings for this day.</Typography>
@@ -857,7 +960,8 @@ export function AdminBookingsClient() {
                 <Stack key={booking.id} direction={{ xs: 'column', md: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }}>
                   <Typography>
                     {venueDate(booking.starts_at)} · {formatBookingWindow(booking)} · {booking.customer_name} · {booking.sim_count} x{' '}
-                    {booking.duration_minutes} min{raceRequestLabel(booking) ? ` · ${raceRequestLabel(booking)}` : ''}
+                    {booking.duration_minutes} min · Pods: {bookingPodsText(booking)}
+                    {raceRequestLabel(booking) ? ` · ${raceRequestLabel(booking)}` : ''}
                   </Typography>
                   <Stack direction="row" spacing={0.75}>
                     <Chip size="small" label={money(booking.amount_cents, booking.currency)} />
