@@ -28,7 +28,7 @@ type AdminLeague = {
   prize_pool_percent?: number;
   league_start_time?: string;
   league_end_time?: string;
-  league_teams?: Array<{ id: string; name: string; color: string }>;
+  league_teams?: Array<{ id: string; name: string; color: string; captain_vms_customer_id?: number | null; captain_name?: string | null }>;
   league_members?: Array<{ id: string; driver_name: string; vms_customer_id: number; team_id: string | null; role?: string }>;
   league_rounds?: Array<{
     id: string;
@@ -86,7 +86,7 @@ export function AdminLeaguesClient() {
   const [selectedLeagueId, setSelectedLeagueId] = useState('');
   const [leagueForm, setLeagueForm] = useState(defaultLeague);
   const [teamForm, setTeamForm] = useState({ name: '', color: '#FFD200' });
-  const [memberForm, setMemberForm] = useState({ driverName: '', vmsCustomerId: '', teamId: '' });
+  const [memberForm, setMemberForm] = useState({ driverName: '', vmsCustomerId: '', teamId: '', role: 'driver' });
   const [roundForm, setRoundForm] = useState({
     roundNumber: '1',
     name: '',
@@ -182,11 +182,12 @@ export function AdminLeaguesClient() {
         action: 'add-member',
         driverName: memberForm.driverName,
         vmsCustomerId: memberForm.vmsCustomerId,
-        teamId: memberForm.teamId || null
+        teamId: memberForm.teamId || null,
+        role: memberForm.role
       },
       'Driver added.'
     );
-    setMemberForm({ driverName: '', vmsCustomerId: '', teamId: '' });
+    setMemberForm({ driverName: '', vmsCustomerId: '', teamId: '', role: 'driver' });
   }
 
   async function addRound() {
@@ -216,6 +217,10 @@ export function AdminLeaguesClient() {
 
   async function assignHeatDriver(entryId: string, memberId: string) {
     await leagueAction({ action: 'assign-heat-driver', entryId, memberId: memberId || null }, 'Heat lineup updated.');
+  }
+
+  async function updateMemberRole(memberId: string, role: string) {
+    await leagueAction({ action: 'update-member-role', memberId, role }, role === 'captain' ? 'Team captain updated.' : 'Driver role updated.');
   }
 
   async function recordResult(entryId: string, finishPosition: string) {
@@ -435,6 +440,11 @@ export function AdminLeaguesClient() {
                             {team.name}
                           </MenuItem>
                         ))}
+                      </TextField>
+                      <TextField select label="Role" value={memberForm.role} onChange={(e) => setMemberForm({ ...memberForm, role: e.target.value })}>
+                        <MenuItem value="driver">Driver</MenuItem>
+                        <MenuItem value="captain">Captain</MenuItem>
+                        <MenuItem value="substitute">Substitute</MenuItem>
                       </TextField>
                       <Button disabled={loading || !memberForm.driverName.trim() || !memberForm.vmsCustomerId} onClick={addMember} variant="contained">
                         Add Driver
@@ -677,13 +687,32 @@ export function AdminLeaguesClient() {
                     <Grid container spacing={1.5}>
                       {(selectedLeague.league_members ?? []).map((member) => {
                         const paidCount = (selectedLeague.league_dues ?? []).filter((due) => due.member_id === member.id && due.status === 'paid').length;
+                        const team = (selectedLeague.league_teams ?? []).find((row) => row.id === member.team_id);
                         return (
                           <Grid key={member.id} size={{ xs: 12, md: 6 }}>
                             <Box sx={{ p: 1.5, border: '1px solid rgba(255,255,255,0.1)', bgcolor: 'rgba(255,255,255,0.04)' }}>
-                              <Typography sx={{ fontWeight: 1000 }}>{member.driver_name}</Typography>
-                              <Typography color="text.secondary" sx={{ mb: 1 }}>
-                                {paidCount}/{selectedLeague.season_weeks ?? 8} weeks paid
-                              </Typography>
+                              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between" sx={{ mb: 1 }}>
+                                <Box>
+                                  <Typography sx={{ fontWeight: 1000 }}>{member.driver_name}</Typography>
+                                  <Typography color="text.secondary">
+                                    {team?.name ?? 'Independent'} · {paidCount}/{selectedLeague.season_weeks ?? 8} weeks paid
+                                  </Typography>
+                                </Box>
+                                <TextField
+                                  select
+                                  size="small"
+                                  label="Role"
+                                  value={member.role ?? 'driver'}
+                                  onChange={(event) => void updateMemberRole(member.id, event.target.value)}
+                                  sx={{ minWidth: 150 }}
+                                >
+                                  <MenuItem value="driver">Driver</MenuItem>
+                                  <MenuItem value="captain" disabled={!member.team_id}>
+                                    Captain
+                                  </MenuItem>
+                                  <MenuItem value="substitute">Substitute</MenuItem>
+                                </TextField>
+                              </Stack>
                               <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
                                 {Array.from({ length: selectedLeague.season_weeks ?? 8 }, (_, index) => {
                                   const weekNumber = index + 1;

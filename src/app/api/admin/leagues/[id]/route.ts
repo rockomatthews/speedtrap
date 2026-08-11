@@ -43,6 +43,11 @@ const actionSchema = z.discriminatedUnion('action', [
     role: z.enum(['driver', 'captain', 'substitute']).default('driver')
   }),
   z.object({
+    action: z.literal('update-member-role'),
+    memberId: z.string().uuid(),
+    role: z.enum(['driver', 'captain', 'substitute'])
+  }),
+  z.object({
     action: z.literal('add-round'),
     roundNumber: z.coerce.number().int().positive(),
     name: z.string().min(2),
@@ -190,6 +195,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   if (input.action === 'add-member') {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('vms_customer_id', input.vmsCustomerId)
+      .maybeSingle<{ id: string }>();
+    if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
+
+    if (input.role === 'captain' && input.teamId) {
+      const { error: demoteError } = await supabase
+        .from('league_members')
+        .update({ role: 'driver' })
+        .eq('league_id', id)
+        .eq('team_id', input.teamId)
+        .eq('role', 'captain');
+      if (demoteError) return NextResponse.json({ error: demoteError.message }, { status: 500 });
+    }
+
     const { data, error } = await supabase
       .from('league_members')
       .upsert(
@@ -197,6 +219,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           league_id: id,
           vms_customer_id: input.vmsCustomerId,
           driver_name: input.driverName,
+          profile_id: profile?.id ?? null,
           team_id: input.teamId || null,
           role: input.role
         },
@@ -205,6 +228,67 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .select('*')
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    if (input.teamId && input.role === 'captain') {
+      const { error: teamError } = await supabase
+        .from('league_teams')
+        .update({ captain_vms_customer_id: data.vms_customer_id, captain_name: data.driver_name })
+        .eq('id', input.teamId)
+        .eq('league_id', id);
+      if (teamError) return NextResponse.json({ error: teamError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ member: data });
+  }
+
+  if (input.action === 'update-member-role') {
+    const { data: member, error: memberError } = await supabase
+      .from('league_members')
+      .select('*')
+      .eq('id', input.memberId)
+      .eq('league_id', id)
+      .single();
+    if (memberError) return NextResponse.json({ error: memberError.message }, { status: 500 });
+
+    if (input.role === 'captain' && member.team_id) {
+      const { error: demoteError } = await supabase
+        .from('league_members')
+        .update({ role: 'driver' })
+        .eq('league_id', id)
+        .eq('team_id', member.team_id)
+        .eq('role', 'captain')
+        .neq('id', member.id);
+      if (demoteError) return NextResponse.json({ error: demoteError.message }, { status: 500 });
+    }
+
+    const { data, error } = await supabase
+      .from('league_members')
+      .update({ role: input.role })
+      .eq('id', input.memberId)
+      .eq('league_id', id)
+      .select('*')
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    if (member.team_id && input.role === 'captain') {
+      const { error: teamError } = await supabase
+        .from('league_teams')
+        .update({ captain_vms_customer_id: data.vms_customer_id, captain_name: data.driver_name })
+        .eq('id', member.team_id)
+        .eq('league_id', id);
+      if (teamError) return NextResponse.json({ error: teamError.message }, { status: 500 });
+    }
+
+    if (member.team_id && member.role === 'captain' && input.role !== 'captain') {
+      const { error: teamError } = await supabase
+        .from('league_teams')
+        .update({ captain_vms_customer_id: null, captain_name: null })
+        .eq('id', member.team_id)
+        .eq('league_id', id)
+        .eq('captain_vms_customer_id', member.vms_customer_id);
+      if (teamError) return NextResponse.json({ error: teamError.message }, { status: 500 });
+    }
+
     return NextResponse.json({ member: data });
   }
 

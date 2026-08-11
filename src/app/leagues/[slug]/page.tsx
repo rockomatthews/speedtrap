@@ -15,6 +15,7 @@ import Typography from '@mui/material/Typography';
 
 import { AppShell } from '@/components/AppShell';
 import { getLeagueStandings } from '@/lib/leagues/standings';
+import { LeagueCaptainTeamName } from './LeagueCaptainTeamName';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,6 +83,8 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ s
             {error}
           </Alert>
         ))}
+
+        <LeagueCaptainTeamName leagueSlug={league.slug} />
 
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, lg: 7 }}>
@@ -169,9 +172,12 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ s
                           <Box sx={{ width: 12, height: 12, bgcolor: team.color }} />
                           <Typography sx={{ fontWeight: 1000 }}>{team.name}</Typography>
                           <Chip label={`${roster.length}/${league.roster_size}`} size="small" />
+                          {team.captain_name ? <Chip label={`Captain: ${team.captain_name}`} size="small" color="primary" variant="outlined" /> : null}
                         </Stack>
                         <Typography color="text.secondary" sx={{ mt: 1 }}>
-                          {roster.map((member) => member.driver_name).join(', ') || 'Roster coming soon'}
+                          {roster.length
+                            ? roster.map((member) => `${member.driver_name}${member.role === 'captain' ? ' (Captain)' : ''}`).join(', ')
+                            : 'Roster coming soon'}
                         </Typography>
                       </Box>
                     );
