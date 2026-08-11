@@ -19,6 +19,7 @@ export type League = {
   team_count: number;
   roster_size: number;
   weekly_fee_cents: number;
+  full_season_fee_cents: number;
   prize_pool_percent: number;
   league_night: string;
   league_start_time: string;

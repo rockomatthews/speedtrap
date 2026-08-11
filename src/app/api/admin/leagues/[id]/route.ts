@@ -15,11 +15,11 @@ const updateLeagueSchema = z.object({
   visibility: z.enum(['public', 'members', 'private']).optional(),
   startsAt: z.string().optional().nullable(),
   endsAt: z.string().optional().nullable(),
-  teamScoringCount: z.coerce.number().int().min(1).max(8).optional(),
   seasonWeeks: z.coerce.number().int().min(1).max(16).optional(),
   teamCount: z.coerce.number().int().min(2).max(16).optional(),
   rosterSize: z.coerce.number().int().min(1).max(8).optional(),
   weeklyFeeCents: z.coerce.number().int().min(0).optional(),
+  fullSeasonFeeCents: z.coerce.number().int().min(0).optional(),
   prizePoolPercent: z.coerce.number().min(0).max(100).optional(),
   leagueNight: z.string().optional(),
   leagueStartTime: z.string().optional(),
@@ -152,11 +152,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (input.visibility !== undefined) patch.visibility = input.visibility;
   if (input.startsAt !== undefined) patch.starts_at = input.startsAt || null;
   if (input.endsAt !== undefined) patch.ends_at = input.endsAt || null;
-  if (input.teamScoringCount !== undefined) patch.team_scoring_count = input.teamScoringCount;
   if (input.seasonWeeks !== undefined) patch.season_weeks = input.seasonWeeks;
   if (input.teamCount !== undefined) patch.team_count = input.teamCount;
   if (input.rosterSize !== undefined) patch.roster_size = input.rosterSize;
   if (input.weeklyFeeCents !== undefined) patch.weekly_fee_cents = input.weeklyFeeCents;
+  if (input.fullSeasonFeeCents !== undefined) patch.full_season_fee_cents = input.fullSeasonFeeCents;
   if (input.prizePoolPercent !== undefined) patch.prize_pool_percent = input.prizePoolPercent;
   if (input.leagueNight !== undefined) patch.league_night = input.leagueNight;
   if (input.leagueStartTime !== undefined) patch.league_start_time = input.leagueStartTime;

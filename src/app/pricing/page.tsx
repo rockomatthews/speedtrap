@@ -506,7 +506,7 @@ export default async function PricingPage() {
               <Grid size={{ xs: 12, md: 8 }}>
                 <Chip label="League Racing" sx={{ bgcolor: '#FF161F', color: '#fff', fontWeight: 900, mb: 1.5 }} />
                 <Typography variant="h3" sx={{ fontWeight: 950 }}>
-                  Monday night team leagues are coming.
+                  Tuesday night team leagues are coming.
                 </Typography>
                 <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 820 }}>
                   Eight-week seasons, team strategy, live standings, and VMS-backed race results. See the current league hub for teams,

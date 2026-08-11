@@ -25,6 +25,7 @@ type AdminLeague = {
   team_count?: number;
   roster_size?: number;
   weekly_fee_cents?: number;
+  full_season_fee_cents?: number;
   prize_pool_percent?: number;
   league_start_time?: string;
   league_end_time?: string;
@@ -67,13 +68,13 @@ const defaultLeague = {
   name: '',
   slug: '',
   description: '',
-  status: 'draft',
+  status: 'active',
   visibility: 'public',
-  teamScoringCount: 4,
   seasonWeeks: 8,
   teamCount: 8,
   rosterSize: 4,
   weeklyFeeCents: 4000,
+  fullSeasonFeeCents: 30000,
   prizePoolPercent: 50,
   startsAt: '',
   leagueStartTime: '18:00',
@@ -266,7 +267,7 @@ export function AdminLeaguesClient() {
               <TextField label="League name" value={leagueForm.name} onChange={(e) => setLeagueForm({ ...leagueForm, name: e.target.value })} />
               <TextField label="Slug (optional)" value={leagueForm.slug} onChange={(e) => setLeagueForm({ ...leagueForm, slug: e.target.value })} />
               <TextField
-                label="First Monday date"
+                label="First Tuesday date"
                 type="date"
                 value={leagueForm.startsAt}
                 onChange={(e) => setLeagueForm({ ...leagueForm, startsAt: e.target.value })}
@@ -301,12 +302,6 @@ export function AdminLeaguesClient() {
                   ))}
                 </TextField>
               </Stack>
-              <TextField
-                label="Team scoring count"
-                type="number"
-                value={leagueForm.teamScoringCount}
-                onChange={(e) => setLeagueForm({ ...leagueForm, teamScoringCount: Number(e.target.value) })}
-              />
               <Grid container spacing={2}>
                 <Grid size={{ xs: 6 }}>
                   <TextField
@@ -342,6 +337,15 @@ export function AdminLeaguesClient() {
                     fullWidth
                     value={leagueForm.weeklyFeeCents / 100}
                     onChange={(e) => setLeagueForm({ ...leagueForm, weeklyFeeCents: Math.round(Number(e.target.value) * 100) })}
+                  />
+                </Grid>
+                <Grid size={{ xs: 6 }}>
+                  <TextField
+                    label="Full season"
+                    type="number"
+                    fullWidth
+                    value={leagueForm.fullSeasonFeeCents / 100}
+                    onChange={(e) => setLeagueForm({ ...leagueForm, fullSeasonFeeCents: Math.round(Number(e.target.value) * 100) })}
                   />
                 </Grid>
                 <Grid size={{ xs: 6 }}>
@@ -560,7 +564,7 @@ export function AdminLeaguesClient() {
                           <Typography sx={{ fontWeight: 1000 }}>
                             {selectedLeague.team_count ?? 8} teams x {selectedLeague.roster_size ?? 4} drivers
                           </Typography>
-                          <Typography color="text.secondary">8 heats, 30 minutes each, Monday nights.</Typography>
+                          <Typography color="text.secondary">8 heats, 30 minutes each, Tuesday nights.</Typography>
                         </Box>
                       </Grid>
                       <Grid size={{ xs: 12, md: 4 }}>
@@ -673,7 +677,7 @@ export function AdminLeaguesClient() {
                         );
                       })}
                       {selectedLeague.league_heats?.length === 0 || !selectedLeague.league_heats ? (
-                        <Alert severity="info">Add 8 teams, then generate the season to create Monday heat lineups.</Alert>
+                        <Alert severity="info">Add 8 teams, then generate the season to create Tuesday heat lineups.</Alert>
                       ) : null}
                     </Stack>
                   </Box>

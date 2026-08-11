@@ -15,6 +15,9 @@ import Typography from '@mui/material/Typography';
 
 import { AppShell } from '@/components/AppShell';
 import { getLeagueStandings } from '@/lib/leagues/standings';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { getAuthedProfile } from '@/lib/supabase/profile';
+import { LeagueRegistrationCard } from './LeagueRegistrationCard';
 import { LeagueCaptainTeamName } from './LeagueCaptainTeamName';
 
 export const dynamic = 'force-dynamic';
@@ -32,11 +35,45 @@ function formatTime(value: string) {
   return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(value));
 }
 
-export default async function LeagueDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+function queryValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function LeagueDetailPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { slug } = await params;
+  const query = (await searchParams) ?? {};
   const standings = await getLeagueStandings(slug);
   const { league, rounds, teams, members, heats, heatEntries, dues, prizeLedger, driverStandings, teamStandings } = standings;
   const prizePoolCents = prizeLedger.reduce((sum, row) => sum + row.amount_cents, 0);
+  const { user, profile } = await getAuthedProfile();
+  const supabase = createSupabaseAdminClient();
+  const { data: registrations } = await supabase
+    .from('league_registrations')
+    .select('id,status,profile_id,vms_customer_id')
+    .eq('league_id', league.id)
+    .in('status', ['pending_payment', 'registered']);
+  const reservedCount = Math.max(
+    members.length,
+    (registrations ?? []).filter((registration) => ['pending_payment', 'registered'].includes(registration.status)).length
+  );
+  const userRegistration =
+    profile && registrations
+      ? registrations.find(
+          (registration) =>
+            registration.profile_id === profile.id ||
+            (profile.vms_customer_id != null && Number(registration.vms_customer_id) === Number(profile.vms_customer_id))
+        )
+      : null;
+  const registrationState = queryValue(query.league_registered);
+  const loginHref = `/login?redirectTo=${encodeURIComponent(`/leagues/${league.slug}`)}`;
+  const metadataName = typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '';
+  const defaultDriverName = profile?.display_name?.trim() || metadataName || user?.email?.split('@')[0] || '';
 
   return (
     <AppShell>
@@ -56,16 +93,32 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ s
             {league.name}
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 2, maxWidth: 860, fontSize: 19 }}>
-            {league.description || 'Eight weeks of Monday night heats. Every driver races one 30-minute heat each week, and every finish scores for the team.'}
+            {league.description || 'Eight weeks of Tuesday night heats. Every driver races one 30-minute heat each week, and every finish scores for the team.'}
           </Typography>
         </Box>
+
+        <LeagueRegistrationCard
+          leagueSlug={league.slug}
+          signedIn={Boolean(user)}
+          loginHref={loginHref}
+          alreadyRegistered={Boolean(userRegistration)}
+          registrationStatus={userRegistration?.status ?? null}
+          capacity={league.team_count * league.roster_size}
+          registeredCount={reservedCount}
+          weeklyFeeCents={league.weekly_fee_cents}
+          fullSeasonFeeCents={league.full_season_fee_cents}
+          seasonWeeks={league.season_weeks}
+          defaultDriverName={defaultDriverName}
+          success={registrationState === 'success'}
+          cancelled={registrationState === 'cancelled'}
+        />
 
         <Grid container spacing={2}>
           {[
             ['Format', `${league.season_weeks} weeks · ${league.team_count} teams`],
             ['Race Night', `${league.league_night} · ${league.league_start_time.slice(0, 5)}-${league.league_end_time.slice(0, 5)}`],
             ['Heat Scoring', 'P1 4 pts · P2 3 · P3 2 · P4 1'],
-            ['Drivers', `${members.length}/${league.team_count * league.roster_size} registered`]
+            ['Drivers', `${reservedCount}/${league.team_count * league.roster_size} reserved`]
           ].map(([label, value]) => (
             <Grid key={label} size={{ xs: 12, sm: 6, lg: 3 }}>
               <Box sx={{ p: 2.5, border: '1px solid rgba(255,255,255,0.14)', bgcolor: '#111' }}>

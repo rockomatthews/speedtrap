@@ -30,11 +30,12 @@ function normalizeLeague(row: any): League {
   return {
     ...row,
     points_map: toNumberArray(row.points_map),
-    team_scoring_count: Number(row.team_scoring_count ?? 4),
+    team_scoring_count: 4,
     season_weeks: Number(row.season_weeks ?? 8),
     team_count: Number(row.team_count ?? 8),
     roster_size: Number(row.roster_size ?? 4),
     weekly_fee_cents: Number(row.weekly_fee_cents ?? 4000),
+    full_season_fee_cents: Number(row.full_season_fee_cents ?? 30000),
     prize_pool_percent: Number(row.prize_pool_percent ?? 50)
   };
 }

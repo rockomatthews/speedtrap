@@ -160,6 +160,146 @@ async function markPrivateEventDepositRefunded(input: {
   if (updateError) throw new Error(updateError.message);
 }
 
+async function markLeagueRegistrationPaid(input: {
+  supabaseAdmin: SupabaseAdminClient;
+  registrationId?: string | null;
+  checkoutSessionId?: string | null;
+  paymentIntentId?: string | null;
+  chargeId?: string | null;
+}) {
+  const { supabaseAdmin, registrationId, checkoutSessionId, paymentIntentId, chargeId } = input;
+  if (!registrationId && !checkoutSessionId && !paymentIntentId && !chargeId) return;
+
+  let query = supabaseAdmin
+    .from('league_registrations')
+    .select(
+      'id,league_id,profile_id,vms_customer_id,driver_name,customer_email,payment_option,status,amount_cents,stripe_checkout_session_id,stripe_payment_intent_id,stripe_charge_id'
+    )
+    .limit(1);
+
+  if (registrationId) {
+    query = query.eq('id', registrationId);
+  } else if (checkoutSessionId) {
+    query = query.eq('stripe_checkout_session_id', checkoutSessionId);
+  } else if (paymentIntentId) {
+    query = query.eq('stripe_payment_intent_id', paymentIntentId);
+  } else if (chargeId) {
+    query = query.eq('stripe_charge_id', chargeId);
+  }
+
+  const { data: registration, error } = await query.maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!registration) return;
+
+  const { data: league, error: leagueError } = await supabaseAdmin
+    .from('leagues')
+    .select('id,season_weeks,weekly_fee_cents,prize_pool_percent')
+    .eq('id', registration.league_id)
+    .single();
+  if (leagueError) throw new Error(leagueError.message);
+
+  const paidAt = new Date().toISOString();
+  const { error: registrationUpdateError } = await supabaseAdmin
+    .from('league_registrations')
+    .update({
+      status: 'registered',
+      stripe_checkout_session_id: checkoutSessionId ?? registration.stripe_checkout_session_id,
+      stripe_payment_intent_id: paymentIntentId ?? registration.stripe_payment_intent_id,
+      stripe_charge_id: chargeId ?? registration.stripe_charge_id,
+      paid_at: paidAt
+    })
+    .eq('id', registration.id);
+  if (registrationUpdateError) throw new Error(registrationUpdateError.message);
+
+  const { data: existingMember, error: memberLookupError } = await supabaseAdmin
+    .from('league_members')
+    .select('id,team_id,role,profile_id')
+    .eq('league_id', registration.league_id)
+    .eq('vms_customer_id', registration.vms_customer_id)
+    .maybeSingle();
+  if (memberLookupError) throw new Error(memberLookupError.message);
+
+  let memberId = existingMember?.id as string | undefined;
+  if (existingMember) {
+    const { error: memberUpdateError } = await supabaseAdmin
+      .from('league_members')
+      .update({
+        profile_id: existingMember.profile_id ?? registration.profile_id,
+        driver_name: registration.driver_name
+      })
+      .eq('id', existingMember.id);
+    if (memberUpdateError) throw new Error(memberUpdateError.message);
+  } else {
+    const { data: member, error: memberInsertError } = await supabaseAdmin
+      .from('league_members')
+      .insert({
+        league_id: registration.league_id,
+        profile_id: registration.profile_id,
+        vms_customer_id: registration.vms_customer_id,
+        driver_name: registration.driver_name,
+        role: 'driver'
+      })
+      .select('id')
+      .single();
+    if (memberInsertError) throw new Error(memberInsertError.message);
+    memberId = member.id;
+  }
+
+  if (!memberId) return;
+
+  const seasonWeeks = Math.max(1, Number(league.season_weeks ?? 8));
+  const weeklyFeeCents = Math.max(0, Number(league.weekly_fee_cents ?? 4000));
+  const paidRows =
+    registration.payment_option === 'full_season'
+      ? Array.from({ length: seasonWeeks }, (_, index) => {
+          const baseAmount = Math.floor(Number(registration.amount_cents ?? 0) / seasonWeeks);
+          const remainder = Number(registration.amount_cents ?? 0) - baseAmount * seasonWeeks;
+          return {
+            league_id: registration.league_id,
+            member_id: memberId,
+            week_number: index + 1,
+            amount_cents: baseAmount + (index === 0 ? remainder : 0),
+            status: 'paid',
+            stripe_payment_intent_id: paymentIntentId ?? registration.stripe_payment_intent_id,
+            paid_at: paidAt,
+            notes: 'Full-season league registration payment'
+          };
+        })
+      : Array.from({ length: seasonWeeks }, (_, index) => ({
+          league_id: registration.league_id,
+          member_id: memberId,
+          week_number: index + 1,
+          amount_cents: weeklyFeeCents,
+          status: index === 0 ? 'paid' : 'pending',
+          stripe_payment_intent_id: index === 0 ? paymentIntentId ?? registration.stripe_payment_intent_id : null,
+          paid_at: index === 0 ? paidAt : null,
+          notes: index === 0 ? 'Week 1 league registration payment' : 'Future weekly league installment'
+        }));
+
+  const { error: duesError } = await supabaseAdmin.from('league_dues').upsert(paidRows, { onConflict: 'member_id,week_number' });
+  if (duesError) throw new Error(duesError.message);
+
+  const prizeDescription = `League registration ${registration.id} (${registration.payment_option}) prize-pool contribution`;
+  const { data: existingPrize, error: prizeLookupError } = await supabaseAdmin
+    .from('league_prize_ledger')
+    .select('id')
+    .eq('league_id', registration.league_id)
+    .eq('description', prizeDescription)
+    .maybeSingle();
+  if (prizeLookupError) throw new Error(prizeLookupError.message);
+
+  if (!existingPrize) {
+    const prizeAmount = Math.round(Number(registration.amount_cents ?? 0) * (Number(league.prize_pool_percent ?? 50) / 100));
+    const { error: prizeError } = await supabaseAdmin.from('league_prize_ledger').insert({
+      league_id: registration.league_id,
+      source_type: 'payment',
+      amount_cents: prizeAmount,
+      description: prizeDescription
+    });
+    if (prizeError) throw new Error(prizeError.message);
+  }
+}
+
 export async function POST(request: Request) {
   const signature = request.headers.get('stripe-signature');
   if (!signature) {
@@ -194,6 +334,13 @@ export async function POST(request: Request) {
             paymentIntentId: paymentIntent.id,
             chargeId: stripeId(paymentIntent.latest_charge),
             quoteId: paymentIntent.metadata.quote_id
+          });
+        } else if (paymentIntent.metadata?.source === 'speedtrap_league_registration') {
+          await markLeagueRegistrationPaid({
+            supabaseAdmin: createSupabaseAdminClient(),
+            registrationId: paymentIntent.metadata.registration_id,
+            paymentIntentId: paymentIntent.id,
+            chargeId: stripeId(paymentIntent.latest_charge)
           });
         }
         break;
@@ -258,6 +405,16 @@ export async function POST(request: Request) {
             checkoutSessionId: session.id,
             paymentIntentId: stripeId(session.payment_intent),
             quoteId: session.metadata.quote_id
+          });
+          break;
+        }
+
+        if (session.mode === 'payment' && session.metadata?.source === 'speedtrap_league_registration') {
+          await markLeagueRegistrationPaid({
+            supabaseAdmin,
+            registrationId: session.metadata.registration_id,
+            checkoutSessionId: session.id,
+            paymentIntentId: stripeId(session.payment_intent)
           });
           break;
         }
