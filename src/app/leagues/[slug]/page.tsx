@@ -23,10 +23,19 @@ function formatDate(value: string | null) {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value));
 }
 
+function formatMoney(cents: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(cents / 100);
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(value));
+}
+
 export default async function LeagueDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const standings = await getLeagueStandings(slug);
-  const { league, rounds, driverStandings, teamStandings } = standings;
+  const { league, rounds, teams, members, heats, heatEntries, dues, prizeLedger, driverStandings, teamStandings } = standings;
+  const prizePoolCents = prizeLedger.reduce((sum, row) => sum + row.amount_cents, 0);
 
   return (
     <AppShell>
@@ -38,15 +47,35 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ s
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
             <Chip label={league.status} color={league.status === 'active' ? 'primary' : 'default'} />
             <Chip label={`${formatDate(league.starts_at)} - ${formatDate(league.ends_at)}`} variant="outlined" />
-            <Chip label={`Team scoring: best ${league.team_scoring_count}`} variant="outlined" />
+            <Chip label={`${league.team_count} teams x ${league.roster_size} drivers`} variant="outlined" />
+            <Chip label={`${formatMoney(league.weekly_fee_cents)} / week`} variant="outlined" />
+            <Chip label={`Prize pool ${formatMoney(prizePoolCents)}`} color="secondary" />
           </Stack>
           <Typography variant="h2" sx={{ fontSize: { xs: 44, md: 72 }, fontWeight: 1000, lineHeight: 0.95 }}>
             {league.name}
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 2, maxWidth: 860, fontSize: 19 }}>
-            {league.description || 'Qualifying hotlaps feed the standings now; race-night results can be linked as each round goes live.'}
+            {league.description || 'Eight weeks of Monday night heats. Every driver races one 30-minute heat each week, and every finish scores for the team.'}
           </Typography>
         </Box>
+
+        <Grid container spacing={2}>
+          {[
+            ['Format', `${league.season_weeks} weeks · ${league.team_count} teams`],
+            ['Race Night', `${league.league_night} · ${league.league_start_time.slice(0, 5)}-${league.league_end_time.slice(0, 5)}`],
+            ['Heat Scoring', 'P1 4 pts · P2 3 · P3 2 · P4 1'],
+            ['Drivers', `${members.length}/${league.team_count * league.roster_size} registered`]
+          ].map(([label, value]) => (
+            <Grid key={label} size={{ xs: 12, sm: 6, lg: 3 }}>
+              <Box sx={{ p: 2.5, border: '1px solid rgba(255,255,255,0.14)', bgcolor: '#111' }}>
+                <Typography color="text.secondary" sx={{ fontWeight: 900, textTransform: 'uppercase', fontSize: 12 }}>
+                  {label}
+                </Typography>
+                <Typography sx={{ fontWeight: 1000, fontSize: 22 }}>{value}</Typography>
+              </Box>
+            </Grid>
+          ))}
+        </Grid>
 
         {standings.errors.map((error) => (
           <Alert key={error} severity="warning">
@@ -69,7 +98,9 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ s
                     <TableCell>Driver</TableCell>
                     <TableCell>Team</TableCell>
                     <TableCell align="right">Pts</TableCell>
-                    <TableCell align="right">Best</TableCell>
+                    <TableCell align="right">Starts</TableCell>
+                    <TableCell align="right">Wins</TableCell>
+                    <TableCell align="right">Avg</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -90,12 +121,14 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ s
                       <TableCell align="right" sx={{ fontWeight: 1000 }}>
                         {driver.points}
                       </TableCell>
-                      <TableCell align="right">{driver.bestRank ? `P${driver.bestRank}` : '-'}</TableCell>
+                      <TableCell align="right">{driver.starts || driver.roundsScored}</TableCell>
+                      <TableCell align="right">{driver.wins}</TableCell>
+                      <TableCell align="right">{driver.averageFinish ? driver.averageFinish.toFixed(1) : '-'}</TableCell>
                     </TableRow>
                   ))}
                   {driverStandings.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5}>No VMS qualifying results yet.</TableCell>
+                      <TableCell colSpan={7}>No heat results yet.</TableCell>
                     </TableRow>
                   ) : null}
                 </TableBody>
@@ -115,7 +148,8 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ s
                       <Typography sx={{ color: 'primary.main', fontWeight: 1000, width: 24 }}>{index + 1}</Typography>
                       <Box sx={{ width: 12, height: 12, bgcolor: team.teamColor }} />
                       <Typography sx={{ flex: 1, fontWeight: 900 }}>{team.teamName}</Typography>
-                      <Typography sx={{ fontWeight: 1000 }}>{team.points}</Typography>
+                      <Typography sx={{ color: 'text.secondary' }}>{team.wins} wins</Typography>
+                      <Typography sx={{ fontWeight: 1000, minWidth: 42, textAlign: 'right' }}>{team.points}</Typography>
                     </Box>
                   ))}
                   {teamStandings.length === 0 ? <Typography color="text.secondary">No teams scored yet.</Typography> : null}
@@ -124,30 +158,84 @@ export default async function LeagueDetailPage({ params }: { params: Promise<{ s
 
               <Box sx={{ border: '1px solid rgba(255,255,255,0.14)', bgcolor: '#111', p: 3 }}>
                 <Typography variant="h4" sx={{ fontWeight: 1000, mb: 2 }}>
-                  Rounds
+                  Teams
                 </Typography>
                 <Stack spacing={1.5}>
-                  {rounds.map((round) => (
-                    <Box key={round.id} sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.04)' }}>
-                      <Typography sx={{ fontWeight: 1000 }}>
-                        Round {round.round_number}: {round.name}
-                      </Typography>
-                      <Typography color="text.secondary" sx={{ fontSize: 14 }}>
-                        {round.car_group || 'Open class'} {round.circuit_name ? `- ${round.circuit_name}` : ''}
-                      </Typography>
-                      {round.vms_hotlap_events ? (
-                        <Button component={Link} href={`/leaderboards/${round.vms_hotlap_events.slug}`} size="small" sx={{ mt: 1 }}>
-                          VMS Qualifying Board
-                        </Button>
-                      ) : null}
-                    </Box>
-                  ))}
-                  {rounds.length === 0 ? <Typography color="text.secondary">No rounds configured yet.</Typography> : null}
+                  {teams.map((team) => {
+                    const roster = members.filter((member) => member.team_id === team.id);
+                    return (
+                      <Box key={team.id} sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.04)' }}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Box sx={{ width: 12, height: 12, bgcolor: team.color }} />
+                          <Typography sx={{ fontWeight: 1000 }}>{team.name}</Typography>
+                          <Chip label={`${roster.length}/${league.roster_size}`} size="small" />
+                        </Stack>
+                        <Typography color="text.secondary" sx={{ mt: 1 }}>
+                          {roster.map((member) => member.driver_name).join(', ') || 'Roster coming soon'}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                  {teams.length === 0 ? <Typography color="text.secondary">No teams configured yet.</Typography> : null}
                 </Stack>
               </Box>
             </Stack>
           </Grid>
         </Grid>
+
+        <Box sx={{ border: '1px solid rgba(255,255,255,0.14)', bgcolor: '#111', overflow: 'hidden' }}>
+          <Box sx={{ p: 3, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <Typography variant="h4" sx={{ fontWeight: 1000 }}>
+              Weekly Heat Schedule
+            </Typography>
+          </Box>
+          <Stack spacing={0}>
+            {rounds.map((round) => {
+              const roundHeats = heats.filter((heat) => heat.round_id === round.id).sort((a, b) => a.heat_number - b.heat_number);
+              return (
+                <Box key={round.id} sx={{ p: 3, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} justifyContent="space-between" sx={{ mb: 2 }}>
+                    <Typography variant="h5" sx={{ fontWeight: 1000 }}>
+                      Week {round.round_number}: {round.name}
+                    </Typography>
+                    <Typography color="text.secondary">{round.race_starts_at ? formatDate(round.race_starts_at) : 'Date TBD'}</Typography>
+                  </Stack>
+                  <Grid container spacing={1.5}>
+                    {roundHeats.map((heat) => {
+                      const entries = heatEntries
+                        .filter((entry) => entry.heat_id === heat.id)
+                        .sort((a, b) => (a.finish_position ?? a.grid_position ?? 99) - (b.finish_position ?? b.grid_position ?? 99));
+                      return (
+                        <Grid key={heat.id} size={{ xs: 12, md: 6, xl: 3 }}>
+                          <Box sx={{ p: 2, height: '100%', border: '1px solid rgba(255,255,255,0.1)', bgcolor: 'rgba(255,255,255,0.035)' }}>
+                            <Typography sx={{ fontWeight: 1000 }}>
+                              {heat.name} · {formatTime(heat.starts_at)}
+                            </Typography>
+                            <Stack spacing={0.75} sx={{ mt: 1.5 }}>
+                              {entries.map((entry) => {
+                                const team = teams.find((row) => row.id === entry.team_id);
+                                return (
+                                  <Stack key={entry.id} direction="row" spacing={1} alignItems="center">
+                                    <Box sx={{ width: 8, height: 8, bgcolor: team?.color ?? '#FFD200' }} />
+                                    <Typography sx={{ flex: 1, fontSize: 14 }}>{entry.driver_name || team?.name || 'TBD'}</Typography>
+                                    <Typography sx={{ color: 'primary.main', fontWeight: 1000, fontSize: 14 }}>
+                                      {entry.finish_position ? `P${entry.finish_position}` : ''}
+                                    </Typography>
+                                  </Stack>
+                                );
+                              })}
+                            </Stack>
+                          </Box>
+                        </Grid>
+                      );
+                    })}
+                  </Grid>
+                </Box>
+              );
+            })}
+            {rounds.length === 0 ? <Box sx={{ p: 3 }}>No race weeks configured yet.</Box> : null}
+          </Stack>
+        </Box>
       </Stack>
     </AppShell>
   );

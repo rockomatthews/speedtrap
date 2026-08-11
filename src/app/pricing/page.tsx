@@ -483,6 +483,49 @@ export default async function PricingPage() {
             </Grid>
           </Box>
 
+          <Box
+            component="section"
+            sx={{
+              p: { xs: 2.5, md: 4 },
+              border: '1px solid rgba(255,22,31,0.58)',
+              bgcolor: '#080808',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                opacity: 0.18,
+                background:
+                  'linear-gradient(135deg, transparent 0 62%, rgba(255,210,0,0.24) 62% 68%, transparent 68%), linear-gradient(90deg, rgba(255,22,31,0.22), transparent)'
+              }
+            }}
+          >
+            <Grid container spacing={3} alignItems="center" sx={{ position: 'relative', zIndex: 1 }}>
+              <Grid size={{ xs: 12, md: 8 }}>
+                <Chip label="League Racing" sx={{ bgcolor: '#FF161F', color: '#fff', fontWeight: 900, mb: 1.5 }} />
+                <Typography variant="h3" sx={{ fontWeight: 950 }}>
+                  Monday night team leagues are coming.
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 820 }}>
+                  Eight-week seasons, team strategy, live standings, and VMS-backed race results. See the current league hub for teams,
+                  schedules, and standings as seasons go live.
+                </Typography>
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <Stack spacing={1.25} alignItems={{ xs: 'stretch', md: 'flex-end' }}>
+                  <Button component={Link} href="/leagues" variant="contained" size="large">
+                    View Leagues
+                  </Button>
+                  <Typography color="text.secondary" sx={{ fontSize: 13, textAlign: { xs: 'left', md: 'right' } }}>
+                    League pricing and signup details will be published with each season.
+                  </Typography>
+                </Stack>
+              </Grid>
+            </Grid>
+          </Box>
+
           <Grid id="private-events" container spacing={3} alignItems="stretch" sx={{ scrollMarginTop: { xs: 96, md: 120 } }}>
             <Grid size={{ xs: 12, md: 7 }}>
               <Box

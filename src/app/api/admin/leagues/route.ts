@@ -15,7 +15,15 @@ const createLeagueSchema = z.object({
   visibility: z.enum(['public', 'members', 'private']).default('public'),
   startsAt: z.string().optional().nullable(),
   endsAt: z.string().optional().nullable(),
-  teamScoringCount: z.coerce.number().int().min(1).max(8).default(2)
+  teamScoringCount: z.coerce.number().int().min(1).max(8).default(4),
+  seasonWeeks: z.coerce.number().int().min(1).max(16).default(8),
+  teamCount: z.coerce.number().int().min(2).max(16).default(8),
+  rosterSize: z.coerce.number().int().min(1).max(8).default(4),
+  weeklyFeeCents: z.coerce.number().int().min(0).default(4000),
+  prizePoolPercent: z.coerce.number().min(0).max(100).default(50),
+  leagueNight: z.string().default('Monday'),
+  leagueStartTime: z.string().default('18:00'),
+  leagueEndTime: z.string().default('22:00')
 });
 
 async function requireAdminUser() {
@@ -32,7 +40,9 @@ export async function GET() {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from('leagues')
-    .select('*, league_teams(*), league_members(*), league_rounds(*, vms_hotlap_events(id, slug, name, vms_hotlap_event_id))')
+    .select(
+      '*, league_teams(*), league_members(*), league_rounds(*, vms_hotlap_events(id, slug, name, vms_hotlap_event_id)), league_heats(*), league_heat_entries(*), league_dues(*), league_prize_ledger(*)'
+    )
     .order('created_at', { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -60,6 +70,16 @@ export async function POST(request: Request) {
       starts_at: input.startsAt || null,
       ends_at: input.endsAt || null,
       team_scoring_count: input.teamScoringCount,
+      season_weeks: input.seasonWeeks,
+      team_count: input.teamCount,
+      roster_size: input.rosterSize,
+      weekly_fee_cents: input.weeklyFeeCents,
+      prize_pool_percent: input.prizePoolPercent,
+      league_night: input.leagueNight,
+      league_start_time: input.leagueStartTime,
+      league_end_time: input.leagueEndTime,
+      points_map: [4, 3, 2, 1],
+      scoring_preset: 'heat-4-3-2-1',
       created_by: auth.user.id
     })
     .select('*')

@@ -37,7 +37,7 @@ export default async function LeaguesPage() {
             Qualify, team up, then race for the table.
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 2, maxWidth: 760, fontSize: 20 }}>
-            Speed Trap leagues use VMS timing for qualifying laps and race-night results while teams, rounds, and standings live here.
+            Eight teams, four drivers each, Monday heat racing, and VMS-backed timing feeding a live season table.
           </Typography>
         </Box>
 
