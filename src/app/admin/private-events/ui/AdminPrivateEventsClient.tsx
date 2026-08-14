@@ -49,6 +49,8 @@ const emptyForm = {
   notes: ''
 };
 
+type QuoteForm = typeof emptyForm;
+
 function money(cents: number, currency = 'usd') {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
 }
@@ -70,11 +72,36 @@ function statusColor(status: PrivateEventQuote['status']) {
   return 'warning';
 }
 
+function toFormDateTime(value: string | null | undefined) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return offsetDate.toISOString().slice(0, 16);
+}
+
+function quoteToForm(quote: PrivateEventQuote): QuoteForm {
+  return {
+    customerName: quote.customer_name,
+    customerEmail: quote.customer_email,
+    customerPhone: quote.customer_phone ?? '',
+    eventStartsAt: toFormDateTime(quote.event_starts_at),
+    eventDurationMinutes: quote.event_duration_minutes ? String(quote.event_duration_minutes) : '',
+    guestCount: quote.guest_count ? String(quote.guest_count) : '',
+    simCount: quote.sim_count ? String(quote.sim_count) : '',
+    totalAmount: String(quote.total_amount_cents / 100),
+    notes: quote.notes ?? ''
+  };
+}
+
 export function AdminPrivateEventsClient() {
   const [quotes, setQuotes] = useState<PrivateEventQuote[]>([]);
   const [form, setForm] = useState(emptyForm);
+  const [editingQuoteId, setEditingQuoteId] = useState('');
+  const [editForm, setEditForm] = useState<QuoteForm>(emptyForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [latestLink, setLatestLink] = useState('');
@@ -84,6 +111,12 @@ export function AdminPrivateEventsClient() {
     if (!Number.isFinite(value) || value <= 0) return '$0.00';
     return money(Math.round(value * 100 * 0.5));
   }, [form.totalAmount]);
+
+  const editDepositPreview = useMemo(() => {
+    const value = Number(editForm.totalAmount);
+    if (!Number.isFinite(value) || value <= 0) return '$0.00';
+    return money(Math.round(value * 100 * 0.5));
+  }, [editForm.totalAmount]);
 
   async function loadQuotes() {
     setLoading(true);
@@ -170,6 +203,57 @@ export function AdminPrivateEventsClient() {
       setMessage('Deposit link cancelled.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to cancel deposit link.');
+    }
+  }
+
+  function startEdit(quote: PrivateEventQuote) {
+    setError('');
+    setMessage('');
+    setLatestLink('');
+    setEditingQuoteId(quote.id);
+    setEditForm(quoteToForm(quote));
+  }
+
+  function cancelEdit() {
+    setEditingQuoteId('');
+    setEditForm(emptyForm);
+  }
+
+  async function updateQuote(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingQuoteId) return;
+
+    setUpdating(true);
+    setError('');
+    setMessage('');
+    setLatestLink('');
+
+    try {
+      const response = await fetch('/api/admin/private-event-deposits', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingQuoteId,
+          customerName: editForm.customerName,
+          customerEmail: editForm.customerEmail,
+          customerPhone: editForm.customerPhone || undefined,
+          eventStartsAt: editForm.eventStartsAt || null,
+          eventDurationMinutes: editForm.eventDurationMinutes || null,
+          guestCount: editForm.guestCount || null,
+          simCount: editForm.simCount || null,
+          totalAmount: editForm.totalAmount,
+          notes: editForm.notes || null
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Failed to update deposit link.');
+      setQuotes((current) => current.map((quote) => (quote.id === editingQuoteId ? payload.quote : quote)));
+      cancelEdit();
+      setMessage('Deposit link updated.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update deposit link.');
+    } finally {
+      setUpdating(false);
     }
   }
 
@@ -322,52 +406,163 @@ export function AdminPrivateEventsClient() {
                       Copy Link
                     </Button>
                     {quote.status === 'quote_sent' ? (
-                      <Button color="error" variant="outlined" onClick={() => cancelQuote(quote.id)}>
-                        Cancel
-                      </Button>
+                      <>
+                        <Button variant="outlined" onClick={() => startEdit(quote)}>
+                          Edit
+                        </Button>
+                        <Button color="error" variant="outlined" onClick={() => cancelQuote(quote.id)}>
+                          Cancel
+                        </Button>
+                      </>
                     ) : null}
                   </Stack>
                 </Stack>
 
-                <Grid container spacing={1}>
-                  <Grid size={{ xs: 6, md: 3 }}>
-                    <Box sx={{ border: '1px solid rgba(255,255,255,0.12)', p: 1.25 }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
-                        Total quote
-                      </Typography>
-                      <Typography sx={{ fontWeight: 950 }}>{money(quote.total_amount_cents, quote.currency)}</Typography>
-                    </Box>
-                  </Grid>
-                  <Grid size={{ xs: 6, md: 3 }}>
-                    <Box sx={{ border: '1px solid rgba(255,255,255,0.12)', p: 1.25 }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
-                        Deposit due
-                      </Typography>
-                      <Typography sx={{ fontWeight: 950 }}>{money(quote.deposit_amount_cents, quote.currency)}</Typography>
-                    </Box>
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 3 }}>
-                    <Box sx={{ border: '1px solid rgba(255,255,255,0.12)', p: 1.25 }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
-                        Event time
-                      </Typography>
-                      <Typography sx={{ fontWeight: 950 }}>{dateTime(quote.event_starts_at)}</Typography>
-                    </Box>
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 3 }}>
-                    <Box sx={{ border: '1px solid rgba(255,255,255,0.12)', p: 1.25 }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
-                        Party details
-                      </Typography>
-                      <Typography sx={{ fontWeight: 950 }}>
-                        {quote.guest_count ? `${quote.guest_count} guests` : 'Guests TBD'}
-                        {quote.sim_count ? ` | ${quote.sim_count} sims` : ''}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                </Grid>
+                {editingQuoteId === quote.id ? (
+                  <Stack component="form" spacing={1.25} onSubmit={updateQuote}>
+                    <Grid container spacing={1.25}>
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <TextField
+                          label="Customer name"
+                          value={editForm.customerName}
+                          onChange={(event) => setEditForm((current) => ({ ...current, customerName: event.target.value }))}
+                          required
+                          fullWidth
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <TextField
+                          label="Customer email"
+                          type="email"
+                          value={editForm.customerEmail}
+                          onChange={(event) => setEditForm((current) => ({ ...current, customerEmail: event.target.value }))}
+                          required
+                          fullWidth
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 4 }}>
+                        <TextField
+                          label="Customer phone"
+                          value={editForm.customerPhone}
+                          onChange={(event) => setEditForm((current) => ({ ...current, customerPhone: event.target.value }))}
+                          fullWidth
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 4 }}>
+                        <TextField
+                          label="Event date and time"
+                          type="datetime-local"
+                          value={editForm.eventStartsAt}
+                          onChange={(event) => setEditForm((current) => ({ ...current, eventStartsAt: event.target.value }))}
+                          fullWidth
+                          slotProps={{ inputLabel: { shrink: true } }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 4 }}>
+                        <TextField
+                          label="Full event price"
+                          type="number"
+                          value={editForm.totalAmount}
+                          onChange={(event) => setEditForm((current) => ({ ...current, totalAmount: event.target.value }))}
+                          helperText={`Customer deposit: ${editDepositPreview}`}
+                          required
+                          fullWidth
+                          slotProps={{ htmlInput: { min: 1, step: '0.01' } }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="Duration minutes"
+                          type="number"
+                          value={editForm.eventDurationMinutes}
+                          onChange={(event) => setEditForm((current) => ({ ...current, eventDurationMinutes: event.target.value }))}
+                          fullWidth
+                          slotProps={{ htmlInput: { min: 1 } }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="Guest count"
+                          type="number"
+                          value={editForm.guestCount}
+                          onChange={(event) => setEditForm((current) => ({ ...current, guestCount: event.target.value }))}
+                          fullWidth
+                          slotProps={{ htmlInput: { min: 1 } }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="Sims needed"
+                          type="number"
+                          value={editForm.simCount}
+                          onChange={(event) => setEditForm((current) => ({ ...current, simCount: event.target.value }))}
+                          fullWidth
+                          slotProps={{ htmlInput: { min: 1, max: 4 } }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12 }}>
+                        <TextField
+                          label="Private notes"
+                          value={editForm.notes}
+                          onChange={(event) => setEditForm((current) => ({ ...current, notes: event.target.value }))}
+                          multiline
+                          minRows={3}
+                          fullWidth
+                        />
+                      </Grid>
+                    </Grid>
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                      <Button type="submit" variant="contained" disabled={updating}>
+                        {updating ? 'Saving...' : 'Save Changes'}
+                      </Button>
+                      <Button type="button" variant="outlined" onClick={cancelEdit}>
+                        Close Edit
+                      </Button>
+                    </Stack>
+                  </Stack>
+                ) : (
+                  <>
+                    <Grid container spacing={1}>
+                      <Grid size={{ xs: 6, md: 3 }}>
+                        <Box sx={{ border: '1px solid rgba(255,255,255,0.12)', p: 1.25 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
+                            Total quote
+                          </Typography>
+                          <Typography sx={{ fontWeight: 950 }}>{money(quote.total_amount_cents, quote.currency)}</Typography>
+                        </Box>
+                      </Grid>
+                      <Grid size={{ xs: 6, md: 3 }}>
+                        <Box sx={{ border: '1px solid rgba(255,255,255,0.12)', p: 1.25 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
+                            Deposit due
+                          </Typography>
+                          <Typography sx={{ fontWeight: 950 }}>{money(quote.deposit_amount_cents, quote.currency)}</Typography>
+                        </Box>
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 3 }}>
+                        <Box sx={{ border: '1px solid rgba(255,255,255,0.12)', p: 1.25 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
+                            Event time
+                          </Typography>
+                          <Typography sx={{ fontWeight: 950 }}>{dateTime(quote.event_starts_at)}</Typography>
+                        </Box>
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 3 }}>
+                        <Box sx={{ border: '1px solid rgba(255,255,255,0.12)', p: 1.25 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
+                            Party details
+                          </Typography>
+                          <Typography sx={{ fontWeight: 950 }}>
+                            {quote.guest_count ? `${quote.guest_count} guests` : 'Guests TBD'}
+                            {quote.sim_count ? ` | ${quote.sim_count} sims` : ''}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    </Grid>
 
-                {quote.notes ? <Typography color="text.secondary">{quote.notes}</Typography> : null}
+                    {quote.notes ? <Typography color="text.secondary">{quote.notes}</Typography> : null}
+                  </>
+                )}
                 {quote.deposit_paid_at ? (
                   <Alert severity="success">Deposit paid {dateTime(quote.deposit_paid_at)}.</Alert>
                 ) : null}

@@ -20,7 +20,16 @@ const createQuoteSchema = z.object({
 
 const patchQuoteSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum(['quote_sent', 'cancelled'])
+  status: z.enum(['quote_sent', 'cancelled']).optional(),
+  customerName: z.string().trim().min(1, 'Customer name is required.').optional(),
+  customerEmail: z.string().trim().email('A valid email is required.').optional(),
+  customerPhone: z.string().trim().optional(),
+  eventStartsAt: z.string().trim().optional().nullable(),
+  eventDurationMinutes: z.coerce.number().int().positive().optional().nullable(),
+  guestCount: z.coerce.number().int().positive().optional().nullable(),
+  simCount: z.coerce.number().int().min(1).max(4).optional().nullable(),
+  totalAmount: z.coerce.number().positive('Total event price is required.').optional(),
+  notes: z.string().trim().optional().nullable()
 });
 
 function quoteSelect() {
@@ -111,11 +120,33 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid quote update.' }, { status: 400 });
   }
 
+  const update: Record<string, unknown> = {};
+
+  if (parsed.data.status) update.status = parsed.data.status;
+  if (parsed.data.customerName !== undefined) update.customer_name = parsed.data.customerName;
+  if (parsed.data.customerEmail !== undefined) update.customer_email = parsed.data.customerEmail.toLowerCase();
+  if (parsed.data.customerPhone !== undefined) update.customer_phone = parsed.data.customerPhone || null;
+  if (parsed.data.eventStartsAt !== undefined) update.event_starts_at = parsed.data.eventStartsAt || null;
+  if (parsed.data.eventDurationMinutes !== undefined) update.event_duration_minutes = parsed.data.eventDurationMinutes ?? null;
+  if (parsed.data.guestCount !== undefined) update.guest_count = parsed.data.guestCount ?? null;
+  if (parsed.data.simCount !== undefined) update.sim_count = parsed.data.simCount ?? null;
+  if (parsed.data.notes !== undefined) update.notes = parsed.data.notes || null;
+
+  if (parsed.data.totalAmount !== undefined) {
+    const totalAmountCents = Math.round(parsed.data.totalAmount * 100);
+    update.total_amount_cents = totalAmountCents;
+    update.deposit_amount_cents = Math.round(totalAmountCents * 0.5);
+  }
+
+  if (!Object.keys(update).length) {
+    return NextResponse.json({ error: 'No quote updates were provided.' }, { status: 400 });
+  }
+
   const { data, error } = await createSupabaseAdminClient()
     .from('private_event_deposit_quotes')
-    .update({ status: parsed.data.status })
+    .update(update)
     .eq('id', parsed.data.id)
-    .neq('status', 'deposit_paid')
+    .eq('status', 'quote_sent')
     .select(quoteSelect())
     .single();
 
