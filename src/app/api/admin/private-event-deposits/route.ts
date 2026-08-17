@@ -32,6 +32,91 @@ const patchQuoteSchema = z.object({
   notes: z.string().trim().optional().nullable()
 });
 
+type PrivateEventDepositQuote = {
+  id: string;
+  public_token: string;
+  customer_name: string;
+  customer_email: string;
+  deposit_amount_cents: number;
+  total_amount_cents: number;
+};
+
+function money(cents: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+async function sendDepositQuoteEmail(input: {
+  to: string;
+  customerName: string;
+  depositAmountCents: number;
+  totalAmountCents: number;
+  depositUrl: string;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return 'RESEND_API_KEY is not configured, so the link was created but not emailed.';
+
+  const from = process.env.RESEND_FROM_EMAIL ?? process.env.PRIVATE_EVENTS_FROM_EMAIL ?? 'Speed Trap Racing <events@speedtrapracing.com>';
+  const replyTo = process.env.PRIVATE_EVENTS_TO_EMAIL ?? 'events@speedtrapracing.com';
+  const safeCustomerName = escapeHtml(input.customerName);
+  const safeDepositUrl = escapeHtml(input.depositUrl);
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from,
+      to: input.to,
+      reply_to: replyTo,
+      subject: 'Your Speed Trap private event deposit link',
+      text: [
+        `Hi ${input.customerName},`,
+        '',
+        'Thanks for planning your private event with Speed Trap Racing.',
+        '',
+        `Your total quote is ${money(input.totalAmountCents)}.`,
+        `Your 50% deposit due is ${money(input.depositAmountCents)} before sales tax.`,
+        '',
+        `Pay your deposit here: ${input.depositUrl}`,
+        '',
+        'Questions? Reply to this email and our events team will help.'
+      ].join('\n'),
+      html: `
+        <div style="font-family: Arial, sans-serif; background:#080808; color:#ffffff; padding:24px;">
+          <h1 style="margin:0 0 12px; color:#ffd200;">Speed Trap Racing</h1>
+          <p>Hi ${safeCustomerName},</p>
+          <p>Thanks for planning your private event with Speed Trap Racing.</p>
+          <p><strong>Total quote:</strong> ${money(input.totalAmountCents)}</p>
+          <p><strong>50% deposit due:</strong> ${money(input.depositAmountCents)} before sales tax</p>
+          <p style="margin:28px 0;">
+            <a href="${safeDepositUrl}" style="background:#ff161f;color:#ffffff;padding:14px 20px;border-radius:6px;text-decoration:none;font-weight:700;">
+              Pay Private Event Deposit
+            </a>
+          </p>
+          <p>Questions? Reply to this email and our events team will help.</p>
+        </div>
+      `
+    })
+  });
+
+  const result = (await response.json().catch(() => null)) as { message?: string; error?: string; name?: string } | null;
+  if (!response.ok) {
+    return result?.message ?? result?.error ?? result?.name ?? `Resend returned ${response.status}`;
+  }
+
+  return null;
+}
+
 function quoteSelect() {
   return [
     'id',
@@ -107,7 +192,18 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ quote: data });
+
+  const quote = data as unknown as PrivateEventDepositQuote;
+  const origin = new URL(request.url).origin;
+  const emailWarning = await sendDepositQuoteEmail({
+    to: quote.customer_email,
+    customerName: quote.customer_name,
+    depositAmountCents: quote.deposit_amount_cents,
+    totalAmountCents: quote.total_amount_cents,
+    depositUrl: `${origin}/private-events/deposit/${quote.public_token}`
+  });
+
+  return NextResponse.json({ quote, emailWarning });
 }
 
 export async function PATCH(request: Request) {

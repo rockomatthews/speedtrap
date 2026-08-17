@@ -27,6 +27,7 @@ import {
   CUSTOM_DURATION_BLOCK_MINUTES,
   bookingAmountCents,
 } from '@/lib/bookings/config';
+import { salesTaxCents, totalWithSalesTaxCents } from '@/lib/stripe/tax';
 
 type Slot = {
   startsAt: string;
@@ -631,7 +632,9 @@ export function BookingClient({
 
   const baseAmountCents = bookingPrice(durationMinutes, simCount);
   const memberPrice = memberBookingPrice(durationMinutes, simCount, membership);
-  const amountCents = memberPrice.amountCents;
+  const subtotalCents = memberPrice.amountCents;
+  const taxCents = salesTaxCents(subtotalCents);
+  const amountCents = totalWithSalesTaxCents(subtotalCents);
   const raceRequestReady = raceRequestMode === 'none' || (raceRequestMode === 'hotlap_event' && Boolean(selectedEvent));
   const canStartPayment = Boolean(
     selectedSlot &&
@@ -809,7 +812,7 @@ export function BookingClient({
               <Stack spacing={0.5}>
                 <Typography color="text.secondary">Session</Typography>
                 <Typography sx={{ fontWeight: 900 }}>
-                  {simCount} x {durationMinutes} min race - {money(amountCents)}
+                  {simCount} x {durationMinutes} min race - {money(subtotalCents)}
                 </Typography>
                 {memberPrice.discountCents > 0 ? (
                   <Typography color="primary" sx={{ fontSize: 13, fontWeight: 800 }}>
@@ -817,11 +820,15 @@ export function BookingClient({
                     {memberPrice.creditLabel ? ` including your ${memberPrice.creditLabel}` : ''}
                   </Typography>
                 ) : null}
-                {memberPrice.discountCents > 0 && baseAmountCents !== amountCents ? (
+                {memberPrice.discountCents > 0 && baseAmountCents !== subtotalCents ? (
                   <Typography color="text.secondary" sx={{ fontSize: 12 }}>
                     Standard price: {money(baseAmountCents)}
                   </Typography>
                 ) : null}
+                <Typography color="text.secondary" sx={{ fontSize: 12 }}>
+                  Sales tax (8%): {money(taxCents)}
+                </Typography>
+                <Typography sx={{ fontWeight: 950 }}>Total: {money(amountCents)}</Typography>
                 <Typography color="text.secondary">{selectedSlot ? `${date} at ${slotRangeLabel(selectedSlot, durationMinutes)}` : 'Choose a time slot'}</Typography>
               </Stack>
               <Box>

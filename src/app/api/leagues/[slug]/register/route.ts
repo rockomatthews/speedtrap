@@ -6,6 +6,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { env } from '@/lib/supabase/env';
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
 import { getStripeEnv } from '@/lib/stripe/env';
+import { STRIPE_SALES_TAX_LABEL, salesTaxCents, salesTaxMetadata } from '@/lib/stripe/tax';
 import { VmsClient } from '@/lib/vms/client';
 import type { VmsCustomerProfile } from '@/lib/vms/types';
 
@@ -179,28 +180,45 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   };
   const origin = originFromRequest(request);
   const stripe = new Stripe(getStripeEnv().STRIPE_SECRET_KEY);
+  const taxCents = salesTaxCents(amountCents);
+  const taxMetadata = salesTaxMetadata(amountCents);
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+    {
+      quantity: 1,
+      price_data: {
+        currency: 'usd',
+        unit_amount: amountCents,
+        product_data: {
+          name: `${league.name} - ${paymentLabel}`,
+          description:
+            parsed.data.paymentOption === 'full_season'
+              ? `${league.season_weeks ?? 8} week Speed Trap league season`
+              : 'Speed Trap league weekly installment'
+        }
+      }
+    }
+  ];
+  if (taxCents > 0) {
+    lineItems.push({
+      quantity: 1,
+      price_data: {
+        currency: 'usd',
+        unit_amount: taxCents,
+        product_data: {
+          name: STRIPE_SALES_TAX_LABEL,
+          description: 'Ohio sales tax'
+        }
+      }
+    });
+  }
+
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     customer_email: user.email,
     client_reference_id: user.id,
-    metadata,
-    payment_intent_data: { metadata },
-    line_items: [
-      {
-        quantity: 1,
-        price_data: {
-          currency: 'usd',
-          unit_amount: amountCents,
-          product_data: {
-            name: `${league.name} - ${paymentLabel}`,
-            description:
-              parsed.data.paymentOption === 'full_season'
-                ? `${league.season_weeks ?? 8} week Speed Trap league season`
-                : 'Speed Trap league weekly installment'
-          }
-        }
-      }
-    ],
+    metadata: { ...metadata, ...taxMetadata },
+    payment_intent_data: { metadata: { ...metadata, ...taxMetadata } },
+    line_items: lineItems,
     success_url: `${origin}/leagues/${league.slug}?league_registered=success`,
     cancel_url: `${origin}/leagues/${league.slug}?league_registered=cancelled`
   });

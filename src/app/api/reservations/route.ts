@@ -42,8 +42,8 @@ export async function POST(request: Request) {
   }
 
   const apiKey = process.env.RESEND_API_KEY;
-  const to = process.env.RESERVATIONS_TO_EMAIL ?? 'reservations@speedtrapracing.com';
-  const from = process.env.RESERVATIONS_FROM_EMAIL ?? 'Speed Trap Reservations <reservations@speedtrapracing.com>';
+  const to = process.env.PRIVATE_EVENTS_TO_EMAIL ?? process.env.RESERVATIONS_TO_EMAIL ?? 'events@speedtrapracing.com';
+  const from = process.env.RESEND_FROM_EMAIL ?? process.env.RESERVATIONS_FROM_EMAIL ?? 'Speed Trap Racing <events@speedtrapracing.com>';
   if (!apiKey) {
     return NextResponse.json({ error: 'Reservation email is being configured. Please call 216-712-4039 for now.' }, { status: 503 });
   }
@@ -74,11 +74,14 @@ export async function POST(request: Request) {
     })
   });
 
-  const result = (await response.json().catch(() => null)) as { id?: string; message?: string } | null;
+  const result = (await response.json().catch(() => null)) as { id?: string; message?: string; error?: string; name?: string } | null;
   if (!response.ok) {
-    console.error('Reservation email failed', { status: response.status, message: result?.message });
+    const resendMessage = result?.message ?? result?.error ?? result?.name ?? `Resend returned ${response.status}`;
+    console.error('Reservation email failed', { status: response.status, message: resendMessage });
     return NextResponse.json(
-      { error: 'We could not send your request. Please call 216-712-4039 for assistance.' },
+      {
+        error: `We could not send your request through the website: ${resendMessage}. Please email events@speedtrapracing.com or call 216-712-4039.`
+      },
       { status: 502 }
     );
   }

@@ -58,6 +58,8 @@ export async function POST(request: Request) {
         metadata: {
           booking_hold_id: hold.id,
           source: 'speedtrap_online_booking',
+          sales_tax_rate_percent: '8',
+          sales_tax_included: 'true',
           sms_reminder: hold.sms_consent_at ? 'true' : 'false'
         }
       });

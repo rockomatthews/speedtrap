@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { env } from '@/lib/supabase/env';
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
 import { getStripeEnv } from '@/lib/stripe/env';
+import { STRIPE_SALES_TAX_LABEL, salesTaxCents, salesTaxMetadata } from '@/lib/stripe/tax';
 
 import { NextResponse } from 'next/server';
 
@@ -127,10 +128,30 @@ export async function POST(request: Request) {
     const stripeEnv = getStripeEnv();
     const stripe = new Stripe(stripeEnv.STRIPE_SECRET_KEY);
 
-    const lineItems = normalizedItems.map((it) => ({
+    const subtotalCents = normalizedItems.reduce((sum, it) => {
+      const row = catalogByPriceId.get(it.priceId);
+      const unit = typeof row?.price_cents === 'number' ? row.price_cents : 0;
+      return sum + unit * it.quantity;
+    }, 0);
+    const taxCents = salesTaxCents(subtotalCents);
+    const taxMetadata = salesTaxMetadata(subtotalCents);
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = normalizedItems.map((it) => ({
       price: it.priceId,
       quantity: it.quantity
     }));
+    if (taxCents > 0) {
+      lineItems.push({
+        quantity: 1,
+        price_data: {
+          currency: String((catalogRows?.[0] as any)?.currency ?? 'usd'),
+          unit_amount: taxCents,
+          product_data: {
+            name: STRIPE_SALES_TAX_LABEL,
+            description: 'Ohio sales tax'
+          }
+        }
+      });
+    }
 
     const metadataPairs = normalizedItems
       .map((it) => {
@@ -146,7 +167,8 @@ export async function POST(request: Request) {
       success_url: `${origin}/merch/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/merch/cancel`,
       metadata: {
-        merch_cart: metadataPairs
+        merch_cart: metadataPairs,
+        ...taxMetadata
       }
     });
 
@@ -190,9 +212,9 @@ export async function PATCH(request: Request) {
     subtotalCents += unit * it.quantity;
   }
 
-  // Simple pre-checkout estimate (final tax/shipping is finalized at Stripe Checkout).
+  // Simple pre-checkout estimate.
   const shippingCents = subtotalCents >= 7500 ? 0 : 800;
-  const taxCents = Math.round(subtotalCents * 0.085);
+  const taxCents = salesTaxCents(subtotalCents);
   const totalCents = subtotalCents + shippingCents + taxCents;
   const currency = String((catalogRows?.[0] as any)?.currency ?? 'usd');
 
@@ -202,7 +224,6 @@ export async function PATCH(request: Request) {
     taxCents,
     totalCents,
     currency,
-    note: 'Estimate only. Final tax and shipping are calculated at Stripe Checkout.'
+    note: 'Estimate only. Shipping is handled separately when enabled.'
   });
 }
-

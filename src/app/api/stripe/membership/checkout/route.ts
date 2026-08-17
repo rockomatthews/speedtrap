@@ -4,6 +4,7 @@ import { env } from '@/lib/supabase/env';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
 import { getStripeMembershipEnv } from '@/lib/stripe/env';
+import { STRIPE_SALES_TAX_LABEL, salesTaxCents, salesTaxMetadata } from '@/lib/stripe/tax';
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -42,6 +43,28 @@ export async function POST(request: Request) {
     const stripeEnv = getStripeMembershipEnv();
     const stripe = new Stripe(stripeEnv.STRIPE_SECRET_KEY);
     const admin = createSupabaseAdminClient();
+    const membershipPrice = await stripe.prices.retrieve(stripeEnv.STRIPE_MEMBERSHIP_PRICE_ID);
+    const membershipSubtotalCents = membershipPrice.unit_amount ?? 0;
+    const taxCents = salesTaxCents(membershipSubtotalCents);
+    const taxMetadata = salesTaxMetadata(membershipSubtotalCents);
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [{ price: stripeEnv.STRIPE_MEMBERSHIP_PRICE_ID, quantity: 1 }];
+    if (taxCents > 0 && membershipPrice.recurring) {
+      lineItems.push({
+        quantity: 1,
+        price_data: {
+          currency: membershipPrice.currency || 'usd',
+          unit_amount: taxCents,
+          recurring: {
+            interval: membershipPrice.recurring.interval,
+            interval_count: membershipPrice.recurring.interval_count ?? 1
+          },
+          product_data: {
+            name: STRIPE_SALES_TAX_LABEL,
+            description: 'Ohio sales tax'
+          }
+        }
+      });
+    }
 
     const { data: profile, error } = await admin
       .from('profiles')
@@ -59,19 +82,21 @@ export async function POST(request: Request) {
       customer: profile?.stripe_customer_id ?? undefined,
       customer_email: profile?.stripe_customer_id ? undefined : user.email ?? undefined,
       client_reference_id: user.id,
-      line_items: [{ price: stripeEnv.STRIPE_MEMBERSHIP_PRICE_ID, quantity: 1 }],
+      line_items: lineItems,
       success_url: `${origin}/membership/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/pricing?membership=cancelled`,
       metadata: {
         source: 'speedtrap_membership',
         profile_id: user.id,
-        birthday: birthday ?? ''
+        birthday: birthday ?? '',
+        ...taxMetadata
       },
       subscription_data: {
         metadata: {
           source: 'speedtrap_membership',
           profile_id: user.id,
-          birthday: birthday ?? ''
+          birthday: birthday ?? '',
+          ...taxMetadata
         }
       }
     });

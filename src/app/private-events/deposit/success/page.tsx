@@ -27,6 +27,7 @@ export default async function PrivateEventDepositSuccessPage({ searchParams }: P
   let status: 'ok' | 'missing' | 'error' = sessionId ? 'ok' : 'missing';
   let errorMessage = '';
   let depositAmount = '';
+  let paidAmount = '';
 
   if (sessionId) {
     try {
@@ -49,6 +50,7 @@ export default async function PrivateEventDepositSuccessPage({ searchParams }: P
       if (!quote) throw new Error('Private event deposit quote was not found.');
 
       depositAmount = money(quote.deposit_amount_cents, quote.currency);
+      paidAmount = session.amount_total ? money(session.amount_total, session.currency ?? quote.currency) : depositAmount;
 
       if (session.payment_status === 'paid' && quote.status !== 'deposit_paid') {
         const { error: updateError } = await supabaseAdmin
@@ -85,12 +87,14 @@ export default async function PrivateEventDepositSuccessPage({ searchParams }: P
             <Stack spacing={2}>
               {status === 'ok' ? (
                 <>
-                  <Alert severity="success">Deposit received{depositAmount ? `: ${depositAmount}` : ''}.</Alert>
+                  <Alert severity="success">Payment received{paidAmount ? `: ${paidAmount}` : ''}.</Alert>
                   <Typography variant="h3" sx={{ fontWeight: 950 }}>
                     Your private event deposit is paid.
                   </Typography>
                   <Typography color="text.secondary">
-                    Speed Trap has your deposit on file. Staff will follow up on any remaining details and balance.
+                    Speed Trap has your deposit on file
+                    {depositAmount ? ` (${depositAmount} deposit before sales tax)` : ''}. Staff will follow up on any remaining details
+                    and balance.
                   </Typography>
                 </>
               ) : status === 'missing' ? (

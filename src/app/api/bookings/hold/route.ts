@@ -17,6 +17,7 @@ import { membershipBookingPrice, type MembershipProfile } from '@/lib/membership
 import { normalizeUsPhone } from '@/lib/phone';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
+import { salesTaxCents, totalWithSalesTaxCents } from '@/lib/stripe/tax';
 
 const raceRequestSchema = z
   .discriminatedUnion('type', [
@@ -86,6 +87,8 @@ export async function POST(request: Request) {
       creditDate: start
     });
     if (!price) return NextResponse.json({ error: 'Unsupported booking product.' }, { status: 400 });
+    const taxCents = salesTaxCents(price.amountCents);
+    const totalAmountCents = totalWithSalesTaxCents(price.amountCents);
     const raceRequest = await validateRaceRequest(parsed.data.raceRequest, start);
 
     await syncUpcomingVmsBookings(supabase);
@@ -109,7 +112,7 @@ export async function POST(request: Request) {
         starts_at: start.toISOString(),
         ends_at: end.toISOString(),
         buffer_until: bufferUntil.toISOString(),
-        amount_cents: price.amountCents,
+        amount_cents: totalAmountCents,
         currency: 'usd',
         profile_id: membershipProfile?.id ?? null,
         membership_free_race_month: price.freeRaceMonth,
@@ -125,7 +128,7 @@ export async function POST(request: Request) {
       .single();
     if (error) throw new Error(error.message);
 
-    return NextResponse.json({ hold: data });
+    return NextResponse.json({ hold: { ...data, subtotal_cents: price.amountCents, sales_tax_cents: taxCents } });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to hold booking.' }, { status: 409 });
   }

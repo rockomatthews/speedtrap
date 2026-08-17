@@ -180,7 +180,11 @@ export function AdminPrivateEventsClient() {
       const link = linkFor(quote);
       setLatestLink(link);
       await navigator.clipboard.writeText(link).catch(() => undefined);
-      setMessage('50% deposit link created and copied.');
+      setMessage(
+        payload.emailWarning
+          ? `50% deposit link created and copied, but email did not send: ${payload.emailWarning}`
+          : '50% deposit link created, emailed, and copied.'
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create deposit link.');
     } finally {
