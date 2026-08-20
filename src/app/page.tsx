@@ -260,11 +260,18 @@ export default async function HomePage({
                 </Grid>
                 <Grid size={{ xs: 12, md: 5 }}>
                   <Box
+                    component={Link}
+                    href="/leaderboards"
+                    aria-label="View the full leaderboard"
                     sx={{
+                      display: 'block',
                       border: '1px solid rgba(255,210,0,0.52)',
                       bgcolor: 'rgba(0,0,0,0.58)',
                       backdropFilter: 'blur(16px)',
                       boxShadow: '0 0 42px rgba(255,22,31,0.18)',
+                      color: 'inherit',
+                      cursor: 'pointer',
+                      textDecoration: 'none',
                       p: { xs: 2, md: 2.5 },
                       transform: { md: 'skew(-4deg)' }
                     }}
@@ -448,7 +455,20 @@ export default async function HomePage({
                     rigs. Track the leaderboard to see where your best eligible lap ranks you against the competition!
                   </Typography>
                 </Box>
-                <Box sx={{ border: '1px solid rgba(255,255,255,0.12)', bgcolor: 'rgba(255,255,255,0.045)', p: 2 }}>
+                <Box
+                  component={Link}
+                  href="/leaderboards"
+                  aria-label="View the full leaderboard"
+                  sx={{
+                    display: 'block',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    bgcolor: 'rgba(255,255,255,0.045)',
+                    color: 'inherit',
+                    cursor: 'pointer',
+                    p: 2,
+                    textDecoration: 'none'
+                  }}
+                >
                   <Stack spacing={1}>
                     {leaderboardRows.map((row) => (
                       <Stack key={row.driver} direction="row" spacing={1.5} alignItems="center">
