@@ -21,6 +21,13 @@ npm run dev
 All calls to the Sim Racing VMS API are made server-side with the `Authorization: SRL <your-API-key>` header as documented here:
 - https://api.simracing.co.uk/docs/v0.1/#authentication
 
+### AI site assistant
+The floating customer helper uses a server-only OpenAI key when available, with a basic site-navigation fallback if it is not configured.
+
+Optional Vercel env vars:
+- `OPENAI_API_KEY`: server-only key for AI assistant responses.
+- `OPENAI_CHAT_MODEL`: optional model override, defaults to `gpt-4o-mini`.
+
 ### Toast session webhooks
 Toast-paid racing sessions are received at `POST /api/toast/webhook`. Configure these server-only Vercel env vars:
 - `TOAST_WEBHOOK_SECRET`: Toast webhook subscription secret.

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { Providers } from '@/components/Providers';
+import { SiteChatbot } from '@/components/SiteChatbot';
 
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/react/style.css';
@@ -86,7 +87,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <SiteChatbot />
+        </Providers>
       </body>
     </html>
   );

@@ -13,6 +13,7 @@ import Typography from '@mui/material/Typography';
 
 import { NavBar } from '@/components/NavBar';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { getHomepageLeaderboardRows } from '@/lib/vms/homepage-leaderboard';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,11 +28,7 @@ const experienceHighlights = [
   { title: 'Live challenge culture', body: 'Join a standing hotlap, race in person, and watch the leaderboard move.' }
 ];
 
-const leaderboardRows = [
-  { rank: '01', driver: 'ROCKETSHIP', lap: '1:42.119', delta: 'leader' },
-  { rank: '02', driver: 'APEXHUNTER', lap: '1:42.482', delta: '+0.363' },
-  { rank: '03', driver: 'NIGHTSHIFT', lap: '1:43.004', delta: '+0.885' }
-];
+const emptyLeaderboardRows = [{ rank: '--', driver: 'NO TIMES YET', lap: '--', delta: 'weekly' }];
 
 const mediaTiles = [
   { title: 'Restaurant and bar', image: '/home/speedtrap-restaurant-bar.jpg', objectPosition: '52% 50%' },
@@ -118,7 +115,8 @@ export default async function HomePage({
   if (typeof code === 'string' && code.length > 0) {
     redirect(`/auth/callback?code=${encodeURIComponent(code)}&redirectTo=${encodeURIComponent('/dashboard')}`);
   }
-  const footerHours = await getFooterHours();
+  const [footerHours, homepageLeaderboard] = await Promise.all([getFooterHours(), getHomepageLeaderboardRows()]);
+  const leaderboardRows = homepageLeaderboard.rows.length > 0 ? homepageLeaderboard.rows : emptyLeaderboardRows;
 
   return (
     <Box
