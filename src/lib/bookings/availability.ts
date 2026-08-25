@@ -21,7 +21,7 @@ type ScheduleRule = {
   day_of_week?: number;
   opens_at: string;
   closes_at: string;
-  max_sims: number | null;
+  max_sims?: number | null;
 };
 
 type Occupancy = {
@@ -61,6 +61,33 @@ function isOvernightRule(rule: ScheduleRule) {
   return timePart(rule.closes_at) <= timePart(rule.opens_at);
 }
 
+function isMissingColumnError(error: { code?: string; message?: string } | null | undefined, columnName: string) {
+  return error?.code === '42703' || Boolean(error?.message?.includes(columnName));
+}
+
+async function loadScheduleRules(supabase: SupabaseClient, dayOfWeek: number, previousDayOfWeek: number) {
+  const scheduleRes = await supabase
+    .from('venue_schedule_rules')
+    .select('day_of_week,opens_at,closes_at,max_sims')
+    .in('day_of_week', [previousDayOfWeek, dayOfWeek])
+    .eq('active', true)
+    .order('opens_at', { ascending: true });
+
+  if (isMissingColumnError(scheduleRes.error, 'max_sims')) {
+    const scheduleWithoutSimCapRes = await supabase
+      .from('venue_schedule_rules')
+      .select('day_of_week,opens_at,closes_at')
+      .in('day_of_week', [previousDayOfWeek, dayOfWeek])
+      .eq('active', true)
+      .order('opens_at', { ascending: true });
+    if (scheduleWithoutSimCapRes.error) throw new Error(scheduleWithoutSimCapRes.error.message);
+    return (scheduleWithoutSimCapRes.data ?? []) as ScheduleRule[];
+  }
+
+  if (scheduleRes.error) throw new Error(scheduleRes.error.message);
+  return (scheduleRes.data ?? []) as ScheduleRule[];
+}
+
 function slotRange(date: string) {
   const start = localDateTimeToUtc(date, '00:00:00');
   const end = localDateTimeToUtc(date, '23:59:59');
@@ -92,14 +119,8 @@ export async function getBookingAvailability(
   const dayOfWeek = dayOfWeekForVenueDate(input.date);
   const previousDate = previousVenueDate(input.date);
   const previousDayOfWeek = dayOfWeekForVenueDate(previousDate);
-  const scheduleRes = await supabase
-    .from('venue_schedule_rules')
-    .select('day_of_week,opens_at,closes_at,max_sims')
-    .in('day_of_week', [previousDayOfWeek, dayOfWeek])
-    .eq('active', true)
-    .order('opens_at', { ascending: true });
-  if (scheduleRes.error) throw new Error(scheduleRes.error.message);
-  const schedule = ((scheduleRes.data ?? []) as ScheduleRule[])
+  const scheduleRules = await loadScheduleRules(supabase, dayOfWeek, previousDayOfWeek);
+  const schedule = scheduleRules
     .map((rule) => {
       if (rule.day_of_week === dayOfWeek) return { date: input.date, rule };
       if (rule.day_of_week === previousDayOfWeek && isOvernightRule(rule)) return { date: previousDate, rule };

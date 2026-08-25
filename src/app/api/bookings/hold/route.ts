@@ -30,8 +30,8 @@ const raceRequestSchema = z
 const holdSchema = z.object({
   customerName: z.string().trim().min(3).max(120),
   customerEmail: z.string().trim().email().max(180).transform((value) => value.toLowerCase()),
-  customerPhone: z.string().trim().min(7).max(40),
-  smsConsent: z.boolean().refine((value) => value === true, 'SMS reminder consent is required.'),
+  customerPhone: z.string().trim().max(40).optional().default(''),
+  smsConsent: z.boolean().optional().default(false),
   startsAt: z.string().datetime(),
   durationMinutes: z
     .number()
@@ -57,8 +57,12 @@ export async function POST(request: Request) {
     const start = new Date(parsed.data.startsAt);
     const end = addMinutes(start, parsed.data.durationMinutes);
     const bufferUntil = addMinutes(end, BOOKING_BUFFER_MINUTES);
-    const customerPhone = normalizeUsPhone(parsed.data.customerPhone);
-    if (!customerPhone) return NextResponse.json({ error: 'Enter a valid mobile phone number.' }, { status: 400 });
+    const requestedSmsReminder = parsed.data.smsConsent === true;
+    const rawCustomerPhone = parsed.data.customerPhone.trim();
+    const customerPhone = rawCustomerPhone ? normalizeUsPhone(rawCustomerPhone) : null;
+    if (requestedSmsReminder && !customerPhone) {
+      return NextResponse.json({ error: 'Enter a valid mobile phone number for the reminder text.' }, { status: 400 });
+    }
 
     let signedInProfile: MembershipProfile | null = null;
     let membershipProfile: MembershipProfile | null = null;
@@ -106,7 +110,7 @@ export async function POST(request: Request) {
         customer_name: parsed.data.customerName.replace(/_/g, ' ').replace(/\s+/g, ' ').trim(),
         customer_email: parsed.data.customerEmail,
         customer_phone: customerPhone,
-        sms_consent_at: new Date().toISOString(),
+        sms_consent_at: requestedSmsReminder ? new Date().toISOString() : null,
         duration_minutes: parsed.data.durationMinutes,
         sim_count: parsed.data.simCount,
         starts_at: start.toISOString(),

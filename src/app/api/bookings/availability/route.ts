@@ -4,7 +4,6 @@ import { z } from 'zod';
 import { validateBookingDateWithinWindow } from '@/lib/bookings/advance-window';
 import { getBookingAvailability } from '@/lib/bookings/availability';
 import { MAX_CUSTOM_DURATION_MINUTES, MIN_CUSTOM_DURATION_MINUTES, supportedBookingDuration } from '@/lib/bookings/config';
-import { syncUpcomingVmsBookings } from '@/lib/bookings/vms-sync';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
 
@@ -43,7 +42,6 @@ export async function GET(request: Request) {
     const windowCheck = validateBookingDateWithinWindow(parsed.data.date, profile);
     if (!windowCheck.ok) return NextResponse.json({ error: windowCheck.error }, { status: 403 });
 
-    await syncUpcomingVmsBookings(supabase);
     const availability = await getBookingAvailability(supabase, parsed.data);
     return NextResponse.json(availability);
   } catch (error) {

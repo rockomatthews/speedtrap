@@ -636,14 +636,14 @@ export function BookingClient({
   const taxCents = salesTaxCents(subtotalCents);
   const amountCents = totalWithSalesTaxCents(subtotalCents);
   const raceRequestReady = raceRequestMode === 'none' || (raceRequestMode === 'hotlap_event' && Boolean(selectedEvent));
+  const reminderPhoneReady = !smsConsent || customerPhone.replace(/\D/g, '').length >= 10;
   const canStartPayment = Boolean(
     selectedSlot &&
       simCount >= 1 &&
       simCount <= selectedWindowAvailableSims &&
       customerName.trim().length >= 3 &&
       /[^\s@]+@[^\s@]+\.[^\s@]+/.test(customerEmail) &&
-      customerPhone.replace(/\D/g, '').length >= 10 &&
-      smsConsent &&
+      reminderPhoneReady &&
       raceRequestReady
   );
 
@@ -867,7 +867,7 @@ export function BookingClient({
                 onChange={(e) => setCustomerPhone(e.target.value)}
                 disabled={Boolean(clientSecret)}
                 fullWidth
-                helperText="Used for a 3-minute race reminder text."
+                helperText={smsConsent ? 'Required for the reminder text.' : 'Optional. Add it if you want a 3-minute reminder text.'}
               />
               <FormControlLabel
                 control={<Checkbox checked={smsConsent} onChange={(e) => setSmsConsent(e.target.checked)} disabled={Boolean(clientSecret)} />}
