@@ -19,6 +19,8 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
 import { salesTaxCents, totalWithSalesTaxCents } from '@/lib/stripe/tax';
 
+type BookingProfile = MembershipProfile & { role?: 'customer' | 'admin' | string | null };
+
 const raceRequestSchema = z
   .discriminatedUnion('type', [
     z.object({ type: z.literal('none') }),
@@ -64,17 +66,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Enter a valid mobile phone number for the reminder text.' }, { status: 400 });
     }
 
-    let signedInProfile: MembershipProfile | null = null;
+    let signedInProfile: BookingProfile | null = null;
     let membershipProfile: MembershipProfile | null = null;
     const userEmail = user?.email?.toLowerCase() ?? null;
     if (user?.id) {
       const { data: profile } = await supabase
         .from('profiles')
         .select(
-          'id,membership_status,membership_current_period_end,birthday,membership_free_race_month,membership_free_race_redeemed_at,membership_monthly_15_race_month,membership_monthly_15_race_redeemed_at,membership_birthday_30_race_year,membership_birthday_30_race_redeemed_at'
+          'id,role,membership_status,membership_current_period_end,birthday,membership_free_race_month,membership_free_race_redeemed_at,membership_monthly_15_race_month,membership_monthly_15_race_redeemed_at,membership_birthday_30_race_year,membership_birthday_30_race_redeemed_at'
         )
         .eq('id', user.id)
-        .maybeSingle<MembershipProfile>();
+        .maybeSingle<BookingProfile>();
       signedInProfile = profile ?? null;
       if (userEmail && userEmail === parsed.data.customerEmail) {
         membershipProfile = profile ?? null;
@@ -109,7 +111,7 @@ export async function POST(request: Request) {
       .insert({
         customer_name: parsed.data.customerName.replace(/_/g, ' ').replace(/\s+/g, ' ').trim(),
         customer_email: parsed.data.customerEmail,
-        customer_phone: customerPhone,
+        customer_phone: customerPhone ?? '',
         sms_consent_at: requestedSmsReminder ? new Date().toISOString() : null,
         duration_minutes: parsed.data.durationMinutes,
         sim_count: parsed.data.simCount,

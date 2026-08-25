@@ -5,7 +5,9 @@ import Typography from '@mui/material/Typography';
 
 import { BookingClient } from '@/app/book/ui/BookingClient';
 import { AppShell } from '@/components/AppShell';
+import { bookingDateWindow } from '@/lib/bookings/advance-window';
 import { MAX_CUSTOM_DURATION_MINUTES, MIN_CUSTOM_DURATION_MINUTES, supportedBookingDuration } from '@/lib/bookings/config';
+import { getAuthedProfile } from '@/lib/supabase/profile';
 
 function parseInitialDuration(value: string | string[] | undefined) {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -47,6 +49,8 @@ export default async function BookPage({
   const publishableKey = validateStripePublishableKey(rawPublishableKey);
   const initialDurationMinutes = parseInitialDuration(sp.duration ?? sp.minutes);
   const initialSimCount = parseInitialSimCount(sp.sims ?? sp.simCount ?? sp.pods);
+  const { profile } = await getAuthedProfile();
+  const initialBookingWindow = bookingDateWindow(profile);
 
   return (
     <AppShell>
@@ -80,6 +84,7 @@ export default async function BookPage({
               stripePublishableKey={publishableKey}
               initialDurationMinutes={initialDurationMinutes}
               initialSimCount={initialSimCount}
+              initialBookingWindow={initialBookingWindow}
             />
           </Box>
 

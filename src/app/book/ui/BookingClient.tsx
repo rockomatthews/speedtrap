@@ -379,11 +379,13 @@ function PaymentForm({
 export function BookingClient({
   stripePublishableKey,
   initialDurationMinutes = 15,
-  initialSimCount = 1
+  initialSimCount = 1,
+  initialBookingWindow
 }: {
   stripePublishableKey: string;
   initialDurationMinutes?: number;
   initialSimCount?: number;
+  initialBookingWindow?: BookingWindow;
 }) {
   const initialBaseDurationMinutes: 15 | 30 = initialDurationMinutes >= 30 ? 30 : 15;
   const initialExtraBlockCount = Math.max(0, Math.floor((initialDurationMinutes - initialBaseDurationMinutes) / CUSTOM_DURATION_BLOCK_MINUTES));
@@ -401,10 +403,7 @@ export function BookingClient({
   const [customerPhone, setCustomerPhone] = useState('');
   const [smsConsent, setSmsConsent] = useState(false);
   const [membership, setMembership] = useState<MembershipSummary | null>(null);
-  const [bookingWindow, setBookingWindow] = useState<BookingWindow>(() => {
-    const today = todayDate();
-    return { minDate: today, maxDate: addDateDays(today, 7), advanceDays: 7 };
-  });
+  const [bookingWindow, setBookingWindow] = useState<BookingWindow>(() => initialBookingWindow ?? { minDate: todayDate(), maxDate: addDateDays(todayDate(), 7), advanceDays: 7 });
   const [raceRequestMode, setRaceRequestMode] = useState<RaceRequestMode>('none');
   const [selectedEvent, setSelectedEvent] = useState<RaceOption | null>(null);
   const [clientSecret, setClientSecret] = useState('');
@@ -694,7 +693,7 @@ export function BookingClient({
                     }}
                     helperText={
                       bookingWindow.advanceDays >= 14
-                        ? 'Member perk: book up to 14 days out.'
+                        ? 'Members and staff can book up to 14 days out.'
                         : 'Book up to 7 days out. Members can book 14 days out.'
                     }
                   />

@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     if (user?.id) {
       const { data } = await supabase
         .from('profiles')
-        .select('membership_status,membership_current_period_end')
+        .select('role,membership_status,membership_current_period_end')
         .eq('id', user.id)
         .maybeSingle();
       profile = data ?? null;
