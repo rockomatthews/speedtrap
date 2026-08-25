@@ -76,7 +76,8 @@ export function LeagueRegistrationCard(props: Props) {
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 760 }}>
             Eight teams of four drivers. Every driver races one 30-minute heat each Tuesday night. Team captains set their
-            team names after rosters are assigned.
+            team names after rosters are assigned. Your checkout registers your own driver seat only; teammates register or
+            get added separately by staff.
           </Typography>
         </Box>
         <Box sx={{ minWidth: { md: 230 }, p: 2, border: '1px solid rgba(255,255,255,0.14)', bgcolor: 'rgba(0,0,0,0.45)' }}>
@@ -94,7 +95,10 @@ export function LeagueRegistrationCard(props: Props) {
         {props.success ? <Alert severity="success">Payment received. Your league spot is being added to the roster.</Alert> : null}
         {props.cancelled ? <Alert severity="warning">League checkout was cancelled. Your spot is not reserved yet.</Alert> : null}
         {props.alreadyRegistered ? (
-          <Alert severity="success">You are registered for this league{props.registrationStatus ? ` (${props.registrationStatus})` : ''}.</Alert>
+          <Alert severity="success">
+            Your driver seat is registered{props.registrationStatus ? ` (${props.registrationStatus})` : ''}. Staff can place you on a
+            team and make you captain so you can manage the team name.
+          </Alert>
         ) : null}
         {error ? <Alert severity="error">{error}</Alert> : null}
 
@@ -122,7 +126,7 @@ export function LeagueRegistrationCard(props: Props) {
                 >
                   <Box sx={{ textAlign: 'left' }}>
                     <Typography sx={{ fontWeight: 1000 }}>Pay weekly</Typography>
-                    <Typography color="text.secondary">{formatMoney(props.weeklyFeeCents)} today</Typography>
+                    <Typography color="text.secondary">Your seat today; weekly dues tracked after that</Typography>
                   </Box>
                   <Typography sx={{ fontWeight: 1000 }}>{formatMoney(props.weeklyFeeCents)}/wk</Typography>
                 </Button>
@@ -138,7 +142,7 @@ export function LeagueRegistrationCard(props: Props) {
                   <Box sx={{ textAlign: 'left' }}>
                     <Typography sx={{ fontWeight: 1000 }}>Pay season</Typography>
                     <Typography color="text.secondary">
-                      {fullSeasonSavings ? `Save ${formatMoney(fullSeasonSavings)}` : 'One payment'}
+                      {fullSeasonSavings ? `One driver seat · save ${formatMoney(fullSeasonSavings)}` : 'One driver seat · one payment'}
                     </Typography>
                   </Box>
                   <Typography sx={{ fontWeight: 1000 }}>{formatMoney(props.fullSeasonFeeCents)}</Typography>

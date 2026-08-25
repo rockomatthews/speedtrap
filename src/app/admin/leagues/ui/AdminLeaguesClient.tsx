@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 
 import Alert from '@mui/material/Alert';
+import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -64,6 +65,13 @@ type HotlapEvent = {
   status: string;
 };
 
+type DriverSearchResult = {
+  id: number;
+  name: string;
+  className?: string | null;
+  lapsRecorded?: number | null;
+};
+
 const defaultLeague = {
   name: '',
   slug: '',
@@ -88,6 +96,9 @@ export function AdminLeaguesClient() {
   const [leagueForm, setLeagueForm] = useState(defaultLeague);
   const [teamForm, setTeamForm] = useState({ name: '', color: '#FFD200' });
   const [memberForm, setMemberForm] = useState({ driverName: '', vmsCustomerId: '', teamId: '', role: 'driver' });
+  const [driverQuery, setDriverQuery] = useState('');
+  const [driverOptions, setDriverOptions] = useState<DriverSearchResult[]>([]);
+  const [driverSearchLoading, setDriverSearchLoading] = useState(false);
   const [roundForm, setRoundForm] = useState({
     roundNumber: '1',
     name: '',
@@ -143,6 +154,37 @@ export function AdminLeaguesClient() {
     void load().catch((err) => setError(err instanceof Error ? err.message : 'Could not load leagues'));
   }, []);
 
+  useEffect(() => {
+    const query = driverQuery.trim();
+    if (query.length < 2) {
+      setDriverOptions([]);
+      setDriverSearchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setDriverSearchLoading(true);
+    const timer = window.setTimeout(() => {
+      fetch(`/api/vms/drivers/search?q=${encodeURIComponent(query)}`)
+        .then(async (response) => {
+          const json = await response.json();
+          if (!response.ok) throw new Error(json.error || 'Driver search failed');
+          if (!cancelled) setDriverOptions(json.drivers ?? []);
+        })
+        .catch(() => {
+          if (!cancelled) setDriverOptions([]);
+        })
+        .finally(() => {
+          if (!cancelled) setDriverSearchLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [driverQuery]);
+
   async function submit(path: string, body: unknown, success: string) {
     setLoading(true);
     setError(null);
@@ -189,6 +231,8 @@ export function AdminLeaguesClient() {
       'Driver added.'
     );
     setMemberForm({ driverName: '', vmsCustomerId: '', teamId: '', role: 'driver' });
+    setDriverQuery('');
+    setDriverOptions([]);
   }
 
   async function addRound() {
@@ -238,6 +282,13 @@ export function AdminLeaguesClient() {
 
   async function markDue(memberId: string, weekNumber: number, status: string) {
     await leagueAction({ action: 'mark-due', memberId, weekNumber, status }, 'Dues updated.');
+  }
+
+  function dueColor(status?: string): 'primary' | 'success' | 'warning' | 'error' {
+    if (status === 'paid') return 'primary';
+    if (status === 'waived') return 'success';
+    if (status === 'refunded') return 'error';
+    return 'warning';
   }
 
   return (
@@ -415,6 +466,9 @@ export function AdminLeaguesClient() {
                       Add Team
                     </Typography>
                     <Stack spacing={2}>
+                      <Alert severity="info">
+                        Create the team first, then add the captain below with role Captain. The captain can rename the team from the public league page.
+                      </Alert>
                       <TextField label="Team name" value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} />
                       <TextField label="Color" value={teamForm.color} onChange={(e) => setTeamForm({ ...teamForm, color: e.target.value })} />
                       <Button disabled={loading || !teamForm.name.trim()} onClick={addTeam} variant="contained">
@@ -427,14 +481,55 @@ export function AdminLeaguesClient() {
                 <Grid size={{ xs: 12, md: 6 }}>
                   <Box sx={{ p: 3, border: '1px solid rgba(255,255,255,0.14)', bgcolor: '#111', height: '100%' }}>
                     <Typography variant="h6" sx={{ fontWeight: 1000, mb: 2 }}>
-                      Add Driver
+                      Add / Place Driver
                     </Typography>
                     <Stack spacing={2}>
+                      <Alert severity="info">
+                        Customers do not need to know a VMS number. Search VMS by driver name, assign the team and role, then use Weekly Dues
+                        for paid or waived house seats.
+                      </Alert>
+                      <Autocomplete
+                        options={driverOptions}
+                        loading={driverSearchLoading}
+                        inputValue={driverQuery}
+                        onInputChange={(_, value) => setDriverQuery(value)}
+                        getOptionLabel={(option) => option.name}
+                        filterOptions={(options) => options}
+                        noOptionsText={driverQuery.trim().length < 2 ? 'Type at least 2 letters' : 'No VMS drivers found'}
+                        onChange={(_, option) => {
+                          if (!option) return;
+                          setMemberForm({
+                            ...memberForm,
+                            driverName: option.name,
+                            vmsCustomerId: String(option.id)
+                          });
+                        }}
+                        renderOption={(props, option) => (
+                          <Box component="li" {...props} key={option.id}>
+                            <Stack spacing={0.25}>
+                              <Typography sx={{ fontWeight: 900 }}>{option.name}</Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                VMS Driver ID {option.id}
+                                {option.className ? ` · ${option.className}` : ''}
+                                {option.lapsRecorded ? ` · ${option.lapsRecorded} laps` : ''}
+                              </Typography>
+                            </Stack>
+                          </Box>
+                        )}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Find VMS driver"
+                            helperText="Search by driver name. Selecting a result fills the staff-only VMS Driver ID."
+                          />
+                        )}
+                      />
                       <TextField label="Driver name" value={memberForm.driverName} onChange={(e) => setMemberForm({ ...memberForm, driverName: e.target.value })} />
                       <TextField
-                        label="VMS customer ID"
+                        label="VMS Driver ID (staff only)"
                         type="number"
                         value={memberForm.vmsCustomerId}
+                        helperText="Internal VMS customer number. Staff can look it up from VMS or by using the search above."
                         onChange={(e) => setMemberForm({ ...memberForm, vmsCustomerId: e.target.value })}
                       />
                       <TextField select label="Team" value={memberForm.teamId} onChange={(e) => setMemberForm({ ...memberForm, teamId: e.target.value })}>
@@ -688,9 +783,14 @@ export function AdminLeaguesClient() {
                     <Typography variant="h5" sx={{ fontWeight: 1000, mb: 2 }}>
                       Weekly Dues
                     </Typography>
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      Paid adds the configured prize-pool contribution. Waived covers house/comped seats without adding prize-pool money.
+                    </Alert>
                     <Grid container spacing={1.5}>
                       {(selectedLeague.league_members ?? []).map((member) => {
-                        const paidCount = (selectedLeague.league_dues ?? []).filter((due) => due.member_id === member.id && due.status === 'paid').length;
+                        const coveredCount = (selectedLeague.league_dues ?? []).filter(
+                          (due) => due.member_id === member.id && (due.status === 'paid' || due.status === 'waived')
+                        ).length;
                         const team = (selectedLeague.league_teams ?? []).find((row) => row.id === member.team_id);
                         return (
                           <Grid key={member.id} size={{ xs: 12, md: 6 }}>
@@ -699,7 +799,8 @@ export function AdminLeaguesClient() {
                                 <Box>
                                   <Typography sx={{ fontWeight: 1000 }}>{member.driver_name}</Typography>
                                   <Typography color="text.secondary">
-                                    {team?.name ?? 'Independent'} · {paidCount}/{selectedLeague.season_weeks ?? 8} weeks paid
+                                    {team?.name ?? 'Independent'} · VMS Driver ID {member.vms_customer_id} · {coveredCount}/
+                                    {selectedLeague.season_weeks ?? 8} weeks covered
                                   </Typography>
                                 </Box>
                                 <TextField
@@ -717,24 +818,31 @@ export function AdminLeaguesClient() {
                                   <MenuItem value="substitute">Substitute</MenuItem>
                                 </TextField>
                               </Stack>
-                              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                              <Grid container spacing={1}>
                                 {Array.from({ length: selectedLeague.season_weeks ?? 8 }, (_, index) => {
                                   const weekNumber = index + 1;
                                   const due = (selectedLeague.league_dues ?? []).find((row) => row.member_id === member.id && row.week_number === weekNumber);
-                                  const paid = due?.status === 'paid' || due?.status === 'waived';
+                                  const status = due?.status ?? 'pending';
                                   return (
-                                    <Button
-                                      key={weekNumber}
-                                      size="small"
-                                      variant={paid ? 'contained' : 'outlined'}
-                                      color={paid ? 'primary' : 'inherit'}
-                                      onClick={() => void markDue(member.id, weekNumber, paid ? 'pending' : 'paid')}
-                                    >
-                                      W{weekNumber}
-                                    </Button>
+                                    <Grid key={weekNumber} size={{ xs: 6, sm: 4, md: 3 }}>
+                                      <TextField
+                                        select
+                                        size="small"
+                                        fullWidth
+                                        label={`W${weekNumber}`}
+                                        value={status}
+                                        color={dueColor(status)}
+                                        onChange={(event) => void markDue(member.id, weekNumber, event.target.value)}
+                                      >
+                                        <MenuItem value="pending">Pending</MenuItem>
+                                        <MenuItem value="paid">Paid</MenuItem>
+                                        <MenuItem value="waived">Waived</MenuItem>
+                                        <MenuItem value="refunded">Refunded</MenuItem>
+                                      </TextField>
+                                    </Grid>
                                   );
                                 })}
-                              </Stack>
+                              </Grid>
                             </Box>
                           </Grid>
                         );
