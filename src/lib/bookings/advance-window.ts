@@ -1,8 +1,9 @@
 import { utcToVenueDate } from '@/lib/bookings/time';
-import { isMembershipActive, type MembershipProfile } from '@/lib/membership';
+import type { MembershipProfile } from '@/lib/membership';
 
-export const PUBLIC_BOOKING_ADVANCE_DAYS = 7;
-export const MEMBER_BOOKING_ADVANCE_DAYS = 14;
+export const BOOKING_ADVANCE_DAYS = 30;
+export const PUBLIC_BOOKING_ADVANCE_DAYS = BOOKING_ADVANCE_DAYS;
+export const MEMBER_BOOKING_ADVANCE_DAYS = BOOKING_ADVANCE_DAYS;
 
 type BookingWindowProfile = (MembershipProfile & { role?: 'customer' | 'admin' | string | null }) | null | undefined;
 
@@ -12,8 +13,8 @@ function addDaysToVenueDate(date: string, days: number) {
   return value.toISOString().slice(0, 10);
 }
 
-export function bookingAdvanceDaysForProfile(profile: BookingWindowProfile, now = new Date()) {
-  return profile?.role === 'admin' || isMembershipActive(profile, now) ? MEMBER_BOOKING_ADVANCE_DAYS : PUBLIC_BOOKING_ADVANCE_DAYS;
+export function bookingAdvanceDaysForProfile(_profile: BookingWindowProfile, _now = new Date()) {
+  return BOOKING_ADVANCE_DAYS;
 }
 
 export function bookingDateWindow(profile: BookingWindowProfile, now = new Date()) {
@@ -43,10 +44,7 @@ export function validateBookingDateWithinWindow(
     return {
       ok: false,
       ...window,
-      error:
-        window.advanceDays === MEMBER_BOOKING_ADVANCE_DAYS
-          ? 'Members can book up to 14 days in advance.'
-          : 'Public bookings are available up to 7 days in advance. Members can book 14 days out.'
+      error: `Bookings are available up to ${BOOKING_ADVANCE_DAYS} days in advance.`
     };
   }
   return { ok: true, ...window, error: null };

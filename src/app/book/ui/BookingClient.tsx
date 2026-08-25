@@ -67,6 +67,7 @@ type RaceOption = {
 };
 
 type RaceRequestMode = 'none' | 'hotlap_event';
+type DurationMode = '15' | '30' | '60';
 
 function todayDate() {
   return new Date().toISOString().slice(0, 10);
@@ -150,8 +151,9 @@ function slotRangeLabel(slot: Slot, durationMinutes: number) {
   return `${start} - ${slotEndTime(slot, durationMinutes)}`;
 }
 
-function durationModeFor(durationMinutes: number): '15' | '30' {
-  return durationMinutes === 30 ? '30' : '15';
+function durationModeFor(durationMinutes: number): DurationMode {
+  if (durationMinutes >= 60) return '60';
+  return durationMinutes >= 30 ? '30' : '15';
 }
 
 function isSlotInsideSelectedWindow(slot: Slot, selectedSlot: Slot | null, durationMinutes: number) {
@@ -392,9 +394,9 @@ export function BookingClient({
   const stripePromise = useMemo(() => (stripePublishableKey ? loadStripe(stripePublishableKey) : null), [stripePublishableKey]);
   const [date, setDate] = useState(todayDate());
   const [baseDurationMinutes, setBaseDurationMinutes] = useState<15 | 30>(initialBaseDurationMinutes);
-  const [useInitialDurationPreset, setUseInitialDurationPreset] = useState(initialExtraBlockCount > 0);
+  const [selectionPresetExtraBlockCount, setSelectionPresetExtraBlockCount] = useState(initialExtraBlockCount);
   const [extraBlockCount, setExtraBlockCount] = useState(initialExtraBlockCount);
-  const [durationMode, setDurationMode] = useState<'15' | '30'>(() => durationModeFor(initialBaseDurationMinutes));
+  const [durationMode, setDurationMode] = useState<DurationMode>(() => durationModeFor(initialDurationMinutes));
   const [simCount, setSimCount] = useState(Math.max(1, Math.min(4, Math.floor(initialSimCount))));
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
@@ -403,7 +405,7 @@ export function BookingClient({
   const [customerPhone, setCustomerPhone] = useState('');
   const [smsConsent, setSmsConsent] = useState(false);
   const [membership, setMembership] = useState<MembershipSummary | null>(null);
-  const [bookingWindow, setBookingWindow] = useState<BookingWindow>(() => initialBookingWindow ?? { minDate: todayDate(), maxDate: addDateDays(todayDate(), 7), advanceDays: 7 });
+  const [bookingWindow, setBookingWindow] = useState<BookingWindow>(() => initialBookingWindow ?? { minDate: todayDate(), maxDate: addDateDays(todayDate(), 30), advanceDays: 30 });
   const [raceRequestMode, setRaceRequestMode] = useState<RaceRequestMode>('none');
   const [selectedEvent, setSelectedEvent] = useState<RaceOption | null>(null);
   const [clientSecret, setClientSecret] = useState('');
@@ -412,8 +414,9 @@ export function BookingClient({
   const [loading, setLoading] = useState(false);
   const [startingPayment, setStartingPayment] = useState(false);
   const [error, setError] = useState('');
-  const durationMinutes = selectedSlot ? baseDurationMinutes + extraBlockCount * CUSTOM_DURATION_BLOCK_MINUTES : baseDurationMinutes;
-  const presetExtraBlockCount = useInitialDurationPreset ? initialExtraBlockCount : 0;
+  const presetExtraBlockCount = selectionPresetExtraBlockCount;
+  const plannedDurationMinutes = baseDurationMinutes + presetExtraBlockCount * CUSTOM_DURATION_BLOCK_MINUTES;
+  const durationMinutes = selectedSlot ? baseDurationMinutes + extraBlockCount * CUSTOM_DURATION_BLOCK_MINUTES : plannedDurationMinutes;
   const selectedWindowAvailableSims = useMemo(() => {
     if (!availability || !selectedSlot) return 0;
     return availableSimsForWindow(availability.slots, selectedSlot.startsAt, durationMinutes);
@@ -484,9 +487,9 @@ export function BookingClient({
     }
   }, [selectedSlot, selectedWindowAvailableSims, simCount]);
 
-  function resetPaymentState() {
+  function resetPaymentState(nextExtraBlockCount = 0) {
     setSelectedSlot(null);
-    setExtraBlockCount(0);
+    setExtraBlockCount(nextExtraBlockCount);
     resetRaceRequest();
     setClientSecret('');
     setPaymentIntentId('');
@@ -498,23 +501,19 @@ export function BookingClient({
     setSelectedEvent(null);
   }
 
-  function applyBaseDuration(value: 15 | 30) {
-    if (value === baseDurationMinutes) return;
-    setUseInitialDurationPreset(false);
-    resetPaymentState();
-    setBaseDurationMinutes(value);
-  }
-
-  function changeDurationMode(value: '15' | '30' | null) {
+  function changeDurationMode(value: DurationMode | null) {
     if (!value) return;
+    const nextBaseDurationMinutes = value === '15' ? 15 : 30;
+    const nextExtraBlockCount = value === '60' ? 1 : 0;
     setDurationMode(value);
-    if (value === '15') applyBaseDuration(15);
-    if (value === '30') applyBaseDuration(30);
+    setSelectionPresetExtraBlockCount(nextExtraBlockCount);
+    resetPaymentState(nextExtraBlockCount);
+    setBaseDurationMinutes(nextBaseDurationMinutes);
   }
 
   function resetSelectedSlot() {
     setSelectedSlot(null);
-    setExtraBlockCount(0);
+    setExtraBlockCount(selectionPresetExtraBlockCount);
     resetRaceRequest();
     setClientSecret('');
     setPaymentIntentId('');
@@ -691,11 +690,7 @@ export function BookingClient({
                         max: bookingWindow.maxDate
                       }
                     }}
-                    helperText={
-                      bookingWindow.advanceDays >= 14
-                        ? 'Members and staff can book up to 14 days out.'
-                        : 'Book up to 7 days out. Members can book 14 days out.'
-                    }
+                    helperText={`Book up to ${bookingWindow.advanceDays} days out.`}
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 7 }}>
@@ -708,6 +703,7 @@ export function BookingClient({
                   >
                     <ToggleButton value="15">15 min</ToggleButton>
                     <ToggleButton value="30">30 min</ToggleButton>
+                    <ToggleButton value="60">60 min</ToggleButton>
                   </ToggleButtonGroup>
                 </Grid>
               </Grid>
@@ -725,11 +721,11 @@ export function BookingClient({
                 ) : availability?.slots.length ? (
                   <Grid container spacing={1}>
                     {availability.slots.map((slot) => {
-                      const baseWindowAvailableSims = availableSimsForWindow(availability.slots, slot.startsAt, baseDurationMinutes);
+                      const availableSimsForStart = availableSimsForWindow(availability.slots, slot.startsAt, plannedDurationMinutes);
                       const isStartSelected = selectedSlot?.startsAt === slot.startsAt;
                       const isWindowSelected = isSlotInsideSelectedWindow(slot, selectedSlot, durationMinutes);
                       const isBaseWindowSelected = isSlotInsideSelectedWindow(slot, selectedSlot, baseDurationMinutes);
-                      let canInteract = !clientSecret && baseWindowAvailableSims > 0;
+                      let canInteract = !clientSecret && availableSimsForStart > 0;
                       if (!clientSecret && selectedSlot) {
                         if (isWindowSelected) {
                           canInteract = true;
@@ -738,7 +734,7 @@ export function BookingClient({
                           const startMs = new Date(selectedSlot.startsAt).getTime();
                           const baseEndMs = startMs + baseDurationMinutes * 60_000;
                           if (clickedMs < startMs) {
-                            canInteract = baseWindowAvailableSims > 0;
+                            canInteract = availableSimsForStart > 0;
                           } else if (clickedMs >= baseEndMs) {
                             const requestedExtraBlockCount = Math.floor((clickedMs - baseEndMs) / (CUSTOM_DURATION_BLOCK_MINUTES * 60_000)) + 1;
                             const requestedDurationMinutes = baseDurationMinutes + requestedExtraBlockCount * CUSTOM_DURATION_BLOCK_MINUTES;
@@ -754,7 +750,7 @@ export function BookingClient({
                             ? 'selected start'
                             : 'selected window'
                           : 'extra time'
-                        : slotSubtitle(slot, baseDurationMinutes, baseWindowAvailableSims);
+                        : slotSubtitle(slot, plannedDurationMinutes, availableSimsForStart);
                       return (
                         <Grid key={slot.startsAt} size={{ xs: 6, sm: 4, md: 3 }}>
                           <Button
@@ -765,7 +761,7 @@ export function BookingClient({
                             sx={{
                               minHeight: 78,
                               flexDirection: 'column',
-                              borderColor: isWindowSelected ? 'rgba(255,210,0,0.92)' : baseWindowAvailableSims > 0 ? undefined : 'rgba(255,255,255,0.14)',
+                              borderColor: isWindowSelected ? 'rgba(255,210,0,0.92)' : availableSimsForStart > 0 ? undefined : 'rgba(255,255,255,0.14)',
                               bgcolor: isWindowSelected ? 'rgba(255,210,0,0.92)' : undefined,
                               color: isWindowSelected ? '#050505' : undefined,
                               boxShadow: isWindowSelected ? '0 0 0 1px rgba(255,210,0,0.9), 0 0 24px rgba(255,210,0,0.18)' : undefined,

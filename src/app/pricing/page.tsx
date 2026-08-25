@@ -85,8 +85,8 @@ const membershipPerks = [
   },
   {
     number: '02',
-    title: 'Priority booking.',
-    body: 'Reserve 14 days out. Public books 7.'
+    title: 'Member events.',
+    body: 'First look at league nights, watch parties, and private gatherings.'
   },
   {
     number: '03',
