@@ -30,6 +30,9 @@ export const MIN_CUSTOM_DURATION_MINUTES = 15;
 export const MAX_CUSTOM_DURATION_MINUTES = 240;
 export const CUSTOM_DURATION_BLOCK_MINUTES = 30;
 export const CUSTOM_DURATION_BLOCK_PRICE_CENTS = 2800;
+export const MAX_BOOKING_SIM_COUNT = 4;
+export const MAX_NORMAL_BOOKING_PARTY_SIZE = 8;
+export const ROTATION_BOOKING_MIN_DURATION_MINUTES = 30;
 
 const PACKAGE_PRICES_CENTS: Record<number, Record<number, number>> = {
   1: { 15: 1500, 30: 2800, 60: 5200 },
@@ -50,14 +53,40 @@ export function supportedBookingDuration(durationMinutes: number) {
   );
 }
 
+export function normalizeSimCount(value: number | null | undefined) {
+  const number = Number(value ?? 1);
+  if (!Number.isFinite(number)) return 1;
+  return Math.max(1, Math.min(MAX_BOOKING_SIM_COUNT, Math.floor(number)));
+}
+
+export function normalizePartySize(value: number | null | undefined) {
+  const number = Number(value ?? 1);
+  if (!Number.isFinite(number)) return 1;
+  return Math.max(1, Math.min(MAX_NORMAL_BOOKING_PARTY_SIZE, Math.floor(number)));
+}
+
+export function simCountForPartySize(partySize: number) {
+  return normalizeSimCount(Math.min(normalizePartySize(partySize), MAX_BOOKING_SIM_COUNT));
+}
+
+export function isRotationBooking(partySize: number) {
+  return normalizePartySize(partySize) > MAX_BOOKING_SIM_COUNT;
+}
+
+export function assertPartyDurationAllowed(partySize: number, durationMinutes: number) {
+  if (isRotationBooking(partySize) && durationMinutes < ROTATION_BOOKING_MIN_DURATION_MINUTES) {
+    throw new Error('Rotation bookings for 5-8 drivers require at least 30 minutes.');
+  }
+}
+
 export function packageAmountCents(durationMinutes: number, simCount: number) {
-  const sims = Math.max(1, Math.min(4, Math.floor(simCount)));
+  const sims = normalizeSimCount(simCount);
   return PACKAGE_PRICES_CENTS[sims]?.[durationMinutes] ?? null;
 }
 
 export function bookingAmountCents(durationMinutes: number, simCount: number) {
   if (!supportedBookingDuration(durationMinutes) || simCount < 1) return null;
-  const sims = Math.max(1, Math.min(4, Math.floor(simCount)));
+  const sims = normalizeSimCount(simCount);
   const exactPackage = packageAmountCents(durationMinutes, sims);
   if (exactPackage !== null) return exactPackage;
 
@@ -82,7 +111,7 @@ export function bookingAmountCents(durationMinutes: number, simCount: number) {
 }
 
 export function bookingPackageLabel(durationMinutes: number, simCount: number) {
-  const sims = Math.max(1, Math.min(4, Math.floor(simCount)));
+  const sims = normalizeSimCount(simCount);
   const podLabel = sims === 1 ? 'Solo Driver' : sims === 4 ? 'Full Venue / 4 Pods' : `${sims} Pods`;
   return `${podLabel} - ${durationMinutes} min`;
 }

@@ -4,7 +4,6 @@ import { z } from 'zod';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { getBookingAvailability } from '@/lib/bookings/availability';
 import { supportedBookingDuration } from '@/lib/bookings/config';
-import { syncUpcomingVmsBookings } from '@/lib/bookings/vms-sync';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const querySchema = z.object({
@@ -24,7 +23,6 @@ export async function GET(request: Request) {
 
   try {
     const supabase = createSupabaseAdminClient();
-    await syncUpcomingVmsBookings(supabase);
 
     const [timeline, walkIn] = await Promise.all([
       getBookingAvailability(supabase, { date: parsed.data.date, durationMinutes: 15, simCount: 1 }),

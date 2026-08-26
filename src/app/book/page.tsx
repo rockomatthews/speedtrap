@@ -6,7 +6,13 @@ import Typography from '@mui/material/Typography';
 import { BookingClient } from '@/app/book/ui/BookingClient';
 import { AppShell } from '@/components/AppShell';
 import { bookingDateWindow } from '@/lib/bookings/advance-window';
-import { MAX_CUSTOM_DURATION_MINUTES, MIN_CUSTOM_DURATION_MINUTES, supportedBookingDuration } from '@/lib/bookings/config';
+import {
+  MAX_CUSTOM_DURATION_MINUTES,
+  MAX_NORMAL_BOOKING_PARTY_SIZE,
+  MIN_CUSTOM_DURATION_MINUTES,
+  normalizePartySize,
+  supportedBookingDuration
+} from '@/lib/bookings/config';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 
 function parseInitialDuration(value: string | string[] | undefined) {
@@ -23,11 +29,11 @@ function parseInitialDuration(value: string | string[] | undefined) {
   return 15;
 }
 
-function parseInitialSimCount(value: string | string[] | undefined) {
+function parseInitialPartySize(value: string | string[] | undefined) {
   const raw = Array.isArray(value) ? value[0] : value;
-  const simCount = Number(raw);
-  if (Number.isInteger(simCount) && simCount >= 1 && simCount <= 4) {
-    return simCount;
+  const partySize = Number(raw);
+  if (Number.isInteger(partySize) && partySize >= 1 && partySize <= MAX_NORMAL_BOOKING_PARTY_SIZE) {
+    return normalizePartySize(partySize);
   }
   return 1;
 }
@@ -38,6 +44,7 @@ function validateStripePublishableKey(value: string) {
 }
 
 const BOOKING_COMING_SOON = false;
+const CRYPTO_PAYMENTS_ENABLED = process.env.NEXT_PUBLIC_STRIPE_CRYPTO_PAYMENTS_ENABLED === 'true';
 
 export default async function BookPage({
   searchParams
@@ -48,7 +55,7 @@ export default async function BookPage({
   const rawPublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
   const publishableKey = validateStripePublishableKey(rawPublishableKey);
   const initialDurationMinutes = parseInitialDuration(sp.duration ?? sp.minutes);
-  const initialSimCount = parseInitialSimCount(sp.sims ?? sp.simCount ?? sp.pods);
+  const initialPartySize = parseInitialPartySize(sp.drivers ?? sp.partySize ?? sp.sims ?? sp.simCount ?? sp.pods);
   const { profile } = await getAuthedProfile();
   const initialBookingWindow = bookingDateWindow(profile);
 
@@ -83,8 +90,9 @@ export default async function BookPage({
             <BookingClient
               stripePublishableKey={publishableKey}
               initialDurationMinutes={initialDurationMinutes}
-              initialSimCount={initialSimCount}
+              initialPartySize={initialPartySize}
               initialBookingWindow={initialBookingWindow}
+              cryptoPaymentsEnabled={CRYPTO_PAYMENTS_ENABLED}
             />
           </Box>
 

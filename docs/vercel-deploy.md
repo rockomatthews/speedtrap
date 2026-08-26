@@ -16,6 +16,8 @@ Add these (from `docs/env.example`):
 - `VMS_HOME_VENUE_ID` (your venue id in VMS)
 - `STRIPE_SECRET_KEY` (server-only)
 - `STRIPE_WEBHOOK_SECRET` (server-only)
+- `STRIPE_CRYPTO_PAYMENTS_ENABLED` (optional; keep `false` until Stripe approves crypto payments)
+- `NEXT_PUBLIC_STRIPE_CRYPTO_PAYMENTS_ENABLED` (optional; keep `false` until Stripe approves crypto payments)
 
 ### 3) Configure Supabase Auth (Supabase → Authentication → URL Configuration)
 Set **Site URL** to your Vercel domain (e.g. `https://yourapp.vercel.app`).
@@ -64,5 +66,4 @@ After fixing the URL and keys, try "Continue with Google" again. Ensure Supabase
 ### Notes
 - The Sim Racing VMS API requires server-side requests using `Authorization: SRL <your-API-key>` as documented here:
   - https://api.simracing.co.uk/docs/v0.1/#authentication
-
 

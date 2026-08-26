@@ -14,6 +14,7 @@ type ReminderBooking = {
   starts_at: string;
   duration_minutes: number;
   sim_count: number;
+  party_size: number | null;
 };
 
 function formatRaceTime(value: string) {
@@ -26,8 +27,10 @@ function formatRaceTime(value: string) {
 
 function reminderBody(booking: ReminderBooking) {
   const name = booking.customer_name?.split(/\s+/)[0] || 'Driver';
-  const sims = `${booking.sim_count} sim${booking.sim_count === 1 ? '' : 's'}`;
-  return `Speed Trap reminder: ${name}, your ${booking.duration_minutes}-minute race for ${sims} starts at ${formatRaceTime(
+  const drivers = Math.max(1, Math.floor(Number(booking.party_size ?? booking.sim_count ?? 1)));
+  const pods = Math.max(1, Math.min(4, Math.floor(Number(booking.sim_count ?? 1))));
+  const size = `${drivers} driver${drivers === 1 ? '' : 's'} / ${pods} pod${pods === 1 ? '' : 's'}`;
+  return `Speed Trap reminder: ${name}, your ${booking.duration_minutes}-minute race for ${size} starts at ${formatRaceTime(
     booking.starts_at
   )}. See you soon.`;
 }
@@ -45,7 +48,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabase
     .from('race_bookings')
-    .select('id,customer_name,customer_phone,starts_at,duration_minutes,sim_count')
+    .select('id,customer_name,customer_phone,starts_at,duration_minutes,sim_count,party_size')
     .in('status', ['confirmed', 'payment_succeeded_vms_failed'])
     .not('customer_phone', 'is', null)
     .not('sms_consent_at', 'is', null)

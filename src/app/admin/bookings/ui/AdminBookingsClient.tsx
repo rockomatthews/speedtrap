@@ -51,11 +51,13 @@ type Resource = {
 type RaceBooking = {
   id: string;
   source: string;
+  payment_method: string | null;
   customer_name: string;
   customer_email: string;
   customer_phone: string | null;
   duration_minutes: number;
   sim_count: number;
+  party_size: number | null;
   starts_at: string;
   ends_at: string;
   amount_cents: number;
@@ -202,6 +204,15 @@ function raceRequestLabel(booking: RaceBooking) {
   return null;
 }
 
+function paymentMethodLabel(paymentMethod: string | null | undefined) {
+  if (paymentMethod === 'crypto') return 'crypto';
+  if (paymentMethod === 'card') return 'card';
+  if (paymentMethod === 'membership_credit') return 'member credit';
+  if (paymentMethod === 'manual') return 'manual';
+  if (paymentMethod === 'unknown') return 'unknown payment';
+  return null;
+}
+
 function isBlockingBooking(booking: RaceBooking) {
   return ['confirmed', 'booked', 'payment_succeeded_vms_failed'].includes(booking.status);
 }
@@ -227,6 +238,24 @@ function bookingPodsText(booking: RaceBooking) {
   if (labels.length) return labels.join(', ');
   const count = Number(booking.sim_count ?? 0);
   return `${count} pod${count === 1 ? '' : 's'} pending assignment`;
+}
+
+function bookingPartySize(booking: RaceBooking) {
+  const count = Number(booking.party_size ?? booking.sim_count ?? 1);
+  if (!Number.isFinite(count)) return 1;
+  return Math.max(1, Math.floor(count));
+}
+
+function bookingSimCount(booking: RaceBooking) {
+  const count = Number(booking.sim_count ?? 1);
+  if (!Number.isFinite(count)) return 1;
+  return Math.max(1, Math.min(4, Math.floor(count)));
+}
+
+function bookingDriverPodText(booking: RaceBooking) {
+  const drivers = bookingPartySize(booking);
+  const pods = bookingSimCount(booking);
+  return `${drivers} driver${drivers === 1 ? '' : 's'} / ${pods} pod${pods === 1 ? '' : 's'}`;
 }
 
 type BookingConflict = {
@@ -319,6 +348,7 @@ export function AdminBookingsClient() {
   const [blackoutReason, setBlackoutReason] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncingVms, setSyncingVms] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const weekStart = useMemo(() => weekStartFor(selectedDate), [selectedDate]);
@@ -362,6 +392,30 @@ export function AdminBookingsClient() {
       setError(e instanceof Error ? e.message : 'Failed to load bookings admin.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function syncVmsBookings() {
+    setSyncingVms(true);
+    setError('');
+    setMessage('');
+    try {
+      const res = await fetch(`/api/admin/bookings?weekStart=${encodeURIComponent(weekStart)}&sync=1`);
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error ?? 'Failed to sync VMS bookings.');
+
+      setRaceBookings(json.raceBookings ?? []);
+      setToastSessions(json.toastSessions ?? []);
+
+      const imported = Number(json.sync?.imported ?? 0);
+      const updated = Number(json.sync?.updated ?? 0);
+      const skipped = Number(json.sync?.skipped ?? 0);
+      setMessage(`VMS sync complete: ${imported} imported, ${updated} updated, ${skipped} skipped.`);
+      await loadOperationsBoard();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to sync VMS bookings.');
+    } finally {
+      setSyncingVms(false);
     }
   }
 
@@ -475,6 +529,9 @@ export function AdminBookingsClient() {
         <Button href="#booking-blackouts" variant="outlined">
           Pod Busy Times
         </Button>
+        <Button variant="outlined" onClick={syncVmsBookings} disabled={syncingVms || loading}>
+          {syncingVms ? 'Syncing VMS...' : 'Sync VMS Bookings'}
+        </Button>
       </Stack>
 
       <Card id="daily-bookings" variant="outlined" sx={{ borderColor: 'rgba(255,210,0,0.55)', background: 'linear-gradient(135deg, rgba(255,210,0,0.08), rgba(255,22,31,0.06))' }}>
@@ -587,13 +644,13 @@ export function AdminBookingsClient() {
                       </Typography>
                       <Typography color="text.secondary">
                         {firstWalkInSlot
-                          ? `${walkInSims} racer${walkInSims === 1 ? '' : 's'} · ${walkInDuration} min · ${formatSlotWindow(firstWalkInSlot)}`
-                          : 'Try fewer racers, a shorter session, or another day.'}
+                          ? `${walkInSims} pod${walkInSims === 1 ? '' : 's'} needed · ${walkInDuration} min · ${formatSlotWindow(firstWalkInSlot)}`
+                          : 'Try fewer pods, a shorter session, or another day.'}
                       </Typography>
                     </Stack>
 
                     <Stack direction="row" spacing={1}>
-                      <TextField select label="Racers" size="small" value={walkInSims} onChange={(event) => setWalkInSims(Number(event.target.value))} fullWidth>
+                      <TextField select label="Pods needed" size="small" value={walkInSims} onChange={(event) => setWalkInSims(Number(event.target.value))} fullWidth>
                         {[1, 2, 3, 4].map((count) => (
                           <MenuItem key={count} value={count}>
                             {count}
@@ -770,12 +827,13 @@ export function AdminBookingsClient() {
                           <Typography sx={{ fontWeight: 900 }}>{formatBookingWindow(booking)}</Typography>
                           <Chip size="small" label={booking.status} color={statusColor(booking.status) as any} />
                           <Chip size="small" label={booking.source.replaceAll('_', ' ')} />
+                          {paymentMethodLabel(booking.payment_method) ? <Chip size="small" label={paymentMethodLabel(booking.payment_method)} /> : null}
                           <Chip size="small" color={hasConflict ? 'error' : 'info'} label={`Pods: ${bookingPodsText(booking)}`} />
                           {hasConflict ? <Chip size="small" color="error" label="Capacity conflict" /> : null}
                           {booking.vms_booking_id ? <Chip size="small" color="success" label={`VMS #${booking.vms_booking_id}`} /> : null}
                         </Stack>
                         <Typography>
-                          {booking.customer_name} · {booking.sim_count} racer{booking.sim_count === 1 ? '' : 's'} · {booking.duration_minutes} min
+                          {booking.customer_name} · {bookingDriverPodText(booking)} · {booking.duration_minutes} min
                         </Typography>
                         {raceRequestLabel(booking) ? (
                           <Typography variant="body2" color="primary" sx={{ fontWeight: 800 }}>
@@ -959,12 +1017,13 @@ export function AdminBookingsClient() {
               raceBookings.map((booking) => (
                 <Stack key={booking.id} direction={{ xs: 'column', md: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }}>
                   <Typography>
-                    {venueDate(booking.starts_at)} · {formatBookingWindow(booking)} · {booking.customer_name} · {booking.sim_count} x{' '}
+                    {venueDate(booking.starts_at)} · {formatBookingWindow(booking)} · {booking.customer_name} · {bookingDriverPodText(booking)} ·{' '}
                     {booking.duration_minutes} min · Pods: {bookingPodsText(booking)}
                     {raceRequestLabel(booking) ? ` · ${raceRequestLabel(booking)}` : ''}
                   </Typography>
                   <Stack direction="row" spacing={0.75}>
                     <Chip size="small" label={money(booking.amount_cents, booking.currency)} />
+                    {paymentMethodLabel(booking.payment_method) ? <Chip size="small" label={paymentMethodLabel(booking.payment_method)} /> : null}
                     <Chip size="small" label={booking.status} color={statusColor(booking.status) as any} />
                   </Stack>
                 </Stack>

@@ -6,7 +6,7 @@ import { syncUpcomingVmsBookings } from '@/lib/bookings/vms-sync';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const RACE_SELECT =
-  'id,source,customer_name,customer_email,customer_phone,duration_minutes,sim_count,starts_at,ends_at,amount_cents,currency,status,vms_booking_id,error,reminder_sent_at,reminder_error,membership_free_race_applied,membership_discount_cents,membership_credit_type,race_request_type,requested_vehicle_id,requested_vehicle_name,requested_circuit_id,requested_circuit_name,requested_hotlap_event_id,requested_hotlap_event_name,created_at,race_booking_resources(resource_id,booking_resources(name,display_order))';
+  'id,source,payment_method,customer_name,customer_email,customer_phone,duration_minutes,sim_count,party_size,starts_at,ends_at,amount_cents,currency,status,vms_booking_id,error,reminder_sent_at,reminder_error,membership_free_race_applied,membership_discount_cents,membership_credit_type,race_request_type,requested_vehicle_id,requested_vehicle_name,requested_circuit_id,requested_circuit_name,requested_hotlap_event_id,requested_hotlap_event_name,created_at,race_booking_resources(resource_id,booking_resources(name,display_order))';
 const TOAST_SELECT =
   'id,toast_order_guid,customer_name,customer_email,session_quantity,session_minutes,status,vms_booking_id,error,ignored_reason,processed_at,created_at';
 
@@ -45,7 +45,8 @@ export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
   const supabase = createSupabaseAdminClient();
-  await syncUpcomingVmsBookings(supabase);
+  const shouldSyncVms = request.nextUrl.searchParams.get('sync') === '1';
+  const syncResult = shouldSyncVms ? await syncUpcomingVmsBookings(supabase) : null;
   const range = rangeFromParams(request);
   const limit = range ? 500 : 100;
   let raceQuery = supabase.from('race_bookings').select(RACE_SELECT).order('starts_at', { ascending: true }).limit(limit);
@@ -60,5 +61,5 @@ export async function GET(request: NextRequest) {
   ]);
   if (race.error) return NextResponse.json({ error: race.error.message }, { status: 500 });
   if (toast.error) return NextResponse.json({ error: toast.error.message }, { status: 500 });
-  return NextResponse.json({ raceBookings: race.data ?? [], toastSessions: toast.data ?? [] });
+  return NextResponse.json({ raceBookings: race.data ?? [], toastSessions: toast.data ?? [], sync: syncResult });
 }

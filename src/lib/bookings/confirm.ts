@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 
 import { allocateBookingResources, assertSlotAvailable } from '@/lib/bookings/availability';
-import { BOOKING_CANCELLATION_CUTOFF_HOURS, bookingPackageLabel } from '@/lib/bookings/config';
+import { BOOKING_CANCELLATION_CUTOFF_HOURS, bookingPackageLabel, normalizeSimCount } from '@/lib/bookings/config';
 import { raceRequestDbFields, raceRequestVmsFields } from '@/lib/bookings/race-request';
 import { utcToVenueDate, utcToVenueDateTime } from '@/lib/bookings/time';
 import { env } from '@/lib/supabase/env';
@@ -46,7 +46,7 @@ function raceRequestFromHold(hold: any) {
 
 function bookingNotes(base: string, booking: any) {
   const request = raceRequestVmsFields(booking);
-  return [base, request.noteLine].filter(Boolean).join('\n');
+  return [base, rotationBookingLine(booking), request.noteLine].filter(Boolean).join('\n');
 }
 
 function formatMoneyFromBooking(booking: any) {
@@ -55,19 +55,59 @@ function formatMoneyFromBooking(booking: any) {
 }
 
 function vmsEventName(booking: any) {
-  const packageLabel = bookingPackageLabel(booking.duration_minutes, booking.sim_count);
-  const bookingType = booking.sim_count > 1 ? 'Party' : 'Race';
+  const simCount = bookingSimCount(booking);
+  const packageLabel = bookingPackageLabel(booking.duration_minutes, simCount);
+  const bookingType = simCount > 1 ? 'Party' : 'Race';
   return `Speed Trap ${bookingType} - ${packageLabel} - ${normalizeVmsName(booking.customer_name)}`;
+}
+
+function bookingSimCount(booking: any) {
+  return normalizeSimCount(Number(booking.sim_count ?? 1));
+}
+
+function bookingPartySize(booking: any) {
+  const simCount = bookingSimCount(booking);
+  const raw = Number(booking.party_size ?? simCount);
+  return Number.isFinite(raw) ? Math.max(1, Math.floor(raw)) : simCount;
+}
+
+function driverPodLine(booking: any) {
+  const partySize = bookingPartySize(booking);
+  const simCount = bookingSimCount(booking);
+  return `${partySize} drivers / ${simCount} pods`;
+}
+
+function rotationBookingLine(booking: any) {
+  const partySize = bookingPartySize(booking);
+  const simCount = bookingSimCount(booking);
+  return partySize > simCount ? `Rotation booking: ${partySize} drivers / ${simCount} pods.` : null;
+}
+
+function bookingStaffingNotes(booking: any) {
+  const request = raceRequestVmsFields(booking);
+  return [rotationBookingLine(booking), request.noteLine].filter(Boolean).join('\n') || undefined;
 }
 
 function bookingPaymentNotes(booking: any, lines: Array<string | null | undefined>) {
   return [
-    `Package: ${bookingPackageLabel(booking.duration_minutes, booking.sim_count)}`,
+    `Package: ${bookingPackageLabel(booking.duration_minutes, bookingSimCount(booking))}`,
+    `Drivers/pods: ${driverPodLine(booking)}`,
     `Total charged: ${formatMoneyFromBooking(booking)}`,
     ...lines
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+function paymentMethodFromStripeIntent(paymentIntent: Stripe.PaymentIntent) {
+  return paymentIntent.metadata?.payment_method_requested === 'crypto' ? 'crypto' : 'card';
+}
+
+function paymentMethodNote(paymentMethod: string | null | undefined) {
+  if (paymentMethod === 'crypto') return 'Stripe payment method: Crypto stablecoin.';
+  if (paymentMethod === 'card') return 'Stripe payment method: Card.';
+  if (paymentMethod === 'membership_credit') return 'Stripe payment method: Membership credit.';
+  return null;
 }
 
 function membershipCreditPaymentNote(booking: any) {
@@ -81,7 +121,7 @@ async function assertHoldStillFits(supabase: any, hold: any) {
     date: utcToVenueDate(new Date(hold.starts_at)),
     startsAt: hold.starts_at,
     durationMinutes: hold.duration_minutes,
-    simCount: hold.sim_count,
+    partySize: hold.party_size ?? hold.sim_count,
     excludeHoldId: hold.id
   });
 }
@@ -130,6 +170,7 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
   if (existingBooking.data) return existingBooking.data;
 
   const charge = typeof paymentIntent.latest_charge === 'string' ? null : paymentIntent.latest_charge;
+  const paymentMethod = paymentMethodFromStripeIntent(paymentIntent);
   try {
     await assertHoldStillFits(input.supabase, hold);
   } catch (error) {
@@ -149,6 +190,7 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
       sms_consent_at: hold.sms_consent_at,
       duration_minutes: hold.duration_minutes,
       sim_count: hold.sim_count,
+      party_size: hold.party_size ?? hold.sim_count,
       starts_at: hold.starts_at,
       ends_at: hold.ends_at,
       buffer_until: hold.buffer_until,
@@ -157,6 +199,7 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
       status: 'confirmed',
       stripe_payment_intent_id: paymentIntent.id,
       stripe_charge_id: charge?.id ?? null,
+      payment_method: paymentMethod,
       membership_free_race_month: hold.membership_free_race_month ?? null,
       membership_free_race_applied: Boolean(hold.membership_free_race_applied),
       membership_discount_cents: hold.membership_discount_cents ?? 0,
@@ -210,16 +253,17 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
       status: 'Booked',
       venueId,
       eventActivity: env.VMS_BOOKING_EVENT_ACTIVITY ?? null,
-      groupSize: booking.sim_count,
-      numberOfPods: booking.sim_count,
+      groupSize: bookingPartySize(booking),
+      numberOfPods: bookingSimCount(booking),
       requestedVehicleIds: raceRequest.requestedVehicleIds,
       requestedCircuitIds: raceRequest.requestedCircuitIds,
       participantIds: [customer.id],
-      staffingNotes: raceRequest.noteLine,
+      staffingNotes: bookingStaffingNotes(booking),
       notes: bookingNotes('Created automatically from a Speed Trap online booking.', booking),
       paymentNotes: bookingPaymentNotes(booking, [
         `Stripe payment intent: ${paymentIntent.id}`,
         charge?.id ? `Stripe charge: ${charge.id}` : null,
+        paymentMethodNote(paymentMethod),
         membershipCreditPaymentNote(booking)
       ])
     });
@@ -283,12 +327,14 @@ export async function confirmRaceBookingFromHold(input: {
       sms_consent_at: hold.sms_consent_at,
       duration_minutes: hold.duration_minutes,
       sim_count: hold.sim_count,
+      party_size: hold.party_size ?? hold.sim_count,
       starts_at: hold.starts_at,
       ends_at: hold.ends_at,
       buffer_until: hold.buffer_until,
       amount_cents: 0,
       currency: hold.currency,
       status: 'confirmed',
+      payment_method: 'membership_credit',
       membership_free_race_month: hold.membership_free_race_month ?? null,
       membership_free_race_applied: Boolean(hold.membership_free_race_applied),
       membership_discount_cents: hold.membership_discount_cents ?? 0,
@@ -342,14 +388,14 @@ export async function confirmRaceBookingFromHold(input: {
       status: 'Booked',
       venueId,
       eventActivity: env.VMS_BOOKING_EVENT_ACTIVITY ?? null,
-      groupSize: booking.sim_count,
-      numberOfPods: booking.sim_count,
+      groupSize: bookingPartySize(booking),
+      numberOfPods: bookingSimCount(booking),
       requestedVehicleIds: raceRequest.requestedVehicleIds,
       requestedCircuitIds: raceRequest.requestedCircuitIds,
       participantIds: [customer.id],
-      staffingNotes: raceRequest.noteLine,
+      staffingNotes: bookingStaffingNotes(booking),
       notes: bookingNotes('Created automatically from a Speed Trap online booking.', booking),
-      paymentNotes: bookingPaymentNotes(booking, [membershipCreditPaymentNote(booking)])
+      paymentNotes: bookingPaymentNotes(booking, [paymentMethodNote('membership_credit'), membershipCreditPaymentNote(booking)])
     });
     if (!vmsBooking?.id) throw new Error('VMS did not return a booking id.');
 

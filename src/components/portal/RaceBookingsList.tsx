@@ -18,6 +18,7 @@ type RaceBooking = {
   customer_email: string;
   duration_minutes: number;
   sim_count: number;
+  party_size: number | null;
   starts_at: string;
   ends_at: string;
   amount_cents: number;
@@ -48,6 +49,12 @@ function raceRequestLabel(booking: RaceBooking) {
   }
   if (booking.race_request_type === 'hotlap_event') return booking.requested_hotlap_event_name;
   return null;
+}
+
+function driverPodLabel(booking: RaceBooking) {
+  const drivers = Math.max(1, Math.floor(Number(booking.party_size ?? booking.sim_count ?? 1)));
+  const pods = Math.max(1, Math.min(4, Math.floor(Number(booking.sim_count ?? 1))));
+  return `${drivers} driver${drivers === 1 ? '' : 's'} / ${pods} pod${pods === 1 ? '' : 's'}`;
 }
 
 export function RaceBookingsList() {
@@ -120,7 +127,7 @@ export function RaceBookingsList() {
                 <Stack spacing={0.5}>
                   <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                     <Typography sx={{ fontWeight: 900 }}>
-                      {booking.sim_count} x {booking.duration_minutes} min race
+                      {driverPodLabel(booking)} · {booking.duration_minutes} min race
                     </Typography>
                     <Chip size="small" label={booking.status} color={statusColor(booking.status) as any} />
                   </Stack>

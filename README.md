@@ -49,6 +49,12 @@ Required Vercel env vars:
 - `SUPABASE_SERVICE_ROLE_KEY`: server-only key used by booking APIs.
 - `VMS_API_KEY`, `VMS_HOME_VENUE_ID`, `VMS_VENUE_TIMEZONE`: VMS customer/booking integration.
 
+Optional Stripe crypto env vars:
+- `STRIPE_CRYPTO_PAYMENTS_ENABLED`: server-side gate. Keep `false` until Stripe approves crypto payments for the account.
+- `NEXT_PUBLIC_STRIPE_CRYPTO_PAYMENTS_ENABLED`: client-side UI gate. Keep `false` until the server-side gate is also enabled.
+
+Crypto booking payments use Stripe's native crypto payment method on PaymentIntents. Stripe Crypto Onramp is not used for race checkout because onramp is for buying crypto, not paying Speed Trap for a booking.
+
 Run migration `0014_native_race_bookings.sql`, then configure public booking hours in `/admin/bookings`.
 
 

@@ -26,6 +26,9 @@ import {
   BOOKING_SLOT_INTERVAL_MINUTES,
   CUSTOM_DURATION_BLOCK_MINUTES,
   bookingAmountCents,
+  isRotationBooking,
+  normalizePartySize,
+  simCountForPartySize,
 } from '@/lib/bookings/config';
 import { salesTaxCents, totalWithSalesTaxCents } from '@/lib/stripe/tax';
 
@@ -68,6 +71,7 @@ type RaceOption = {
 
 type RaceRequestMode = 'none' | 'hotlap_event';
 type DurationMode = '15' | '30' | '60';
+type BookingPaymentMethod = 'card' | 'crypto';
 
 function todayDate() {
   return new Date().toISOString().slice(0, 10);
@@ -149,6 +153,12 @@ function slotRangeLabel(slot: Slot, durationMinutes: number) {
   const start = formatSlotTime(slot.time);
   if (durationMinutes === 15) return start;
   return `${start} - ${slotEndTime(slot, durationMinutes)}`;
+}
+
+function driverPodLabel(partySize: number | null | undefined, simCount: number | null | undefined) {
+  const drivers = Math.max(1, Math.floor(Number(partySize ?? simCount ?? 1)));
+  const pods = Math.max(1, Math.min(4, Math.floor(Number(simCount ?? simCountForPartySize(drivers)))));
+  return `${drivers} driver${drivers === 1 ? '' : 's'} / ${pods} pod${pods === 1 ? '' : 's'}`;
 }
 
 function durationModeFor(durationMinutes: number): DurationMode {
@@ -303,10 +313,12 @@ function LiveEventSelect({
 
 function PaymentForm({
   paymentIntentId,
+  paymentMethod,
   onConfirmed,
   onError
 }: {
   paymentIntentId: string;
+  paymentMethod: BookingPaymentMethod;
   onConfirmed: (booking: any) => void;
   onError: (error: string) => void;
 }) {
@@ -369,10 +381,10 @@ function PaymentForm({
 
   return (
     <Stack spacing={2}>
-      {!ready ? <Alert severity="info">Loading secure card fields...</Alert> : null}
+      {!ready ? <Alert severity="info">Loading secure payment fields...</Alert> : null}
       <PaymentElement onReady={() => setReady(true)} onLoadError={(event) => onError(event.error?.message ?? 'Stripe payment form failed to load.')} />
       <Button variant="contained" size="large" disabled={!stripe || !elements || submitting || !ready} onClick={submit}>
-        {submitting ? 'Confirming...' : 'Pay and Confirm Booking'}
+        {submitting ? 'Confirming...' : paymentMethod === 'crypto' ? 'Pay with Crypto and Confirm Booking' : 'Pay and Confirm Booking'}
       </Button>
     </Stack>
   );
@@ -381,23 +393,27 @@ function PaymentForm({
 export function BookingClient({
   stripePublishableKey,
   initialDurationMinutes = 15,
-  initialSimCount = 1,
-  initialBookingWindow
+  initialPartySize = 1,
+  initialBookingWindow,
+  cryptoPaymentsEnabled = false
 }: {
   stripePublishableKey: string;
   initialDurationMinutes?: number;
-  initialSimCount?: number;
+  initialPartySize?: number;
   initialBookingWindow?: BookingWindow;
+  cryptoPaymentsEnabled?: boolean;
 }) {
-  const initialBaseDurationMinutes: 15 | 30 = initialDurationMinutes >= 30 ? 30 : 15;
-  const initialExtraBlockCount = Math.max(0, Math.floor((initialDurationMinutes - initialBaseDurationMinutes) / CUSTOM_DURATION_BLOCK_MINUTES));
+  const normalizedInitialPartySize = normalizePartySize(initialPartySize);
+  const safeInitialDurationMinutes = isRotationBooking(normalizedInitialPartySize) && initialDurationMinutes < 30 ? 30 : initialDurationMinutes;
+  const initialBaseDurationMinutes: 15 | 30 = safeInitialDurationMinutes >= 30 ? 30 : 15;
+  const initialExtraBlockCount = Math.max(0, Math.floor((safeInitialDurationMinutes - initialBaseDurationMinutes) / CUSTOM_DURATION_BLOCK_MINUTES));
   const stripePromise = useMemo(() => (stripePublishableKey ? loadStripe(stripePublishableKey) : null), [stripePublishableKey]);
   const [date, setDate] = useState(todayDate());
   const [baseDurationMinutes, setBaseDurationMinutes] = useState<15 | 30>(initialBaseDurationMinutes);
   const [selectionPresetExtraBlockCount, setSelectionPresetExtraBlockCount] = useState(initialExtraBlockCount);
   const [extraBlockCount, setExtraBlockCount] = useState(initialExtraBlockCount);
-  const [durationMode, setDurationMode] = useState<DurationMode>(() => durationModeFor(initialDurationMinutes));
-  const [simCount, setSimCount] = useState(Math.max(1, Math.min(4, Math.floor(initialSimCount))));
+  const [durationMode, setDurationMode] = useState<DurationMode>(() => durationModeFor(safeInitialDurationMinutes));
+  const [partySize, setPartySize] = useState(normalizedInitialPartySize);
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [customerName, setCustomerName] = useState('');
@@ -408,6 +424,7 @@ export function BookingClient({
   const [bookingWindow, setBookingWindow] = useState<BookingWindow>(() => initialBookingWindow ?? { minDate: todayDate(), maxDate: addDateDays(todayDate(), 30), advanceDays: 30 });
   const [raceRequestMode, setRaceRequestMode] = useState<RaceRequestMode>('none');
   const [selectedEvent, setSelectedEvent] = useState<RaceOption | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<BookingPaymentMethod>('card');
   const [clientSecret, setClientSecret] = useState('');
   const [paymentIntentId, setPaymentIntentId] = useState('');
   const [booking, setBooking] = useState<any>(null);
@@ -417,6 +434,8 @@ export function BookingClient({
   const presetExtraBlockCount = selectionPresetExtraBlockCount;
   const plannedDurationMinutes = baseDurationMinutes + presetExtraBlockCount * CUSTOM_DURATION_BLOCK_MINUTES;
   const durationMinutes = selectedSlot ? baseDurationMinutes + extraBlockCount * CUSTOM_DURATION_BLOCK_MINUTES : plannedDurationMinutes;
+  const reservedSimCount = simCountForPartySize(partySize);
+  const rotationBooking = isRotationBooking(partySize);
   const selectedWindowAvailableSims = useMemo(() => {
     if (!availability || !selectedSlot) return 0;
     return availableSimsForWindow(availability.slots, selectedSlot.startsAt, durationMinutes);
@@ -463,7 +482,7 @@ export function BookingClient({
         const params = new URLSearchParams({
           date,
           durationMinutes: String(BOOKING_SLOT_INTERVAL_MINUTES),
-          simCount: '1'
+          partySize: '1'
         });
         const res = await fetch(`/api/bookings/availability?${params}`);
         const json = await res.json().catch(() => null);
@@ -482,10 +501,11 @@ export function BookingClient({
   }, [date, baseDurationMinutes, presetExtraBlockCount]);
 
   useEffect(() => {
-    if (selectedSlot && selectedWindowAvailableSims > 0 && simCount > selectedWindowAvailableSims) {
-      setSimCount(Math.max(1, selectedWindowAvailableSims));
+    if (selectedSlot && selectedWindowAvailableSims > 0 && reservedSimCount > selectedWindowAvailableSims) {
+      resetSelectedSlot();
+      setError('That selected time no longer has enough pods for this group size.');
     }
-  }, [selectedSlot, selectedWindowAvailableSims, simCount]);
+  }, [reservedSimCount, selectedSlot, selectedWindowAvailableSims]);
 
   function resetPaymentState(nextExtraBlockCount = 0) {
     setSelectedSlot(null);
@@ -503,6 +523,10 @@ export function BookingClient({
 
   function changeDurationMode(value: DurationMode | null) {
     if (!value) return;
+    if (value === '15' && rotationBooking) {
+      setError('Rotation bookings for 5-8 drivers require at least 30 minutes.');
+      return;
+    }
     const nextBaseDurationMinutes = value === '15' ? 15 : 30;
     const nextExtraBlockCount = value === '60' ? 1 : 0;
     setDurationMode(value);
@@ -524,10 +548,9 @@ export function BookingClient({
     if (!availability) return;
     const initialDurationForSelection = baseDurationMinutes + presetExtraBlockCount * CUSTOM_DURATION_BLOCK_MINUTES;
     const availableSims = availableSimsForWindow(availability.slots, slot.startsAt, initialDurationForSelection);
-    if (availableSims < 1) return;
+    if (availableSims < reservedSimCount) return;
     setSelectedSlot(slot);
     setExtraBlockCount(presetExtraBlockCount);
-    if (simCount > availableSims) setSimCount(Math.max(1, availableSims));
     setClientSecret('');
     setPaymentIntentId('');
     resetRaceRequest();
@@ -571,13 +594,12 @@ export function BookingClient({
     const requestedExtraBlockCount = Math.floor((clickedMs - baseEndMs) / (CUSTOM_DURATION_BLOCK_MINUTES * 60_000)) + 1;
     const requestedDurationMinutes = baseDurationMinutes + requestedExtraBlockCount * CUSTOM_DURATION_BLOCK_MINUTES;
     const availableSims = availableSimsForWindow(availability.slots, selectedSlot.startsAt, requestedDurationMinutes);
-    if (availableSims < 1) {
+    if (availableSims < reservedSimCount) {
       setError('That added time is not available for the selected booking window.');
       return;
     }
 
     setExtraBlockCount(requestedExtraBlockCount);
-    if (simCount > availableSims) setSimCount(Math.max(1, availableSims));
     setClientSecret('');
     setPaymentIntentId('');
     resetRaceRequest();
@@ -601,7 +623,8 @@ export function BookingClient({
           smsConsent,
           startsAt: selectedSlot.startsAt,
           durationMinutes,
-          simCount,
+          simCount: reservedSimCount,
+          partySize,
           raceRequest: raceRequestMode === 'hotlap_event' ? { type: 'hotlap_event', eventId: selectedEvent?.id } : { type: 'none' }
         })
       });
@@ -611,7 +634,7 @@ export function BookingClient({
       const payRes = await fetch('/api/bookings/payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ holdId: holdJson.hold.id })
+        body: JSON.stringify({ holdId: holdJson.hold.id, paymentMethod: amountCents > 0 ? paymentMethod : 'card' })
       });
       const payJson = await payRes.json().catch(() => null);
       if (!payRes.ok) throw new Error(payJson?.error ?? 'Failed to start payment.');
@@ -628,8 +651,8 @@ export function BookingClient({
     }
   }
 
-  const baseAmountCents = bookingPrice(durationMinutes, simCount);
-  const memberPrice = memberBookingPrice(durationMinutes, simCount, membership);
+  const baseAmountCents = bookingPrice(durationMinutes, reservedSimCount);
+  const memberPrice = memberBookingPrice(durationMinutes, reservedSimCount, membership);
   const subtotalCents = memberPrice.amountCents;
   const taxCents = salesTaxCents(subtotalCents);
   const amountCents = totalWithSalesTaxCents(subtotalCents);
@@ -637,8 +660,8 @@ export function BookingClient({
   const reminderPhoneReady = !smsConsent || customerPhone.replace(/\D/g, '').length >= 10;
   const canStartPayment = Boolean(
     selectedSlot &&
-      simCount >= 1 &&
-      simCount <= selectedWindowAvailableSims &&
+      reservedSimCount >= 1 &&
+      reservedSimCount <= selectedWindowAvailableSims &&
       customerName.trim().length >= 3 &&
       /[^\s@]+@[^\s@]+\.[^\s@]+/.test(customerEmail) &&
       reminderPhoneReady &&
@@ -655,7 +678,7 @@ export function BookingClient({
               Your race is on the schedule.
             </Typography>
             <Typography color="text.secondary">
-              {formatDateTime(booking.starts_at)} for {booking.sim_count} sim{booking.sim_count === 1 ? '' : 's'}.
+              {formatDateTime(booking.starts_at)} for {driverPodLabel(booking.party_size, booking.sim_count)}.
             </Typography>
             {booking.vms_booking_id ? <Typography>VMS booking #{booking.vms_booking_id}</Typography> : null}
             {raceRequestSummary(booking) ? <Typography>Race request: {raceRequestSummary(booking)}</Typography> : null}
@@ -701,7 +724,9 @@ export function BookingClient({
                     disabled={Boolean(clientSecret)}
                     onChange={(_e, value) => changeDurationMode(value)}
                   >
-                    <ToggleButton value="15">15 min</ToggleButton>
+                    <ToggleButton value="15" disabled={rotationBooking}>
+                      15 min
+                    </ToggleButton>
                     <ToggleButton value="30">30 min</ToggleButton>
                     <ToggleButton value="60">60 min</ToggleButton>
                   </ToggleButtonGroup>
@@ -725,7 +750,7 @@ export function BookingClient({
                       const isStartSelected = selectedSlot?.startsAt === slot.startsAt;
                       const isWindowSelected = isSlotInsideSelectedWindow(slot, selectedSlot, durationMinutes);
                       const isBaseWindowSelected = isSlotInsideSelectedWindow(slot, selectedSlot, baseDurationMinutes);
-                      let canInteract = !clientSecret && availableSimsForStart > 0;
+                      let canInteract = !clientSecret && availableSimsForStart >= reservedSimCount;
                       if (!clientSecret && selectedSlot) {
                         if (isWindowSelected) {
                           canInteract = true;
@@ -734,11 +759,11 @@ export function BookingClient({
                           const startMs = new Date(selectedSlot.startsAt).getTime();
                           const baseEndMs = startMs + baseDurationMinutes * 60_000;
                           if (clickedMs < startMs) {
-                            canInteract = availableSimsForStart > 0;
+                            canInteract = availableSimsForStart >= reservedSimCount;
                           } else if (clickedMs >= baseEndMs) {
                             const requestedExtraBlockCount = Math.floor((clickedMs - baseEndMs) / (CUSTOM_DURATION_BLOCK_MINUTES * 60_000)) + 1;
                             const requestedDurationMinutes = baseDurationMinutes + requestedExtraBlockCount * CUSTOM_DURATION_BLOCK_MINUTES;
-                            canInteract = availableSimsForWindow(availability.slots, selectedSlot.startsAt, requestedDurationMinutes) > 0;
+                            canInteract = availableSimsForWindow(availability.slots, selectedSlot.startsAt, requestedDurationMinutes) >= reservedSimCount;
                           } else {
                             canInteract = false;
                           }
@@ -761,7 +786,7 @@ export function BookingClient({
                             sx={{
                               minHeight: 78,
                               flexDirection: 'column',
-                              borderColor: isWindowSelected ? 'rgba(255,210,0,0.92)' : availableSimsForStart > 0 ? undefined : 'rgba(255,255,255,0.14)',
+                              borderColor: isWindowSelected ? 'rgba(255,210,0,0.92)' : availableSimsForStart >= reservedSimCount ? undefined : 'rgba(255,255,255,0.14)',
                               bgcolor: isWindowSelected ? 'rgba(255,210,0,0.92)' : undefined,
                               color: isWindowSelected ? '#050505' : undefined,
                               boxShadow: isWindowSelected ? '0 0 0 1px rgba(255,210,0,0.9), 0 0 24px rgba(255,210,0,0.18)' : undefined,
@@ -807,7 +832,12 @@ export function BookingClient({
               <Stack spacing={0.5}>
                 <Typography color="text.secondary">Session</Typography>
                 <Typography sx={{ fontWeight: 900 }}>
-                  {simCount} x {durationMinutes} min race - {money(subtotalCents)}
+                  {driverPodLabel(partySize, reservedSimCount)} · {durationMinutes} min race - {money(subtotalCents)}
+                </Typography>
+                <Typography color="text.secondary" sx={{ fontSize: 13 }}>
+                  {rotationBooking
+                    ? `Rotation booking: ${partySize} drivers cycling through 4 sims.`
+                    : `Reserving ${reservedSimCount} sim${reservedSimCount === 1 ? '' : 's'}.`}
                 </Typography>
                 {memberPrice.discountCents > 0 ? (
                   <Typography color="primary" sx={{ fontSize: 13, fontWeight: 800 }}>
@@ -828,30 +858,54 @@ export function BookingClient({
               </Stack>
               <Box>
                 <Typography color="text.secondary" sx={{ mb: 1 }}>
-                  Racers / sims
+                  Drivers attending
                 </Typography>
                 <Grid container spacing={1}>
-                  {[1, 2, 3, 4].map((count) => {
-                    const enabled = Boolean(selectedSlot && count <= selectedWindowAvailableSims);
-                    const selected = count <= simCount;
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((count) => {
+                    const nextReservedSimCount = simCountForPartySize(count);
+                    const enabled = !selectedSlot || nextReservedSimCount <= selectedWindowAvailableSims;
+                    const selected = count === partySize;
                     return (
                       <Grid key={count} size={{ xs: 6, sm: 3 }}>
                         <Button
                           fullWidth
                           disabled={!enabled || Boolean(clientSecret)}
                           variant={selected ? 'contained' : 'outlined'}
-                          onClick={() => setSimCount(count)}
-                          sx={{ minHeight: 58, flexDirection: 'column' }}
+                          onClick={() => {
+                            const nextPartySize = normalizePartySize(count);
+                            setPartySize(nextPartySize);
+                            setClientSecret('');
+                            setPaymentIntentId('');
+                            resetRaceRequest();
+                            setError('');
+                            if (isRotationBooking(nextPartySize) && baseDurationMinutes === 15) {
+                              setBaseDurationMinutes(30);
+                              setDurationMode('30');
+                              setSelectionPresetExtraBlockCount(0);
+                              setExtraBlockCount(0);
+                              setSelectedSlot(null);
+                            } else if (selectedSlot && nextReservedSimCount > selectedWindowAvailableSims) {
+                              setSelectedSlot(null);
+                              setExtraBlockCount(selectionPresetExtraBlockCount);
+                              setError('That time does not have enough pods for this group size.');
+                            }
+                          }}
+                          sx={{ minHeight: 68, flexDirection: 'column' }}
                         >
-                          {count} racer{count === 1 ? '' : 's'}
+                          {count} driver{count === 1 ? '' : 's'}
                           <Typography component="span" sx={{ fontSize: 11, opacity: 0.7 }}>
-                            {enabled ? 'Available' : 'Unavailable'}
+                            {count > 4 ? '4-sim rotation' : `Reserve ${count} sim${count === 1 ? '' : 's'}`}
                           </Typography>
                         </Button>
                       </Grid>
                     );
                   })}
                 </Grid>
+                {rotationBooking ? (
+                  <Alert severity="info" sx={{ mt: 1.5 }}>
+                    Groups of 5-8 drivers rotate through all 4 sims and require at least 30 minutes. Groups of 9+ should use private events.
+                  </Alert>
+                ) : null}
               </Box>
               <TextField label="Full name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} disabled={Boolean(clientSecret)} fullWidth />
               <TextField label="Email" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} disabled={Boolean(clientSecret)} fullWidth />
@@ -868,6 +922,32 @@ export function BookingClient({
                 control={<Checkbox checked={smsConsent} onChange={(e) => setSmsConsent(e.target.checked)} disabled={Boolean(clientSecret)} />}
                 label="Text me a reminder 3 minutes before my race."
               />
+              {cryptoPaymentsEnabled && amountCents > 0 ? (
+                <Box>
+                  <Typography color="text.secondary" sx={{ mb: 1 }}>
+                    Payment method
+                  </Typography>
+                  <ToggleButtonGroup
+                    value={paymentMethod}
+                    exclusive
+                    fullWidth
+                    disabled={Boolean(clientSecret)}
+                    onChange={(_event, value: BookingPaymentMethod | null) => {
+                      if (!value) return;
+                      setPaymentMethod(value);
+                      setClientSecret('');
+                      setPaymentIntentId('');
+                      setError('');
+                    }}
+                  >
+                    <ToggleButton value="card">Card</ToggleButton>
+                    <ToggleButton value="crypto">Crypto</ToggleButton>
+                  </ToggleButtonGroup>
+                  <Typography color="text.secondary" sx={{ mt: 0.75, fontSize: 12 }}>
+                    Crypto uses Stripe&apos;s approved stablecoin payment flow when it is enabled for this account.
+                  </Typography>
+                </Box>
+              ) : null}
               <Box>
                 <Typography color="text.secondary" sx={{ mb: 1 }}>
                   Race request
@@ -913,7 +993,7 @@ export function BookingClient({
               ) : stripePromise ? (
                 <Stack spacing={1.5}>
                   <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night' } }}>
-                    <PaymentForm paymentIntentId={paymentIntentId} onConfirmed={setBooking} onError={setError} />
+                    <PaymentForm paymentIntentId={paymentIntentId} paymentMethod={paymentMethod} onConfirmed={setBooking} onError={setError} />
                   </Elements>
                   <Button
                     variant="text"

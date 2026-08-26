@@ -233,7 +233,7 @@ export default async function PricingPage() {
                       <Typography color="text.secondary">{item.description}</Typography>
                       <Button
                         component={Link}
-                        href={`/book?duration=${item.durationMinutes}&sims=1`}
+                        href={`/book?duration=${item.durationMinutes}&drivers=1`}
                         variant="contained"
                         size="large"
                         sx={{ alignSelf: 'flex-start' }}
@@ -314,7 +314,7 @@ export default async function PricingPage() {
                               <Box>
                                 <Typography sx={{ fontWeight: 950 }}>{pkg.duration}</Typography>
                                 <Typography color="text.secondary" sx={{ fontSize: 13 }}>
-                                  {group.simCount} racer{group.simCount === 1 ? '' : 's'} / pods
+                                  Reserves {group.simCount} pod{group.simCount === 1 ? '' : 's'}
                                 </Typography>
                               </Box>
                               <Typography sx={{ color: '#FFD200', fontWeight: 950, fontSize: 30 }}>
@@ -322,7 +322,7 @@ export default async function PricingPage() {
                               </Typography>
                               <Button
                                 component={Link}
-                                href={`/book?duration=${pkg.durationMinutes}&sims=${group.simCount}`}
+                                href={`/book?duration=${pkg.durationMinutes}&drivers=${group.simCount}`}
                                 variant="outlined"
                                 sx={{ gridColumn: '1 / -1' }}
                               >

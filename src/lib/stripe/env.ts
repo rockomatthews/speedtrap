@@ -42,3 +42,7 @@ export function getStripeMembershipEnv(): StripeMembershipEnv {
     STRIPE_MEMBERSHIP_PRICE_ID: process.env.STRIPE_MEMBERSHIP_PRICE_ID
   });
 }
+
+export function stripeCryptoPaymentsEnabled() {
+  return process.env.STRIPE_CRYPTO_PAYMENTS_ENABLED === 'true';
+}

@@ -3,7 +3,13 @@ import { z } from 'zod';
 
 import { validateBookingDateWithinWindow } from '@/lib/bookings/advance-window';
 import { getBookingAvailability } from '@/lib/bookings/availability';
-import { MAX_CUSTOM_DURATION_MINUTES, MIN_CUSTOM_DURATION_MINUTES, supportedBookingDuration } from '@/lib/bookings/config';
+import {
+  MAX_BOOKING_SIM_COUNT,
+  MAX_CUSTOM_DURATION_MINUTES,
+  MAX_NORMAL_BOOKING_PARTY_SIZE,
+  MIN_CUSTOM_DURATION_MINUTES,
+  supportedBookingDuration
+} from '@/lib/bookings/config';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
 
@@ -16,7 +22,8 @@ const querySchema = z.object({
     .max(MAX_CUSTOM_DURATION_MINUTES)
     .refine(supportedBookingDuration, 'Unsupported booking duration.')
     .default(15),
-  simCount: z.coerce.number().int().min(1).max(4).default(1)
+  simCount: z.coerce.number().int().min(1).max(MAX_BOOKING_SIM_COUNT).optional(),
+  partySize: z.coerce.number().int().min(1).max(MAX_NORMAL_BOOKING_PARTY_SIZE).optional()
 });
 
 export async function GET(request: Request) {
@@ -42,7 +49,10 @@ export async function GET(request: Request) {
     const windowCheck = validateBookingDateWithinWindow(parsed.data.date, profile);
     if (!windowCheck.ok) return NextResponse.json({ error: windowCheck.error }, { status: 403 });
 
-    const availability = await getBookingAvailability(supabase, parsed.data);
+    const availability = await getBookingAvailability(supabase, {
+      ...parsed.data,
+      partySize: parsed.data.partySize ?? parsed.data.simCount ?? 1
+    });
     return NextResponse.json(availability);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to load availability.' }, { status: 500 });

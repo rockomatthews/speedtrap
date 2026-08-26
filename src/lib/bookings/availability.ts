@@ -3,7 +3,10 @@ import { type SupabaseClient } from '@supabase/supabase-js';
 import {
   BOOKING_BUFFER_MINUTES,
   BOOKING_SLOT_INTERVAL_MINUTES,
+  assertPartyDurationAllowed,
   bookingAmountCents,
+  normalizePartySize,
+  simCountForPartySize,
   supportedBookingDuration
 } from '@/lib/bookings/config';
 import { addMinutes, dayOfWeekForVenueDate, localDateTimeToUtc, overlaps, utcToVenueTime } from '@/lib/bookings/time';
@@ -101,10 +104,12 @@ function slotRange(date: string) {
 
 export async function getBookingAvailability(
   supabase: SupabaseClient,
-  input: { date: string; durationMinutes: number; simCount: number; excludeHoldId?: string | null }
+  input: { date: string; durationMinutes: number; simCount?: number; partySize?: number; excludeHoldId?: string | null }
 ) {
   if (!supportedBookingDuration(input.durationMinutes)) throw new Error('Unsupported booking duration.');
-  const simCount = Math.max(1, Math.min(4, Math.floor(input.simCount)));
+  const partySize = normalizePartySize(input.partySize ?? input.simCount ?? 1);
+  assertPartyDurationAllowed(partySize, input.durationMinutes);
+  const simCount = simCountForPartySize(partySize);
   const amountCents = bookingAmountCents(input.durationMinutes, simCount);
   if (!amountCents) throw new Error('Unsupported booking product.');
 
@@ -213,6 +218,7 @@ export async function getBookingAvailability(
   return {
     date: input.date,
     durationMinutes: input.durationMinutes,
+    partySize,
     simCount,
     amountCents,
     currency: 'usd',
@@ -223,12 +229,13 @@ export async function getBookingAvailability(
 
 export async function assertSlotAvailable(
   supabase: SupabaseClient,
-  input: { date: string; startsAt: string; durationMinutes: number; simCount: number; excludeHoldId?: string | null }
+  input: { date: string; startsAt: string; durationMinutes: number; simCount?: number; partySize?: number; excludeHoldId?: string | null }
 ) {
   const availability = await getBookingAvailability(supabase, {
     date: input.date,
     durationMinutes: input.durationMinutes,
     simCount: input.simCount,
+    partySize: input.partySize,
     excludeHoldId: input.excludeHoldId
   });
   const slot = availability.slots.find((item) => item.startsAt === new Date(input.startsAt).toISOString());

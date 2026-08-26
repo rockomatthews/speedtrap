@@ -63,6 +63,8 @@ function syncPayloadFor(booking: VmsBooking) {
   if (!startsAt || !endsAt || endsAt <= startsAt) return null;
 
   const simCount = clampSimCount(booking.numberOfPods ?? booking.groupSize ?? booking.participantIds?.length);
+  const rawPartySize = Number(booking.groupSize ?? booking.participantIds?.length ?? simCount);
+  const partySize = Number.isFinite(rawPartySize) ? Math.max(1, Math.ceil(rawPartySize)) : simCount;
   const name = booking.customerName ?? booking.eventName ?? `VMS booking #${booking.id}`;
 
   return {
@@ -70,6 +72,7 @@ function syncPayloadFor(booking: VmsBooking) {
     customer_email: importedEmailFor(booking.id),
     duration_minutes: durationMinutes(startsAt, endsAt),
     sim_count: simCount,
+    party_size: partySize,
     starts_at: startsAt.toISOString(),
     ends_at: endsAt.toISOString(),
     buffer_until: addMinutes(endsAt, BOOKING_BUFFER_MINUTES).toISOString(),
@@ -129,6 +132,7 @@ export async function syncUpcomingVmsBookings(
             buffer_until: payload.buffer_until,
             duration_minutes: payload.duration_minutes,
             sim_count: payload.sim_count,
+            party_size: payload.party_size,
             status: payload.status,
             vms_customer_id: payload.vms_customer_id,
             error: null

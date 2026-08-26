@@ -6,8 +6,13 @@ import { assertSlotAvailable } from '@/lib/bookings/availability';
 import {
   BOOKING_BUFFER_MINUTES,
   BOOKING_HOLD_MINUTES,
+  MAX_BOOKING_SIM_COUNT,
   MAX_CUSTOM_DURATION_MINUTES,
+  MAX_NORMAL_BOOKING_PARTY_SIZE,
   MIN_CUSTOM_DURATION_MINUTES,
+  assertPartyDurationAllowed,
+  normalizePartySize,
+  simCountForPartySize,
   supportedBookingDuration
 } from '@/lib/bookings/config';
 import { raceRequestDbFields, validateRaceRequest } from '@/lib/bookings/race-request';
@@ -41,7 +46,8 @@ const holdSchema = z.object({
     .min(MIN_CUSTOM_DURATION_MINUTES)
     .max(MAX_CUSTOM_DURATION_MINUTES)
     .refine(supportedBookingDuration, 'Unsupported booking duration.'),
-  simCount: z.number().int().min(1).max(4),
+  simCount: z.number().int().min(1).max(MAX_BOOKING_SIM_COUNT).optional(),
+  partySize: z.number().int().min(1).max(MAX_NORMAL_BOOKING_PARTY_SIZE).optional(),
   raceRequest: raceRequestSchema
 });
 
@@ -65,6 +71,9 @@ export async function POST(request: Request) {
     if (requestedSmsReminder && !customerPhone) {
       return NextResponse.json({ error: 'Enter a valid mobile phone number for the reminder text.' }, { status: 400 });
     }
+    const partySize = normalizePartySize(parsed.data.partySize ?? parsed.data.simCount ?? 1);
+    assertPartyDurationAllowed(partySize, parsed.data.durationMinutes);
+    const simCount = simCountForPartySize(partySize);
 
     let signedInProfile: BookingProfile | null = null;
     let membershipProfile: MembershipProfile | null = null;
@@ -88,7 +97,7 @@ export async function POST(request: Request) {
 
     const price = membershipBookingPrice({
       durationMinutes: parsed.data.durationMinutes,
-      simCount: parsed.data.simCount,
+      simCount,
       profile: membershipProfile,
       creditDate: start
     });
@@ -103,7 +112,7 @@ export async function POST(request: Request) {
       date: utcToVenueDate(start),
       startsAt: start.toISOString(),
       durationMinutes: parsed.data.durationMinutes,
-      simCount: parsed.data.simCount
+      partySize
     });
 
     const { data, error } = await supabase
@@ -114,7 +123,8 @@ export async function POST(request: Request) {
         customer_phone: customerPhone ?? '',
         sms_consent_at: requestedSmsReminder ? new Date().toISOString() : null,
         duration_minutes: parsed.data.durationMinutes,
-        sim_count: parsed.data.simCount,
+        sim_count: simCount,
+        party_size: partySize,
         starts_at: start.toISOString(),
         ends_at: end.toISOString(),
         buffer_until: bufferUntil.toISOString(),
