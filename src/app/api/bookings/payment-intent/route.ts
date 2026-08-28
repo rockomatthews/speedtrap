@@ -91,6 +91,9 @@ export async function POST(request: Request) {
       .update({ stripe_payment_intent_id: paymentIntent.id, payment_method_requested: requestedPaymentMethod })
       .eq('id', hold.id);
     if (update.error) throw new Error(update.error.message);
+    if (!paymentIntent.client_secret) {
+      throw new Error('Stripe did not return a client secret for this payment. Please try again.');
+    }
 
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
@@ -312,25 +312,54 @@ function LiveEventSelect({
 }
 
 function PaymentForm({
+  clientSecret,
   paymentIntentId,
   paymentMethod,
   onConfirmed,
-  onError
+  onError,
+  onRestart,
+  onUseCard
 }: {
+  clientSecret: string;
   paymentIntentId: string;
   paymentMethod: BookingPaymentMethod;
   onConfirmed: (booking: any) => void;
   onError: (error: string) => void;
+  onRestart: () => void;
+  onUseCard: () => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
   const [submitting, setSubmitting] = useState(false);
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState('');
+
+  useEffect(() => {
+    setReady(false);
+    setLoadError('');
+    if (paymentMethod === 'crypto') {
+      setReady(true);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setReady((isReady) => {
+        if (!isReady) {
+          const message = 'Stripe payment fields did not finish loading. Please restart secure checkout and try again.';
+          setLoadError(message);
+          onError(message);
+        }
+        return isReady;
+      });
+    }, 15_000);
+
+    return () => window.clearTimeout(timeout);
+  }, [onError, paymentIntentId, paymentMethod]);
 
   async function submit() {
-    if (!stripe || !elements) return;
-    const paymentElement = elements.getElement(PaymentElement);
-    if (!paymentElement || !ready) {
+    if (!stripe) return;
+    const paymentElement = paymentMethod === 'crypto' ? null : elements?.getElement(PaymentElement);
+    if (paymentMethod !== 'crypto' && (!elements || !paymentElement || !ready || loadError)) {
       onError('Payment fields are still loading. Give them a second and try again.');
       return;
     }
@@ -339,13 +368,23 @@ function PaymentForm({
 
     let result;
     try {
-      result = await stripe.confirmPayment({
-        elements,
-        redirect: 'if_required',
-        confirmParams: {
-          return_url: `${window.location.origin}/book`
-        }
-      });
+      const returnUrl = `${window.location.origin}/book?payment_intent=${encodeURIComponent(paymentIntentId)}`;
+      result =
+        paymentMethod === 'crypto'
+          ? await stripe.confirmPayment({
+              clientSecret,
+              confirmParams: {
+                return_url: returnUrl,
+                payment_method_data: { type: 'crypto' } as any
+              }
+            })
+          : await stripe.confirmPayment({
+              elements: elements!,
+              redirect: 'if_required',
+              confirmParams: {
+                return_url: returnUrl
+              }
+            });
     } catch (error) {
       setSubmitting(false);
       onError(error instanceof Error ? error.message : 'Stripe could not confirm the payment.');
@@ -381,10 +420,48 @@ function PaymentForm({
 
   return (
     <Stack spacing={2}>
-      {!ready ? <Alert severity="info">Loading secure payment fields...</Alert> : null}
-      <PaymentElement onReady={() => setReady(true)} onLoadError={(event) => onError(event.error?.message ?? 'Stripe payment form failed to load.')} />
-      <Button variant="contained" size="large" disabled={!stripe || !elements || submitting || !ready} onClick={submit}>
-        {submitting ? 'Confirming...' : paymentMethod === 'crypto' ? 'Pay with Crypto and Confirm Booking' : 'Pay and Confirm Booking'}
+      {paymentMethod === 'crypto' ? (
+        <Alert severity="info">
+          You&apos;ll finish this payment through Stripe Crypto, then return here for the booking confirmation.
+        </Alert>
+      ) : !ready && !loadError ? (
+        <Alert severity="info">Loading secure payment fields...</Alert>
+      ) : null}
+      {loadError ? (
+        <Alert
+          severity="error"
+          action={
+            <Stack direction="row" spacing={1}>
+              {paymentMethod === 'crypto' ? (
+                <Button color="inherit" size="small" onClick={onUseCard}>
+                  Use card
+                </Button>
+              ) : null}
+              <Button color="inherit" size="small" onClick={onRestart}>
+                Retry
+              </Button>
+            </Stack>
+          }
+        >
+          {loadError}
+        </Alert>
+      ) : null}
+      {paymentMethod === 'crypto' ? null : (
+        <PaymentElement
+          onReady={() => {
+            setReady(true);
+            setLoadError('');
+            onError('');
+          }}
+          onLoadError={(event) => {
+            const message = event.error?.message ?? 'Stripe payment form failed to load.';
+            setLoadError(message);
+            onError(message);
+          }}
+        />
+      )}
+      <Button variant="contained" size="large" disabled={!stripe || submitting || !ready || Boolean(loadError)} onClick={submit}>
+        {submitting ? 'Confirming...' : paymentMethod === 'crypto' ? 'Continue to Stripe Crypto' : 'Pay and Confirm Booking'}
       </Button>
     </Stack>
   );
@@ -431,6 +508,7 @@ export function BookingClient({
   const [loading, setLoading] = useState(false);
   const [startingPayment, setStartingPayment] = useState(false);
   const [error, setError] = useState('');
+  const handledPaymentReturnRef = useRef(false);
   const presetExtraBlockCount = selectionPresetExtraBlockCount;
   const plannedDurationMinutes = baseDurationMinutes + presetExtraBlockCount * CUSTOM_DURATION_BLOCK_MINUTES;
   const durationMinutes = selectedSlot ? baseDurationMinutes + extraBlockCount * CUSTOM_DURATION_BLOCK_MINUTES : plannedDurationMinutes;
@@ -460,6 +538,36 @@ export function BookingClient({
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    if (handledPaymentReturnRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const returnedPaymentIntentId = params.get('payment_intent');
+    if (!returnedPaymentIntentId) return;
+    handledPaymentReturnRef.current = true;
+
+    async function confirmReturnedPayment() {
+      setStartingPayment(true);
+      setError('');
+      try {
+        const res = await fetch('/api/bookings/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentIntentId: returnedPaymentIntentId })
+        });
+        const json = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(json?.error ?? 'Payment returned from Stripe, but booking confirmation failed.');
+        setBooking(json.booking);
+        window.history.replaceState({}, '', window.location.pathname);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Payment returned from Stripe, but booking confirmation failed.');
+      } finally {
+        setStartingPayment(false);
+      }
+    }
+
+    void confirmReturnedPayment();
   }, []);
 
   useEffect(() => {
@@ -641,6 +749,9 @@ export function BookingClient({
       if (payJson?.freeBooking && payJson.booking) {
         setBooking(payJson.booking);
         return;
+      }
+      if (typeof payJson?.clientSecret !== 'string' || !payJson.clientSecret || typeof payJson?.paymentIntentId !== 'string' || !payJson.paymentIntentId) {
+        throw new Error('Stripe did not return a usable payment form. Please try again.');
       }
       setClientSecret(payJson.clientSecret);
       setPaymentIntentId(payJson.paymentIntentId);
@@ -992,8 +1103,25 @@ export function BookingClient({
                 </Button>
               ) : stripePromise ? (
                 <Stack spacing={1.5}>
-                  <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night' } }}>
-                    <PaymentForm paymentIntentId={paymentIntentId} paymentMethod={paymentMethod} onConfirmed={setBooking} onError={setError} />
+                  <Elements key={clientSecret} stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night' } }}>
+                    <PaymentForm
+                      clientSecret={clientSecret}
+                      paymentIntentId={paymentIntentId}
+                      paymentMethod={paymentMethod}
+                      onConfirmed={setBooking}
+                      onError={setError}
+                      onRestart={() => {
+                        setClientSecret('');
+                        setPaymentIntentId('');
+                        setError('');
+                      }}
+                      onUseCard={() => {
+                        setPaymentMethod('card');
+                        setClientSecret('');
+                        setPaymentIntentId('');
+                        setError('Switched to card. Press Continue to Payment to restart secure checkout.');
+                      }}
+                    />
                   </Elements>
                   <Button
                     variant="text"
