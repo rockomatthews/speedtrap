@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 
+import { releaseBookingResources } from '@/lib/bookings/availability';
 import { confirmRaceBookingFromPaymentIntent } from '@/lib/bookings/confirm';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getStripeWebhookEnv } from '@/lib/stripe/env';
@@ -54,6 +55,7 @@ async function markRaceBookingRefundedFromStripe(input: {
     if (refundId && !booking.stripe_refund_id) {
       await supabaseAdmin.from('race_bookings').update({ stripe_refund_id: refundId }).eq('id', booking.id);
     }
+    await releaseBookingResources(supabaseAdmin, booking.id);
     return;
   }
 
@@ -75,6 +77,7 @@ async function markRaceBookingRefundedFromStripe(input: {
     })
     .eq('id', booking.id);
   if (updateError) throw new Error(updateError.message);
+  await releaseBookingResources(supabaseAdmin, booking.id);
 
   if (paymentIntentId) {
     await supabaseAdmin

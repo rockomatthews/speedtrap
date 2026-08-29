@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { z } from 'zod';
 
 import { canAutoCancel } from '@/lib/bookings/confirm';
+import { releaseBookingResources } from '@/lib/bookings/availability';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getAuthedProfile } from '@/lib/supabase/profile';
 import { getStripeEnv } from '@/lib/stripe/env';
@@ -70,6 +71,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .select('*')
       .single();
     if (updateError) throw new Error(updateError.message);
+    await releaseBookingResources(supabase, booking.id);
 
     return NextResponse.json({ booking: updated });
   } catch (error) {

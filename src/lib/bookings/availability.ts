@@ -292,3 +292,8 @@ export async function allocateBookingResources(
   if (insertRes.error) throw new Error(insertRes.error.message);
   return selected;
 }
+
+export async function releaseBookingResources(supabase: SupabaseClient, bookingId: string) {
+  const deleteRes = await supabase.from('race_booking_resources').delete().eq('booking_id', bookingId);
+  if (deleteRes.error) throw new Error(deleteRes.error.message);
+}
