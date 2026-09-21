@@ -18,7 +18,9 @@ import {
 import { raceRequestDbFields, validateRaceRequest } from '@/lib/bookings/race-request';
 import { addMinutes, utcToVenueDate } from '@/lib/bookings/time';
 import { syncUpcomingVmsBookings } from '@/lib/bookings/vms-sync';
-import { membershipBookingPrice, type MembershipProfile } from '@/lib/membership';
+import { applyRacingDiscount } from '@/lib/bookings/discount';
+import { getRacingDiscount } from '@/lib/bookings/discount-server';
+import { isMembershipActive, membershipBookingPrice, type MembershipProfile } from '@/lib/membership';
 import { normalizeUsPhone } from '@/lib/phone';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
@@ -102,8 +104,10 @@ export async function POST(request: Request) {
       creditDate: start
     });
     if (!price) return NextResponse.json({ error: 'Unsupported booking product.' }, { status: 400 });
-    const taxCents = salesTaxCents(price.amountCents);
-    const totalAmountCents = totalWithSalesTaxCents(price.amountCents);
+    const discount = await getRacingDiscount(supabase);
+    const racingPrice = applyRacingDiscount(price.amountCents, discount, isMembershipActive(membershipProfile));
+    const taxCents = salesTaxCents(racingPrice.amountCents);
+    const totalAmountCents = totalWithSalesTaxCents(racingPrice.amountCents);
     const raceRequest = await validateRaceRequest(parsed.data.raceRequest, start);
 
     await syncUpcomingVmsBookings(supabase);
@@ -134,17 +138,19 @@ export async function POST(request: Request) {
         membership_free_race_month: price.freeRaceMonth,
         membership_free_race_applied: price.freeRaceApplied,
         membership_discount_cents: price.discountCents,
+        racing_discount_percent: racingPrice.percent,
+        racing_discount_cents: racingPrice.discountCents,
         membership_credit_type: price.creditType,
         membership_credit_month: price.creditMonth,
         membership_credit_year: price.creditYear,
         ...raceRequestDbFields(raceRequest),
         expires_at: addMinutes(new Date(), BOOKING_HOLD_MINUTES).toISOString()
       })
-      .select('id,amount_cents,currency,expires_at,membership_free_race_applied,membership_discount_cents')
+      .select('id,amount_cents,currency,expires_at,membership_free_race_applied,membership_discount_cents,racing_discount_percent,racing_discount_cents')
       .single();
     if (error) throw new Error(error.message);
 
-    return NextResponse.json({ hold: { ...data, subtotal_cents: price.amountCents, sales_tax_cents: taxCents } });
+    return NextResponse.json({ hold: { ...data, subtotal_cents: racingPrice.amountCents, sales_tax_cents: taxCents, base_amount_cents: price.baseAmountCents, membership_credit_label: price.creditLabel } });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to hold booking.' }, { status: 409 });
   }

@@ -1,3 +1,6 @@
+import { RacingPrice } from '@/components/racing/RacingPrice';
+import { RacingDiscountProvider } from '@/components/racing/RacingDiscountProvider';
+import { getRacingDiscount } from '@/lib/bookings/discount-server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
@@ -18,8 +21,8 @@ import { getHomepageLeaderboardRows } from '@/lib/vms/homepage-leaderboard';
 export const dynamic = 'force-dynamic';
 
 const quickRacePricing = [
-  { label: 'Quick Race', minutes: '15 min', price: '$15', note: 'Fast laps, first timers, and quick rematches.' },
-  { label: 'Full Session', minutes: '30 min', price: '$28', note: 'More attempts, better rhythm, bigger leaderboard swings.' }
+  { label: 'Quick Race', minutes: '15 min', durationMinutes: 15, note: 'Fast laps, first timers, and quick rematches.' },
+  { label: 'Full Session', minutes: '30 min', durationMinutes: 30, note: 'More attempts, better rhythm, bigger leaderboard swings.' }
 ];
 
 const experienceHighlights = [
@@ -50,10 +53,14 @@ export default async function HomePage({
   if (typeof code === 'string' && code.length > 0) {
     redirect(`/auth/callback?code=${encodeURIComponent(code)}&redirectTo=${encodeURIComponent('/dashboard')}`);
   }
-  const homepageLeaderboard = await getHomepageLeaderboardRows();
+  const [discount, homepageLeaderboard] = await Promise.all([
+    getRacingDiscount().catch(() => null),
+    getHomepageLeaderboardRows()
+  ]);
   const leaderboardRows = homepageLeaderboard.rows.length > 0 ? homepageLeaderboard.rows : emptyLeaderboardRows;
 
   return (
+    <RacingDiscountProvider initialDiscount={discount}>
     <Box
       sx={{
         minHeight: '100vh',
@@ -340,7 +347,7 @@ export default async function HomePage({
                         {item.minutes}
                       </Typography>
                       <Typography sx={{ mt: 1, fontSize: { xs: 56, md: 64 }, lineHeight: 1, fontWeight: 950 }}>
-                        {item.price}
+                        <RacingPrice durationMinutes={item.durationMinutes} />
                       </Typography>
                       <Typography color="text.secondary" sx={{ mt: 1 }}>
                         {item.note}
@@ -566,5 +573,6 @@ export default async function HomePage({
         </Stack>
       </Container>
     </Box>
+    </RacingDiscountProvider>
   );
 }

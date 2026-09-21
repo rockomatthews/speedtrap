@@ -30,7 +30,11 @@ import {
   normalizePartySize,
   simCountForPartySize,
 } from '@/lib/bookings/config';
+import { applyRacingDiscount } from '@/lib/bookings/discount';
+import { useRacingDiscount } from '@/components/racing/RacingDiscountProvider';
 import { salesTaxCents, totalWithSalesTaxCents } from '@/lib/stripe/tax';
+
+type CheckoutQuote = { subtotal_cents: number; sales_tax_cents: number; amount_cents: number; base_amount_cents: number; membership_discount_cents: number; membership_credit_label: string | null; racing_discount_percent: number; racing_discount_cents: number };
 
 type Slot = {
   startsAt: string;
@@ -480,6 +484,9 @@ export function BookingClient({
   initialBookingWindow?: BookingWindow;
   cryptoPaymentsEnabled?: boolean;
 }) {
+  const discount = useRacingDiscount();
+  const [checkoutQuote, setCheckoutQuote] = useState<CheckoutQuote | null>(null);
+  const [signedInEmail, setSignedInEmail] = useState('');
   const normalizedInitialPartySize = normalizePartySize(initialPartySize);
   const safeInitialDurationMinutes = isRotationBooking(normalizedInitialPartySize) && initialDurationMinutes < 30 ? 30 : initialDurationMinutes;
   const initialBaseDurationMinutes: 15 | 30 = safeInitialDurationMinutes >= 30 ? 30 : 15;
@@ -529,6 +536,7 @@ export function BookingClient({
       const email = json.user?.email || json.customer?.email || '';
       if (name) setCustomerName(name);
       if (email) setCustomerEmail(email);
+      setSignedInEmail(String(json.user?.email ?? '').toLowerCase());
       if (json.membership) setMembership(json.membership);
       if (json.bookingWindow?.minDate && json.bookingWindow?.maxDate) {
         setBookingWindow(json.bookingWindow);
@@ -666,7 +674,7 @@ export function BookingClient({
   }
 
   function toggleSlot(slot: Slot) {
-    if (!availability || clientSecret) return;
+    if (!availability || clientSecret || startingPayment) return;
     if (!selectedSlot) {
       selectStartSlot(slot);
       return;
@@ -739,10 +747,11 @@ export function BookingClient({
       const holdJson = await holdRes.json().catch(() => null);
       if (!holdRes.ok) throw new Error(holdJson?.error ?? 'Failed to hold that booking time.');
 
+      setCheckoutQuote(holdJson.hold);
       const payRes = await fetch('/api/bookings/payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ holdId: holdJson.hold.id, paymentMethod: amountCents > 0 ? paymentMethod : 'card' })
+        body: JSON.stringify({ holdId: holdJson.hold.id, paymentMethod: holdJson.hold.amount_cents > 0 ? paymentMethod : 'card' })
       });
       const payJson = await payRes.json().catch(() => null);
       if (!payRes.ok) throw new Error(payJson?.error ?? 'Failed to start payment.');
@@ -763,14 +772,21 @@ export function BookingClient({
   }
 
   const baseAmountCents = bookingPrice(durationMinutes, reservedSimCount);
-  const memberPrice = memberBookingPrice(durationMinutes, reservedSimCount, membership);
-  const subtotalCents = memberPrice.amountCents;
-  const taxCents = salesTaxCents(subtotalCents);
-  const amountCents = totalWithSalesTaxCents(subtotalCents);
+  const applicableMembership = signedInEmail && customerEmail.trim().toLowerCase() === signedInEmail ? membership : null;
+  const memberPrice = memberBookingPrice(durationMinutes, reservedSimCount, applicableMembership);
+  const preview = discount ? applyRacingDiscount(memberPrice.amountCents, discount, Boolean(applicableMembership && applicableMembership.status !== 'inactive')) : null;
+  const lockedQuote = clientSecret ? checkoutQuote : null;
+  const subtotalCents = lockedQuote?.subtotal_cents ?? preview?.amountCents ?? memberPrice.amountCents;
+  const taxCents = lockedQuote?.sales_tax_cents ?? salesTaxCents(subtotalCents);
+  const amountCents = lockedQuote?.amount_cents ?? totalWithSalesTaxCents(subtotalCents);
+  const racingDiscountPercent = lockedQuote?.racing_discount_percent ?? preview?.percent ?? 0;
+  const racingDiscountCents = lockedQuote?.racing_discount_cents ?? preview?.discountCents ?? 0;
+  const memberSavings = lockedQuote?.membership_discount_cents ?? memberPrice.discountCents;
+  const creditLabel = lockedQuote ? lockedQuote.membership_credit_label : memberPrice.creditLabel;
   const raceRequestReady = raceRequestMode === 'none' || (raceRequestMode === 'hotlap_event' && Boolean(selectedEvent));
   const reminderPhoneReady = !smsConsent || customerPhone.replace(/\D/g, '').length >= 10;
   const canStartPayment = Boolean(
-    selectedSlot &&
+    discount && selectedSlot &&
       reservedSimCount >= 1 &&
       reservedSimCount <= selectedWindowAvailableSims &&
       customerName.trim().length >= 3 &&
@@ -791,6 +807,8 @@ export function BookingClient({
             <Typography color="text.secondary">
               {formatDateTime(booking.starts_at)} for {driverPodLabel(booking.party_size, booking.sim_count)}.
             </Typography>
+            <Typography sx={{ fontWeight: 900 }}>Total: {money(booking.amount_cents)}</Typography>
+            {booking.racing_discount_percent > 0 && <Typography color="primary">Racing discount: {booking.racing_discount_percent}% ({money(booking.racing_discount_cents)} saved before tax)</Typography>}
             {booking.vms_booking_id ? <Typography>VMS booking #{booking.vms_booking_id}</Typography> : null}
             {raceRequestSummary(booking) ? <Typography>Race request: {raceRequestSummary(booking)}</Typography> : null}
             {booking.error ? <Alert severity="warning">{booking.error}</Alert> : null}
@@ -816,7 +834,7 @@ export function BookingClient({
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    disabled={Boolean(clientSecret)}
+                    disabled={Boolean(clientSecret) || startingPayment}
                     fullWidth
                     slotProps={{
                       htmlInput: {
@@ -832,7 +850,7 @@ export function BookingClient({
                     value={durationMode}
                     exclusive
                     fullWidth
-                    disabled={Boolean(clientSecret)}
+                    disabled={Boolean(clientSecret) || startingPayment}
                     onChange={(_e, value) => changeDurationMode(value)}
                   >
                     <ToggleButton value="15" disabled={rotationBooking}>
@@ -892,7 +910,7 @@ export function BookingClient({
                           <Button
                             fullWidth
                             variant={isWindowSelected ? 'contained' : 'outlined'}
-                            disabled={!canInteract}
+                            disabled={!canInteract || startingPayment}
                             onClick={() => toggleSlot(slot)}
                             sx={{
                               minHeight: 78,
@@ -943,20 +961,21 @@ export function BookingClient({
               <Stack spacing={0.5}>
                 <Typography color="text.secondary">Session</Typography>
                 <Typography sx={{ fontWeight: 900 }}>
-                  {driverPodLabel(partySize, reservedSimCount)} · {durationMinutes} min race - {money(subtotalCents)}
+                  {driverPodLabel(partySize, reservedSimCount)} · {durationMinutes} min race - {discount || lockedQuote ? money(subtotalCents) : 'Price unavailable'}
                 </Typography>
                 <Typography color="text.secondary" sx={{ fontSize: 13 }}>
                   {rotationBooking
                     ? `Rotation booking: ${partySize} drivers cycling through 4 sims.`
                     : `Reserving ${reservedSimCount} sim${reservedSimCount === 1 ? '' : 's'}.`}
                 </Typography>
-                {memberPrice.discountCents > 0 ? (
+                {memberSavings > 0 ? (
                   <Typography color="primary" sx={{ fontSize: 13, fontWeight: 800 }}>
-                    Member savings: {money(memberPrice.discountCents)}
-                    {memberPrice.creditLabel ? ` including your ${memberPrice.creditLabel}` : ''}
+                    Member savings: {money(memberSavings)}
+                    {creditLabel ? ` including your ${creditLabel}` : ''}
                   </Typography>
                 ) : null}
-                {memberPrice.discountCents > 0 && baseAmountCents !== subtotalCents ? (
+                {racingDiscountPercent > 0 && <Typography color="primary" sx={{ fontSize: 13, fontWeight: 800 }}>Racing discount ({racingDiscountPercent}%): −{money(racingDiscountCents)}</Typography>}
+                {(memberSavings > 0 || racingDiscountCents > 0) && baseAmountCents !== subtotalCents ? (
                   <Typography color="text.secondary" sx={{ fontSize: 12 }}>
                     Standard price: {money(baseAmountCents)}
                   </Typography>
@@ -964,7 +983,8 @@ export function BookingClient({
                 <Typography color="text.secondary" sx={{ fontSize: 12 }}>
                   Sales tax (8%): {money(taxCents)}
                 </Typography>
-                <Typography sx={{ fontWeight: 950 }}>Total: {money(amountCents)}</Typography>
+                <Typography sx={{ fontWeight: 950 }}>Total: {discount || lockedQuote ? money(amountCents) : 'Price unavailable'}</Typography>
+                {!discount && !lockedQuote && <Alert severity="warning">Unable to load current prices. Please try again before checkout.</Alert>}
                 <Typography color="text.secondary">{selectedSlot ? `${date} at ${slotRangeLabel(selectedSlot, durationMinutes)}` : 'Choose a time slot'}</Typography>
               </Stack>
               <Box>
@@ -980,7 +1000,7 @@ export function BookingClient({
                       <Grid key={count} size={{ xs: 6, sm: 3 }}>
                         <Button
                           fullWidth
-                          disabled={!enabled || Boolean(clientSecret)}
+                          disabled={!enabled || Boolean(clientSecret) || startingPayment}
                           variant={selected ? 'contained' : 'outlined'}
                           onClick={() => {
                             const nextPartySize = normalizePartySize(count);
@@ -1018,19 +1038,19 @@ export function BookingClient({
                   </Alert>
                 ) : null}
               </Box>
-              <TextField label="Full name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} disabled={Boolean(clientSecret)} fullWidth />
-              <TextField label="Email" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} disabled={Boolean(clientSecret)} fullWidth />
+              <TextField label="Full name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} disabled={Boolean(clientSecret) || startingPayment} fullWidth />
+              <TextField label="Email" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} disabled={Boolean(clientSecret) || startingPayment} fullWidth />
               <TextField
                 label="Mobile phone"
                 type="tel"
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
-                disabled={Boolean(clientSecret)}
+                disabled={Boolean(clientSecret) || startingPayment}
                 fullWidth
                 helperText={smsConsent ? 'Required for the reminder text.' : 'Optional. Add it if you want a 3-minute reminder text.'}
               />
               <FormControlLabel
-                control={<Checkbox checked={smsConsent} onChange={(e) => setSmsConsent(e.target.checked)} disabled={Boolean(clientSecret)} />}
+                control={<Checkbox checked={smsConsent} onChange={(e) => setSmsConsent(e.target.checked)} disabled={Boolean(clientSecret) || startingPayment} />}
                 label="Text me a reminder 3 minutes before my race."
               />
               {cryptoPaymentsEnabled && amountCents > 0 ? (
@@ -1042,7 +1062,7 @@ export function BookingClient({
                     value={paymentMethod}
                     exclusive
                     fullWidth
-                    disabled={Boolean(clientSecret)}
+                    disabled={Boolean(clientSecret) || startingPayment}
                     onChange={(_event, value: BookingPaymentMethod | null) => {
                       if (!value) return;
                       setPaymentMethod(value);
@@ -1067,7 +1087,7 @@ export function BookingClient({
                   value={raceRequestMode}
                   exclusive
                   fullWidth
-                  disabled={Boolean(clientSecret)}
+                  disabled={Boolean(clientSecret) || startingPayment}
                   onChange={(_event, value: RaceRequestMode | null) => {
                     if (!value) return;
                     setRaceRequestMode(value);
@@ -1085,7 +1105,7 @@ export function BookingClient({
                       label="Live hotlap event"
                       value={selectedEvent}
                       onChange={setSelectedEvent}
-                      disabled={Boolean(clientSecret) || !selectedSlot}
+                      disabled={Boolean(clientSecret) || startingPayment || !selectedSlot}
                       startsAt={selectedSlot?.startsAt}
                       helperText="Only events live during this booking time are shown."
                     />

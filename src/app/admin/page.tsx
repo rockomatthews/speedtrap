@@ -36,6 +36,9 @@ export default async function AdminPage() {
             <Button component={Link} href="/admin/bookings#booking-hours" variant="contained">
               Edit Booking Hours & Sims
             </Button>
+            <Button component={Link} href="/admin/discounts" variant="contained">
+              Racing Discount Mode
+            </Button>
             <Button component={Link} href="/admin/members" variant="contained">
               Manage Members
             </Button>

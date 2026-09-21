@@ -1,3 +1,6 @@
+import { RacingPrice } from '@/components/racing/RacingPrice';
+import { RacingDiscountProvider } from '@/components/racing/RacingDiscountProvider';
+import { getRacingDiscount } from '@/lib/bookings/discount-server';
 import Link from 'next/link';
 
 import Alert from '@mui/material/Alert';
@@ -25,21 +28,18 @@ const soloPricing = [
     name: 'Quick Race Session',
     durationMinutes: 15,
     duration: '15 minutes',
-    price: '$15',
     description: 'A fast hit of sim racing for first timers, quick rematches, and lunch-break laps.'
   },
   {
     name: 'Quick Race Session',
     durationMinutes: 30,
     duration: '30 minutes',
-    price: '$28',
     description: 'More seat time, more attempts, and a better shot at climbing the STR leaderboard.'
   },
   {
     name: 'Feature Race Session',
     durationMinutes: 60,
     duration: '60 minutes',
-    price: '$52',
     description: 'A full hour for rhythm, setup comfort, and proper leaderboard runs.'
   }
 ];
@@ -50,8 +50,8 @@ const partyPricing = [
     simCount: 2,
     description: 'Side-by-side racing for couples, friends, and head-to-head battles.',
     packages: [
-      { durationMinutes: 30, duration: '30 minutes', price: '$60' },
-      { durationMinutes: 60, duration: '60 minutes', price: '$110' }
+      { durationMinutes: 30, duration: '30 minutes' },
+      { durationMinutes: 60, duration: '60 minutes' }
     ]
   },
   {
@@ -59,8 +59,8 @@ const partyPricing = [
     simCount: 3,
     description: 'A compact party lane with room for a small crew to run together.',
     packages: [
-      { durationMinutes: 30, duration: '30 minutes', price: '$88' },
-      { durationMinutes: 60, duration: '60 minutes', price: '$162' }
+      { durationMinutes: 30, duration: '30 minutes' },
+      { durationMinutes: 60, duration: '60 minutes' }
     ]
   },
   {
@@ -68,8 +68,8 @@ const partyPricing = [
     simCount: 4,
     description: 'Take over all four connected rigs for the full Speed Trap race-night feel.',
     packages: [
-      { durationMinutes: 30, duration: '30 minutes', price: '$115' },
-      { durationMinutes: 60, duration: '60 minutes', price: '$210' }
+      { durationMinutes: 30, duration: '30 minutes' },
+      { durationMinutes: 60, duration: '60 minutes' }
     ]
   }
 ];
@@ -113,11 +113,15 @@ function memberPriceLabel(durationMinutes: number, profile: Awaited<ReturnType<t
 }
 
 export default async function PricingPage() {
-  const { user, profile } = await getAuthedProfile().catch(() => ({ user: null, profile: null }));
+  const [discount, { user, profile }] = await Promise.all([
+    getRacingDiscount().catch(() => null),
+    getAuthedProfile().catch(() => ({ user: null, profile: null }))
+  ]);
   const membershipActive = isMembershipActive(profile);
   const monthlyRaceAvailable = hasUnusedMonthlyRace(profile);
 
   return (
+    <RacingDiscountProvider initialDiscount={discount}>
     <Box
       sx={{
         minHeight: '100vh',
@@ -217,7 +221,7 @@ export default async function PricingPage() {
                         </Typography>
                       </Box>
                       <Typography sx={{ fontSize: { xs: 68, md: 84 }, lineHeight: 0.9, fontWeight: 950, color: '#FFD200' }}>
-                        {item.price}
+                        <RacingPrice durationMinutes={item.durationMinutes} />
                       </Typography>
                       {membershipActive ? (
                         <Chip
@@ -318,7 +322,7 @@ export default async function PricingPage() {
                                 </Typography>
                               </Box>
                               <Typography sx={{ color: '#FFD200', fontWeight: 950, fontSize: 30 }}>
-                                {pkg.price}
+                                <RacingPrice durationMinutes={pkg.durationMinutes} simCount={group.simCount} />
                               </Typography>
                               <Button
                                 component={Link}
@@ -596,5 +600,6 @@ export default async function PricingPage() {
         </Stack>
       </AppShell>
     </Box>
+    </RacingDiscountProvider>
   );
 }

@@ -11,7 +11,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "generate:brand-assets": "node scripts/generate-brand-assets.mjs"
+    "generate:brand-assets": "node scripts/generate-brand-assets.mjs",
+    "test:discount": "node --test tests/racing-discount.test.cjs"
   },
   "dependencies": {
     "@blocknote/core": "^0.51.3",

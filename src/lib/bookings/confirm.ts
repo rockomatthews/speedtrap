@@ -93,6 +93,7 @@ function bookingPaymentNotes(booking: any, lines: Array<string | null | undefine
     `Package: ${bookingPackageLabel(booking.duration_minutes, bookingSimCount(booking))}`,
     `Drivers/pods: ${driverPodLine(booking)}`,
     `Total charged: ${formatMoneyFromBooking(booking)}`,
+    booking.racing_discount_percent ? `Racing discount: ${booking.racing_discount_percent}% ($${((booking.racing_discount_cents ?? 0) / 100).toFixed(2)} before tax).` : null,
     ...lines
   ]
     .filter(Boolean)
@@ -203,6 +204,8 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
       membership_free_race_month: hold.membership_free_race_month ?? null,
       membership_free_race_applied: Boolean(hold.membership_free_race_applied),
       membership_discount_cents: hold.membership_discount_cents ?? 0,
+      racing_discount_percent: hold.racing_discount_percent ?? 0,
+      racing_discount_cents: hold.racing_discount_cents ?? 0,
       membership_credit_type: hold.membership_credit_type ?? (hold.membership_free_race_applied ? 'monthly_15' : 'none'),
       membership_credit_month: hold.membership_credit_month ?? hold.membership_free_race_month ?? null,
       membership_credit_year: hold.membership_credit_year ?? null,
@@ -338,6 +341,8 @@ export async function confirmRaceBookingFromHold(input: {
       membership_free_race_month: hold.membership_free_race_month ?? null,
       membership_free_race_applied: Boolean(hold.membership_free_race_applied),
       membership_discount_cents: hold.membership_discount_cents ?? 0,
+      racing_discount_percent: hold.racing_discount_percent ?? 0,
+      racing_discount_cents: hold.racing_discount_cents ?? 0,
       membership_credit_type: hold.membership_credit_type ?? (hold.membership_free_race_applied ? 'monthly_15' : 'none'),
       membership_credit_month: hold.membership_credit_month ?? hold.membership_free_race_month ?? null,
       membership_credit_year: hold.membership_credit_year ?? null,

@@ -61,6 +61,8 @@ type RaceBooking = {
   starts_at: string;
   ends_at: string;
   amount_cents: number;
+  racing_discount_percent: number;
+  racing_discount_cents: number;
   currency: string;
   status: string;
   vms_booking_id: number | null;
@@ -854,6 +856,7 @@ export function AdminBookingsClient() {
                           <Chip size="small" color="success" label={`Member savings ${money(booking.membership_discount_cents, booking.currency)}`} sx={{ fontWeight: 900 }} />
                         ) : null}
                         <Chip size="small" label={money(booking.amount_cents, booking.currency)} />
+                        {booking.racing_discount_percent > 0 && <Chip size="small" color="success" label={`${booking.racing_discount_percent}% racing discount`} />}
                       </Stack>
                     </Stack>
                   </Box>
@@ -1023,6 +1026,7 @@ export function AdminBookingsClient() {
                   </Typography>
                   <Stack direction="row" spacing={0.75}>
                     <Chip size="small" label={money(booking.amount_cents, booking.currency)} />
+                        {booking.racing_discount_percent > 0 && <Chip size="small" color="success" label={`${booking.racing_discount_percent}% racing discount`} />}
                     {paymentMethodLabel(booking.payment_method) ? <Chip size="small" label={paymentMethodLabel(booking.payment_method)} /> : null}
                     <Chip size="small" label={booking.status} color={statusColor(booking.status) as any} />
                   </Stack>

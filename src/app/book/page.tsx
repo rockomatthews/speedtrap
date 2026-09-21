@@ -1,3 +1,5 @@
+import { RacingDiscountProvider } from '@/components/racing/RacingDiscountProvider';
+import { getRacingDiscount } from '@/lib/bookings/discount-server';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -51,6 +53,7 @@ export default async function BookPage({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const discount = await getRacingDiscount().catch(() => null);
   const sp = (await searchParams) ?? {};
   const rawPublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
   const publishableKey = validateStripePublishableKey(rawPublishableKey);
@@ -60,6 +63,7 @@ export default async function BookPage({
   const initialBookingWindow = bookingDateWindow(profile);
 
   return (
+    <RacingDiscountProvider initialDiscount={discount}>
     <AppShell>
       <Stack spacing={3}>
         <Stack spacing={0.75}>
@@ -147,5 +151,6 @@ export default async function BookPage({
         </Box>
       </Stack>
     </AppShell>
+    </RacingDiscountProvider>
   );
 }

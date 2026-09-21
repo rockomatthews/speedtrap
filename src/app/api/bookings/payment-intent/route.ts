@@ -64,6 +64,8 @@ export async function POST(request: Request) {
         metadata: {
           booking_hold_id: hold.id,
           source: 'speedtrap_online_booking',
+          racing_discount_percent: String(hold.racing_discount_percent ?? 0),
+          racing_discount_cents: String(hold.racing_discount_cents ?? 0),
           party_size: String(partySize),
           sim_count: String(simCount),
           payment_method_requested: requestedPaymentMethod,

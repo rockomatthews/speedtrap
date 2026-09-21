@@ -22,6 +22,8 @@ type RaceBooking = {
   starts_at: string;
   ends_at: string;
   amount_cents: number;
+  racing_discount_percent: number;
+  racing_discount_cents: number;
   currency: string;
   status: string;
   vms_booking_id: number | null;
@@ -135,6 +137,7 @@ export function RaceBookingsList() {
                     {new Date(booking.starts_at).toLocaleString()} ·{' '}
                     {booking.vms_booking_id ? `VMS booking #${booking.vms_booking_id}` : 'VMS sync pending'}
                   </Typography>
+                  {booking.racing_discount_percent > 0 && <Typography color="primary" variant="body2">Racing discount: {booking.racing_discount_percent}% (${(booking.racing_discount_cents / 100).toFixed(2)} saved before tax)</Typography>}
                   {raceRequestLabel(booking) ? (
                     <Typography color="text.secondary">Race request: {raceRequestLabel(booking)}</Typography>
                   ) : null}
