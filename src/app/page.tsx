@@ -1,6 +1,6 @@
 import { RacingPrice } from '@/components/racing/RacingPrice';
 import { RacingDiscountProvider } from '@/components/racing/RacingDiscountProvider';
-import { getRacingDiscount } from '@/lib/bookings/discount-server';
+import { getRacingDiscountForDisplay } from '@/lib/bookings/discount-server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
@@ -54,7 +54,7 @@ export default async function HomePage({
     redirect(`/auth/callback?code=${encodeURIComponent(code)}&redirectTo=${encodeURIComponent('/dashboard')}`);
   }
   const [discount, homepageLeaderboard] = await Promise.all([
-    getRacingDiscount().catch(() => null),
+    getRacingDiscountForDisplay().catch(() => null),
     getHomepageLeaderboardRows()
   ]);
   const leaderboardRows = homepageLeaderboard.rows.length > 0 ? homepageLeaderboard.rows : emptyLeaderboardRows;

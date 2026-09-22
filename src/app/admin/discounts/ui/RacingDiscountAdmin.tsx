@@ -42,14 +42,14 @@ export function RacingDiscountAdmin() {
       if (!response.ok) throw new Error(json.error ?? 'Save failed');
       const value = racingDiscountSchema.parse(json.discount);
       setSaved(value); setEnabled(value.enabled); setPercent(String(value.percent));
-      setMessage(value.enabled ? `Saved: ${value.percent}% off standard racing is active.` : 'Saved: discount mode is off. Standard racing prices restored.');
+      setMessage(value.enabled ? `Saved: ${value.percent}% off today’s standard racing is active.` : 'Saved: discount mode is off. Standard racing prices restored.');
     } catch (e) { setError(e instanceof Error ? e.message : 'Discount was not saved.'); }
     finally { setBusy(false); }
   }
   return <Card variant="outlined" sx={{ maxWidth: 720 }}><CardContent><Stack spacing={2.5}>
     <Typography variant="h5" sx={{ fontWeight: 900 }}>Racing timeslots</Typography>
-    <Typography color="text.secondary">Discount standard website racing bookings while this mode is active. Includes solo, group, and extended sessions. Membership pricing, food, merch, and private-event deposits are unchanged.</Typography>
-    {saved && <Alert severity={saved.enabled ? 'success' : 'info'}>Currently {saved.enabled ? `ON — ${saved.percent}% off` : 'OFF — standard prices'}</Alert>}
+    <Typography color="text.secondary">Discount standard website racing sessions taking place today while this mode is active. Today follows the venue’s timezone. Future dates always use regular pricing. Includes solo, group, and extended sessions. Membership pricing, food, merch, and private-event deposits are unchanged.</Typography>
+    {saved && <Alert severity={saved.enabled ? 'success' : 'info'}>Currently {saved.enabled ? `ON — ${saved.percent}% off today’s sessions` : 'OFF — standard prices'}</Alert>}
     {error && <Alert severity="error" action={!saved ? <Button color="inherit" onClick={load} disabled={busy}>Retry</Button> : undefined}>{error}</Alert>}
     {message && <Alert severity="success" role="status">{message}</Alert>}
     <FormControlLabel label="Discount mode" control={<Switch checked={enabled} disabled={!saved || busy} onChange={(e) => { setEnabled(e.target.checked); setMessage(''); }} />} />

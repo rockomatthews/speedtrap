@@ -6,6 +6,9 @@ const { bookingAmountCents } = loader()('src/lib/bookings/config.ts');
 const { membershipBookingPrice } = loader()('src/lib/membership.ts');
 const { salesTaxCents } = loader()('src/lib/stripe/tax.ts');
 const OFF = { enabled: false, percent: 25 }, ON = { enabled: true, percent: 25 };
+const TODAY = '2027-01-11';
+const { utcToVenueDate } = loader()('src/lib/bookings/time.ts');
+test.beforeEach(t => t.mock.timers.enable({ apis: ['Date'], now: new Date('2027-01-11T18:00:00Z') }));
 const id = '11111111-1111-4111-8111-111111111111';
 
 function database(initial = {}) {
@@ -36,7 +39,7 @@ function database(initial = {}) {
 }
 
 const request = (body) => new Request('http://localhost/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-const body = { customerName: 'Test Driver', customerEmail: 'driver@example.invalid', startsAt: '2027-01-10T18:00:00Z', durationMinutes: 30, partySize: 1 };
+const body = { customerName: 'Test Driver', customerEmail: 'driver@example.invalid', startsAt: '2027-01-11T18:00:00Z', durationMinutes: 30, partySize: 1 };
 function holdRoute(db, discount = ON, user = null) {
   return loader({
     '@/lib/supabase/admin': { createSupabaseAdminClient: () => db },
@@ -52,16 +55,16 @@ function holdRoute(db, discount = ON, user = null) {
 test('off restores exact regular prices; on applies to solo, group, and extended packages before tax', () => {
   for (const minutes of [15, 30, 60, 45, 90, 240]) for (const pods of [1, 2, 3, 4]) {
     const base = bookingAmountCents(minutes, pods);
-    assert.equal(applyRacingDiscount(base, OFF).amountCents, base);
-    const quote = applyRacingDiscount(base, ON);
+    assert.equal(applyRacingDiscount(base, OFF, TODAY, TODAY).amountCents, base);
+    const quote = applyRacingDiscount(base, ON, TODAY, TODAY);
     assert.equal(quote.amountCents, base - Math.round(base / 4));
     assert.equal(quote.discountCents + quote.amountCents, base);
-    assert.equal(applyRacingDiscount(base, ON, true).amountCents, base);
+    assert.equal(applyRacingDiscount(base, ON, TODAY, TODAY, true).amountCents, base);
   }
-  const quote = applyRacingDiscount(1500, { enabled: true, percent: 33 });
+  const quote = applyRacingDiscount(1500, { enabled: true, percent: 33 }, TODAY, TODAY);
   assert.equal(quote.amountCents, 1005);
   assert.equal(salesTaxCents(quote.amountCents), 80);
-  assert.equal(applyRacingDiscount(1500, { enabled: true, percent: 95 }).amountCents, 75);
+  assert.equal(applyRacingDiscount(1500, { enabled: true, percent: 95 }, TODAY, TODAY).amountCents, 75);
 });
 
 test('validates percentage bounds, enabled zero, decimals, nonnumbers and forged extra settings', () => {
@@ -208,7 +211,7 @@ test('legacy holds without discount fields still confirm with zero discount', as
 
 test('public price settings are uncached and fail closed if lookup fails', async () => {
   let fail = false;
-  const route = loader({ '@/lib/bookings/discount-server': { getRacingDiscount: async () => { if (fail) throw Error('DB unavailable'); return ON; } } })('src/app/api/bookings/discount/route.ts');
+  const route = loader({ '@/lib/bookings/discount-server': { getRacingDiscountForDisplay: async () => { if (fail) throw Error('DB unavailable'); return ON; } } })('src/app/api/bookings/discount/route.ts');
   const response = await route.GET();
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('Cache-Control'), 'no-store');
@@ -240,4 +243,39 @@ test('free member booking still uses the existing no-payment confirmation path',
   assert.equal(response.status, 200);
   assert.equal((await response.json()).freeBooking, true);
   assert.equal(confirmed, true);
+});
+
+
+test('Monday discount cannot reduce Friday four-driver bookings, even with forged date and savings', async () => {
+  const db = database();
+  const response = await holdRoute(db).POST(request({ ...body, partySize: 4,
+    startsAt: '2027-01-15T18:00:00Z', venueDate: '2027-01-15', discountPercent: 25, amountCents: 1 }));
+  assert.equal(response.status, 200);
+  const { hold } = await response.json();
+  assert.equal(hold.subtotal_cents, bookingAmountCents(30, 4));
+  assert.equal(hold.amount_cents, bookingAmountCents(30, 4) + salesTaxCents(bookingAmountCents(30, 4)));
+  assert.equal(hold.racing_discount_percent, 0);
+  assert.equal(hold.racing_discount_cents, 0);
+});
+
+test('venue calendar dates control eligibility across UTC midnight, local midnight and DST', () => {
+  const price = (start, now) => applyRacingDiscount(2800, ON,
+    utcToVenueDate(start, 'America/New_York'), utcToVenueDate(now, 'America/New_York')).amountCents;
+  assert.equal(price('2027-01-12T04:30:00Z', '2027-01-11T23:00:00Z'), 2100); // Both Monday in venue.
+  assert.equal(price('2027-01-12T05:30:00Z', '2027-01-12T04:59:59Z'), 2800); // Same UTC date, different venue days.
+  assert.equal(price('2027-01-12T05:30:00Z', '2027-01-12T05:00:00Z'), 2100);
+  assert.equal(price('2027-03-15T03:30:00Z', '2027-03-14T06:00:00Z'), 2100); // Spring DST day.
+  assert.equal(price('2027-11-08T04:30:00Z', '2027-11-07T05:30:00Z'), 2100); // Fall DST day.
+  assert.equal(applyRacingDiscount(2800, ON, '2027-01-15', TODAY).amountCents, 2800);
+  assert.equal(applyRacingDiscount(2800, ON, '', '').amountCents, 2800);
+});
+
+test('hold eligibility changes at venue midnight using server time', async t => {
+  t.mock.timers.setTime(new Date('2027-01-12T04:59:59Z').getTime());
+  const future = { ...body, startsAt: '2027-01-12T18:00:00Z' };
+  let response = await holdRoute(database()).POST(request(future));
+  assert.equal((await response.json()).hold.racing_discount_percent, 0);
+  t.mock.timers.setTime(new Date('2027-01-12T05:00:00Z').getTime());
+  response = await holdRoute(database()).POST(request(future));
+  assert.equal((await response.json()).hold.racing_discount_percent, 25);
 });

@@ -1,6 +1,6 @@
 import { RacingPrice } from '@/components/racing/RacingPrice';
 import { RacingDiscountProvider } from '@/components/racing/RacingDiscountProvider';
-import { getRacingDiscount } from '@/lib/bookings/discount-server';
+import { getRacingDiscountForDisplay } from '@/lib/bookings/discount-server';
 import Link from 'next/link';
 
 import Alert from '@mui/material/Alert';
@@ -114,7 +114,7 @@ function memberPriceLabel(durationMinutes: number, profile: Awaited<ReturnType<t
 
 export default async function PricingPage() {
   const [discount, { user, profile }] = await Promise.all([
-    getRacingDiscount().catch(() => null),
+    getRacingDiscountForDisplay().catch(() => null),
     getAuthedProfile().catch(() => ({ user: null, profile: null }))
   ]);
   const membershipActive = isMembershipActive(profile);

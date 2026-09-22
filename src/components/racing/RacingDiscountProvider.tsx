@@ -1,12 +1,12 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { racingDiscountSchema, type RacingDiscount } from '@/lib/bookings/discount';
+import { racingDiscountDisplaySchema, type RacingDiscountDisplay } from '@/lib/bookings/discount';
 
-const DiscountContext = createContext<RacingDiscount | null>(null);
+const DiscountContext = createContext<RacingDiscountDisplay | null>(null);
 export const useRacingDiscount = () => useContext(DiscountContext);
 
-export function RacingDiscountProvider({ initialDiscount, children }: { initialDiscount: RacingDiscount | null; children: ReactNode }) {
+export function RacingDiscountProvider({ initialDiscount, children }: { initialDiscount: RacingDiscountDisplay | null; children: ReactNode }) {
   const [discount, setDiscount] = useState(initialDiscount);
   useEffect(() => {
     let cancelled = false;
@@ -18,7 +18,7 @@ export function RacingDiscountProvider({ initialDiscount, children }: { initialD
         const response = await fetch('/api/bookings/discount', { cache: 'no-store' });
         if (!response.ok) throw new Error('Prices unavailable');
         const json = await response.json();
-        const next = racingDiscountSchema.parse(json.discount);
+        const next = racingDiscountDisplaySchema.parse(json.discount);
         if (!cancelled) setDiscount(next);
       } catch {
         if (!cancelled) setDiscount(null);

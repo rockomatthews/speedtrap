@@ -492,7 +492,7 @@ export function BookingClient({
   const initialBaseDurationMinutes: 15 | 30 = safeInitialDurationMinutes >= 30 ? 30 : 15;
   const initialExtraBlockCount = Math.max(0, Math.floor((safeInitialDurationMinutes - initialBaseDurationMinutes) / CUSTOM_DURATION_BLOCK_MINUTES));
   const stripePromise = useMemo(() => (stripePublishableKey ? loadStripe(stripePublishableKey) : null), [stripePublishableKey]);
-  const [date, setDate] = useState(todayDate());
+  const [date, setDate] = useState(initialBookingWindow?.minDate ?? discount?.venueDate ?? todayDate());
   const [baseDurationMinutes, setBaseDurationMinutes] = useState<15 | 30>(initialBaseDurationMinutes);
   const [selectionPresetExtraBlockCount, setSelectionPresetExtraBlockCount] = useState(initialExtraBlockCount);
   const [extraBlockCount, setExtraBlockCount] = useState(initialExtraBlockCount);
@@ -774,7 +774,7 @@ export function BookingClient({
   const baseAmountCents = bookingPrice(durationMinutes, reservedSimCount);
   const applicableMembership = signedInEmail && customerEmail.trim().toLowerCase() === signedInEmail ? membership : null;
   const memberPrice = memberBookingPrice(durationMinutes, reservedSimCount, applicableMembership);
-  const preview = discount ? applyRacingDiscount(memberPrice.amountCents, discount, Boolean(applicableMembership && applicableMembership.status !== 'inactive')) : null;
+  const preview = discount ? applyRacingDiscount(memberPrice.amountCents, discount, date, discount.venueDate, Boolean(applicableMembership && applicableMembership.status !== 'inactive')) : null;
   const lockedQuote = clientSecret ? checkoutQuote : null;
   const subtotalCents = lockedQuote?.subtotal_cents ?? preview?.amountCents ?? memberPrice.amountCents;
   const taxCents = lockedQuote?.sales_tax_cents ?? salesTaxCents(subtotalCents);
@@ -974,7 +974,8 @@ export function BookingClient({
                     {creditLabel ? ` including your ${creditLabel}` : ''}
                   </Typography>
                 ) : null}
-                {racingDiscountPercent > 0 && <Typography color="primary" sx={{ fontSize: 13, fontWeight: 800 }}>Racing discount ({racingDiscountPercent}%): −{money(racingDiscountCents)}</Typography>}
+                {racingDiscountPercent > 0 && <Typography color="primary" sx={{ fontSize: 13, fontWeight: 800 }}>Today’s racing discount ({racingDiscountPercent}%): −{money(racingDiscountCents)}</Typography>}
+                {!lockedQuote && discount?.enabled && date !== discount.venueDate && <Typography color="text.secondary" sx={{ fontSize: 13 }}>Discount mode applies to today’s sessions only. Future dates use regular pricing.</Typography>}
                 {(memberSavings > 0 || racingDiscountCents > 0) && baseAmountCents !== subtotalCents ? (
                   <Typography color="text.secondary" sx={{ fontSize: 12 }}>
                     Standard price: {money(baseAmountCents)}

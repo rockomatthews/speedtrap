@@ -105,7 +105,7 @@ export async function POST(request: Request) {
     });
     if (!price) return NextResponse.json({ error: 'Unsupported booking product.' }, { status: 400 });
     const discount = await getRacingDiscount(supabase);
-    const racingPrice = applyRacingDiscount(price.amountCents, discount, isMembershipActive(membershipProfile));
+    const racingPrice = applyRacingDiscount(price.amountCents, discount, utcToVenueDate(start), utcToVenueDate(new Date()), isMembershipActive(membershipProfile));
     const taxCents = salesTaxCents(racingPrice.amountCents);
     const totalAmountCents = totalWithSalesTaxCents(racingPrice.amountCents);
     const raceRequest = await validateRaceRequest(parsed.data.raceRequest, start);

@@ -11,9 +11,16 @@ export const racingDiscountSchema = z.object({
 
 export type RacingDiscount = { enabled: boolean; percent: number };
 
-export function applyRacingDiscount(amountCents: number, discount: RacingDiscount, memberPricing = false) {
-  const parsed = racingDiscountSchema.parse(discount);
-  const percent = parsed.enabled && !memberPricing ? parsed.percent : 0;
+export const racingDiscountDisplaySchema = z.object({
+  enabled: z.boolean(),
+  percent: z.number().int().min(0).max(MAX_RACING_DISCOUNT_PERCENT),
+  venueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+}).strict();
+export type RacingDiscountDisplay = z.infer<typeof racingDiscountDisplaySchema>;
+
+export function applyRacingDiscount(amountCents: number, discount: RacingDiscount, sessionDate: string, venueDate: string, memberPricing = false) {
+  const parsed = racingDiscountSchema.parse({ enabled: discount.enabled, percent: discount.percent });
+  const percent = parsed.enabled && !memberPricing && /^\d{4}-\d{2}-\d{2}$/.test(venueDate) && sessionDate === venueDate ? parsed.percent : 0;
   const discountCents = Math.round(amountCents * percent / 100);
   return { amountCents: amountCents - discountCents, discountCents, percent };
 }
