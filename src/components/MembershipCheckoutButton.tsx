@@ -10,7 +10,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
 export function MembershipCheckoutButton({
-  children = 'Join for $45/month',
+  children = 'Join for $25/month',
   manage = false,
   collectBirthday = false,
   existingBirthday = null

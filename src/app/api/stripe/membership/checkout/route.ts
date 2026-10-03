@@ -44,7 +44,12 @@ export async function POST(request: Request) {
     const stripe = new Stripe(stripeEnv.STRIPE_SECRET_KEY);
     const admin = createSupabaseAdminClient();
     const membershipPrice = await stripe.prices.retrieve(stripeEnv.STRIPE_MEMBERSHIP_PRICE_ID);
-    const membershipSubtotalCents = membershipPrice.unit_amount ?? 0;
+    // Never advertise $25 and accidentally charge an older configured Stripe price.
+    if (!membershipPrice.active || membershipPrice.currency !== 'usd' || membershipPrice.unit_amount !== 2500
+      || membershipPrice.recurring?.interval !== 'month' || membershipPrice.recurring.interval_count !== 1) {
+      throw new Error('Membership pricing is being updated. Please try again shortly.');
+    }
+    const membershipSubtotalCents = membershipPrice.unit_amount;
     const taxCents = salesTaxCents(membershipSubtotalCents);
     const taxMetadata = salesTaxMetadata(membershipSubtotalCents);
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [{ price: stripeEnv.STRIPE_MEMBERSHIP_PRICE_ID, quantity: 1 }];

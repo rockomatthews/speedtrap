@@ -40,12 +40,12 @@ export function MemberPassCard({ profile, email }: { profile: Profile | null; em
                   Not a member yet
                 </Typography>
                 <Typography color="text.secondary">
-                  Join for $45/month to unlock 10% off food and merch, priority booking, a monthly 15-minute session,
+                  Join for $25/month to unlock 10% off food and merch, priority booking, a monthly 15-minute session,
                   birthday-month 30-minute session, and member events.
                 </Typography>
               </Stack>
               <MembershipCheckoutButton collectBirthday existingBirthday={profile?.birthday}>
-                Join for $45/month
+                Join for $25/month
               </MembershipCheckoutButton>
             </Stack>
           </Stack>

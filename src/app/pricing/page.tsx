@@ -422,7 +422,7 @@ export default async function PricingPage() {
                         lineHeight: 1
                       }}
                     >
-                      $45 / month.
+                      $25 / month.
                     </Typography>
                     <Typography color="text.secondary" sx={{ mt: 0.5, fontSize: 18 }}>
                       Five perks. One rate. Built simple.
@@ -440,7 +440,7 @@ export default async function PricingPage() {
                   ) : (
                     <Stack spacing={1.5}>
                       <MembershipCheckoutButton collectBirthday existingBirthday={profile?.birthday}>
-                        Join for $45/month
+                        Join for $25/month
                       </MembershipCheckoutButton>
                       {!user ? (
                         <Typography color="text.secondary" sx={{ fontSize: 13 }}>
