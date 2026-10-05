@@ -876,6 +876,10 @@ export function BookingClient({
                   <Grid container spacing={1}>
                     {availability.slots.map((slot) => {
                       const availableSimsForStart = availableSimsForWindow(availability.slots, slot.startsAt, plannedDurationMinutes);
+                      const hasCapacity = availableSimsForStart >= reservedSimCount;
+                      const slotBackground = isSlotInsideSelectedWindow(slot, selectedSlot, durationMinutes)
+                        ? '#FFD200'
+                        : hasCapacity ? '#176B3A' : '#B4232C';
                       const isStartSelected = selectedSlot?.startsAt === slot.startsAt;
                       const isWindowSelected = isSlotInsideSelectedWindow(slot, selectedSlot, durationMinutes);
                       const isBaseWindowSelected = isSlotInsideSelectedWindow(slot, selectedSlot, baseDurationMinutes);
@@ -915,20 +919,20 @@ export function BookingClient({
                             sx={{
                               minHeight: 78,
                               flexDirection: 'column',
-                              borderColor: isWindowSelected ? 'rgba(255,210,0,0.92)' : availableSimsForStart >= reservedSimCount ? undefined : 'rgba(255,255,255,0.14)',
-                              bgcolor: isWindowSelected ? 'rgba(255,210,0,0.92)' : undefined,
-                              color: isWindowSelected ? '#050505' : undefined,
+                              borderColor: isWindowSelected ? '#FFD200' : hasCapacity ? '#33995C' : '#D94A52',
+                              bgcolor: slotBackground,
+                              color: isWindowSelected ? '#050505' : '#FFFFFF',
                               boxShadow: isWindowSelected ? '0 0 0 1px rgba(255,210,0,0.9), 0 0 24px rgba(255,210,0,0.18)' : undefined,
                               '&:hover': isWindowSelected
                                 ? {
                                     bgcolor: '#FFD200',
                                     borderColor: '#FFD200'
                                   }
-                                : undefined,
+                                : { bgcolor: hasCapacity ? '#125A30' : '#972029', borderColor: hasCapacity ? '#48B573' : '#D94A52' },
                               '&.Mui-disabled': {
-                                color: 'rgba(255,255,255,0.45)',
-                                bgcolor: 'rgba(255,22,31,0.72)',
-                                borderColor: 'rgba(255,255,255,0.12)'
+                                color: isWindowSelected ? '#050505' : '#FFFFFF',
+                                bgcolor: slotBackground,
+                                borderColor: isWindowSelected ? '#FFD200' : hasCapacity ? '#33995C' : '#D94A52'
                               }
                             }}
                           >
