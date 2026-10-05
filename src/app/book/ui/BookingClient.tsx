@@ -30,6 +30,7 @@ import {
   normalizePartySize,
   simCountForPartySize,
 } from '@/lib/bookings/config';
+import { formatVenueBookingRange } from '@/lib/bookings/time';
 import { applyRacingDiscount } from '@/lib/bookings/discount';
 import { useRacingDiscount } from '@/components/racing/RacingDiscountProvider';
 import { salesTaxCents, totalWithSalesTaxCents } from '@/lib/stripe/tax';
@@ -153,12 +154,6 @@ function slotSubtitle(slot: Slot, durationMinutes: number, availableSims?: numbe
   return `${sims} open`;
 }
 
-function slotRangeLabel(slot: Slot, durationMinutes: number) {
-  const start = formatSlotTime(slot.time);
-  if (durationMinutes === 15) return start;
-  return `${start} - ${slotEndTime(slot, durationMinutes)}`;
-}
-
 function driverPodLabel(partySize: number | null | undefined, simCount: number | null | undefined) {
   const drivers = Math.max(1, Math.floor(Number(partySize ?? simCount ?? 1)));
   const pods = Math.max(1, Math.min(4, Math.floor(Number(simCount ?? simCountForPartySize(drivers)))));
@@ -193,16 +188,6 @@ function availableSimsForWindow(slots: Slot[], startsAt: string, durationMinutes
   }
 
   return Number.isFinite(availableSims) ? availableSims : 0;
-}
-
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit'
-  });
 }
 
 function disabledLabel(slot: Slot) {
@@ -805,7 +790,7 @@ export function BookingClient({
               Your race is on the schedule.
             </Typography>
             <Typography color="text.secondary">
-              {formatDateTime(booking.starts_at)} for {driverPodLabel(booking.party_size, booking.sim_count)}.
+              {formatVenueBookingRange(booking.starts_at, booking.ends_at)} for {driverPodLabel(booking.party_size, booking.sim_count)}.
             </Typography>
             <Typography sx={{ fontWeight: 900 }}>Total: {money(booking.amount_cents)}</Typography>
             {booking.racing_discount_percent > 0 && <Typography color="primary">Racing discount: {booking.racing_discount_percent}% ({money(booking.racing_discount_cents)} saved before tax)</Typography>}
@@ -868,7 +853,7 @@ export function BookingClient({
                   {availability ? <Chip size="small" label={`${availability.totalSims} sims`} /> : null}
                 </Stack>
                 <Typography color="text.secondary" sx={{ mb: 1.5, fontSize: 13 }}>
-                  Pick a start time, then tap later slots to add or remove 30-minute blocks.
+                  All times are Eastern Time (Speed Trap local time). Pick a start time, then tap later slots to add or remove 30-minute blocks.
                 </Typography>
                 {loading ? (
                   <CircularProgress size={24} />
@@ -990,7 +975,7 @@ export function BookingClient({
                 </Typography>
                 <Typography sx={{ fontWeight: 950 }}>Total: {discount || lockedQuote ? money(amountCents) : 'Price unavailable'}</Typography>
                 {!discount && !lockedQuote && <Alert severity="warning">Unable to load current prices. Please try again before checkout.</Alert>}
-                <Typography color="text.secondary">{selectedSlot ? `${date} at ${slotRangeLabel(selectedSlot, durationMinutes)}` : 'Choose a time slot'}</Typography>
+                <Typography color="text.secondary">{selectedSlot ? formatVenueBookingRange(selectedSlot.startsAt, new Date(new Date(selectedSlot.startsAt).getTime() + durationMinutes * 60_000).toISOString()) : 'Choose a time slot'}</Typography>
               </Stack>
               <Box>
                 <Typography color="text.secondary" sx={{ mb: 1 }}>

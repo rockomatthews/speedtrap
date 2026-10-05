@@ -1,5 +1,7 @@
 'use client';
 
+import { formatVmsBookingTime } from '@/lib/bookings/time';
+
 import { useEffect, useState } from 'react';
 
 import Alert from '@mui/material/Alert';
@@ -21,19 +23,6 @@ type Booking = {
   groupSize?: number | null;
   numberOfPods?: number | null;
 };
-
-function formatBookingDate(value?: string | null) {
-  if (!value) return 'Time pending';
-  const normalized = value.includes('T') ? value : value.replace(' ', 'T');
-  const date = new Date(normalized);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit'
-  }).format(date);
-}
 
 export function BookingsClient() {
   const [data, setData] = useState<any>(null);
@@ -99,8 +88,8 @@ export function BookingsClient() {
                     />
                   </Stack>
                   <Typography color="text.secondary">
-                    {formatBookingDate(booking.startDate)}
-                    {booking.endDate ? ` - ${formatBookingDate(booking.endDate)}` : ''}
+                    {formatVmsBookingTime(booking.startDate)}
+                    {booking.endDate ? ` - ${formatVmsBookingTime(booking.endDate)}` : ''}
                   </Typography>
                   <Typography color="text.secondary">
                     {[booking.eventActivity, booking.venueName, `${booking.numberOfPods ?? booking.groupSize ?? 1} pod${(booking.numberOfPods ?? booking.groupSize ?? 1) === 1 ? '' : 's'}`]

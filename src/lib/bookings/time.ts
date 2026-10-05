@@ -57,3 +57,32 @@ export function overlaps(leftStart: Date, leftEnd: Date, rightStart: Date, right
 export function dayOfWeekForVenueDate(date: string) {
   return new Date(`${date}T12:00:00.000Z`).getUTCDay();
 }
+
+/** Customer-facing booking times always use the venue timezone, never the device timezone. */
+export function formatVenueBookingTime(value: string | Date, timeZone = BOOKING_TIMEZONE) {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone, month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
+  }).format(date);
+}
+
+export function formatVenueBookingRange(start: string, end?: string | null, timeZone = BOOKING_TIMEZONE) {
+  const startLabel = formatVenueBookingTime(start, timeZone);
+  if (!end) return startLabel;
+  if (utcToVenueDate(start, timeZone) !== utcToVenueDate(end, timeZone)) {
+    return `${startLabel} – ${formatVenueBookingTime(end, timeZone)}`;
+  }
+  const endLabel = new Intl.DateTimeFormat('en-US', {
+    timeZone, hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
+  }).format(new Date(end));
+  return `${startLabel} – ${endLabel}`;
+}
+
+/** VMS wall-clock timestamps without an offset are venue-local, unlike stored UTC bookings. */
+export function formatVmsBookingTime(value?: string | null) {
+  if (!value) return 'Time pending';
+  const local = value.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?$)/);
+  const date = local ? localDateTimeToUtc(local[1], local[2]) : new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Time pending' : formatVenueBookingTime(date);
+}

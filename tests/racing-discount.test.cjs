@@ -171,6 +171,9 @@ for (const method of ['card', 'crypto']) test(`${method} uses held total even af
   assert.equal(captured.metadata.racing_discount_percent, '25');
   assert.equal(captured.metadata.racing_discount_cents, '700');
   assert.deepEqual(captured.payment_method_types, [method]);
+  const { formatVenueBookingRange } = loader()('src/lib/bookings/time.ts');
+  assert.ok(captured.description.includes(formatVenueBookingRange(hold.starts_at, hold.ends_at)));
+  assert.match(captured.description, /E[DS]T/);
   assert.equal((await response.json()).amountCents, 2268);
 });
 

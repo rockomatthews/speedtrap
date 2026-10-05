@@ -1,5 +1,7 @@
 'use client';
 
+import { formatVenueBookingRange } from '@/lib/bookings/time';
+
 import { useEffect, useState } from 'react';
 
 import Alert from '@mui/material/Alert';
@@ -134,7 +136,7 @@ export function RaceBookingsList() {
                     <Chip size="small" label={booking.status} color={statusColor(booking.status) as any} />
                   </Stack>
                   <Typography color="text.secondary">
-                    {new Date(booking.starts_at).toLocaleString()} ·{' '}
+                    {formatVenueBookingRange(booking.starts_at, booking.ends_at)} ·{' '}
                     {booking.vms_booking_id ? `VMS booking #${booking.vms_booking_id}` : 'VMS sync pending'}
                   </Typography>
                   {booking.racing_discount_percent > 0 && <Typography color="primary" variant="body2">Racing discount: {booking.racing_discount_percent}% (${(booking.racing_discount_cents / 100).toFixed(2)} saved before tax)</Typography>}

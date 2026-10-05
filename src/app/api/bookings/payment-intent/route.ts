@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { z } from 'zod';
 
+import { formatVenueBookingRange } from '@/lib/bookings/time';
 import { confirmRaceBookingFromHold } from '@/lib/bookings/confirm';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getStripeEnv, stripeCryptoPaymentsEnabled } from '@/lib/stripe/env';
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
         amount: hold.amount_cents,
         currency: hold.currency,
         receipt_email: hold.customer_email,
-        description: `${driverPodDescription} · ${hold.duration_minutes} min Speed Trap race session`,
+        description: `${driverPodDescription} · ${hold.duration_minutes} min Speed Trap race session · ${formatVenueBookingRange(hold.starts_at, hold.ends_at)}`,
         payment_method_types: (requestedPaymentMethod === 'crypto' ? ['crypto'] : ['card']) as any,
         metadata: {
           booking_hold_id: hold.id,
