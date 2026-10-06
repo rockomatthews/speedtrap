@@ -96,7 +96,7 @@ const membershipPerks = [
   {
     number: '04',
     title: 'Free Monthly Race perk.',
-    body: 'Free 30-minute sim session each month.'
+    body: 'One free 15-minute sim session each month.'
   },
   {
     number: '05',
