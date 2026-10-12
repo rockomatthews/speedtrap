@@ -91,7 +91,8 @@ export async function syncUpcomingVmsBookings(
   options: { futureDays?: number } = {}
 ) {
   const future = options.futureDays ?? DEFAULT_SYNC_FUTURE_DAYS;
-  const vmsBookings = (await VmsClient.fromEnv().listBookings({ past: 0, future }))
+  const listedBookings = await VmsClient.fromEnv().listBookings({ past: 0, future });
+  const vmsBookings = listedBookings
     .filter(isRelevantVenue)
     .map((booking) => ({ booking, payload: syncPayloadFor(booking) }))
     .filter((item): item is { booking: VmsBooking; payload: NonNullable<ReturnType<typeof syncPayloadFor>> } => Boolean(item.payload));
@@ -141,6 +142,10 @@ export async function syncUpcomingVmsBookings(
 
     const updateRes = await supabase.from('race_bookings').update(updatePayload).eq('id', existing.id);
     if (updateRes.error) throw new Error(updateRes.error.message);
+    if (payload.status === 'cancelled') {
+      const releaseRes = await supabase.from('race_booking_resources').delete().eq('booking_id', existing.id);
+      if (releaseRes.error) throw new Error(releaseRes.error.message);
+    }
     updated += 1;
   }
 
@@ -154,7 +159,7 @@ export async function syncUpcomingVmsBookings(
     .lte('starts_at', addMinutes(new Date(), future * 24 * 60).toISOString());
   if (missingImportedRes.error) throw new Error(missingImportedRes.error.message);
 
-  const liveVmsIds = new Set(vmsIds.map((id) => Number(id)));
+  const liveVmsIds = new Set(listedBookings.map((booking) => Number(booking.id)));
   const missingImportedIds = (missingImportedRes.data ?? [])
     .filter((booking) => booking.vms_booking_id && !liveVmsIds.has(Number(booking.vms_booking_id)))
     .map((booking) => booking.id);

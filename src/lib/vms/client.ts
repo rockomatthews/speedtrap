@@ -582,9 +582,15 @@ export class VmsClient {
         future: params?.future ?? 1
       })}`
     );
-    return asArray(obj?.bookings?.booking ?? obj?.booking)
-      .map(normalizeBooking)
-      .filter(Boolean) as VmsBooking[];
+    if (!obj || (!Object.prototype.hasOwnProperty.call(obj, 'bookings') && !Object.prototype.hasOwnProperty.call(obj, 'booking'))) {
+      throw new Error('VMS returned an invalid booking list; sync was not applied.');
+    }
+    const rawBookings = asArray(obj?.bookings?.booking ?? obj?.booking);
+    const bookings = rawBookings.map(normalizeBooking);
+    if (bookings.some((booking) => !booking)) {
+      throw new Error('VMS returned an invalid booking record; sync was not applied.');
+    }
+    return bookings as VmsBooking[];
   }
 
   async updateBooking(id: number, input: Partial<VmsBookingInput>): Promise<VmsBooking | null> {

@@ -379,7 +379,7 @@ export function AdminBookingsClient() {
     try {
       const [scheduleRes, bookingsRes] = await Promise.all([
         fetch('/api/admin/bookings/schedule'),
-        fetch(`/api/admin/bookings?weekStart=${encodeURIComponent(weekStart)}`)
+        fetch(`/api/admin/bookings?weekStart=${encodeURIComponent(weekStart)}&sync=1`)
       ]);
       const schedule = await scheduleRes.json().catch(() => null);
       const bookings = await bookingsRes.json().catch(() => null);
@@ -412,7 +412,8 @@ export function AdminBookingsClient() {
       const imported = Number(json.sync?.imported ?? 0);
       const updated = Number(json.sync?.updated ?? 0);
       const skipped = Number(json.sync?.skipped ?? 0);
-      setMessage(`VMS sync complete: ${imported} imported, ${updated} updated, ${skipped} skipped.`);
+      const cancelled = Number(json.sync?.cancelled ?? 0);
+      setMessage(`VMS sync complete: ${imported} imported, ${updated} updated, ${cancelled} cancelled reservations cleared, ${skipped} skipped.`);
       await loadOperationsBoard();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to sync VMS bookings.');
