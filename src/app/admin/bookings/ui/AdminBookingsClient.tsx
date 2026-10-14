@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -373,16 +373,20 @@ export function AdminBookingsClient() {
     return conflictSlots.some((slot) => overlaps(booking.starts_at, booking.ends_at, slot.startsAt, slot.endsAt));
   }
 
-  async function load() {
-    setLoading(true);
-    setError('');
+  const calendarRequest = useRef(0);
+
+  async function load(background = false) {
+    const requestId = ++calendarRequest.current;
+    if (!background) setLoading(true);
+    if (!background) setError('');
     try {
       const [scheduleRes, bookingsRes] = await Promise.all([
-        fetch('/api/admin/bookings/schedule'),
-        fetch(`/api/admin/bookings?weekStart=${encodeURIComponent(weekStart)}&sync=1`)
+        fetch('/api/admin/bookings/schedule', { cache: 'no-store' }),
+        fetch(`/api/admin/bookings?weekStart=${encodeURIComponent(weekStart)}`, { cache: 'no-store' })
       ]);
       const schedule = await scheduleRes.json().catch(() => null);
       const bookings = await bookingsRes.json().catch(() => null);
+      if (requestId !== calendarRequest.current) return;
       if (!scheduleRes.ok) throw new Error(schedule?.error ?? 'Failed to load schedule.');
       if (!bookingsRes.ok) throw new Error(bookings?.error ?? 'Failed to load bookings.');
       setRules((schedule.rules ?? []).map((rule: Rule) => ({ ...rule, max_sims: Number(rule.max_sims ?? 4) })));
@@ -391,9 +395,9 @@ export function AdminBookingsClient() {
       setRaceBookings(bookings.raceBookings ?? []);
       setToastSessions(bookings.toastSessions ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load bookings admin.');
+      if (requestId === calendarRequest.current) setError(e instanceof Error ? e.message : 'Failed to load bookings admin.');
     } finally {
-      setLoading(false);
+      if (requestId === calendarRequest.current) setLoading(false);
     }
   }
 
@@ -444,6 +448,18 @@ export function AdminBookingsClient() {
 
   useEffect(() => {
     void load();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load(true);
+    };
+    const timer = window.setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      calendarRequest.current += 1;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
   }, [weekStart]);
 
   useEffect(() => {
@@ -524,7 +540,7 @@ export function AdminBookingsClient() {
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
         <Button href="#daily-bookings" variant="contained">
-          Today&apos;s Bookings
+          Bookings
         </Button>
         <Button href="#booking-hours" variant="contained" color="secondary">
           Edit Hours & Sims
@@ -542,6 +558,7 @@ export function AdminBookingsClient() {
           <Stack spacing={2.5}>
             <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'stretch', lg: 'flex-end' }}>
               <Stack spacing={0.75}>
+                <Typography variant="caption" color="text.secondary">Calendar refreshes every 30 seconds. Times are Eastern.</Typography>
                 <Typography variant="overline" color="primary" sx={{ fontWeight: 900, letterSpacing: 0 }}>
                   Operations Board
                 </Typography>
