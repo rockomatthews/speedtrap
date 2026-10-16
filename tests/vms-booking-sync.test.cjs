@@ -32,3 +32,21 @@ test('cron rejects unauthorized requests and runs the sync for the scheduler',as
 test('malformed VMS response cannot be interpreted as an empty list',async()=>{
  const {VmsClient}=loader({'@/lib/supabase/env':{env:{}}})('src/lib/vms/client.ts');const client=new VmsClient('unused');client.getParsed=async()=>({error:'temporarily unavailable'});await assert.rejects(client.listBookings(),/invalid booking list/);client.getParsed=async()=>({bookings:''});assert.deepEqual(await client.listBookings(),[]);
 });
+
+
+test('unchanged records skip writes even when Postgres formats timestamps differently', async () => {
+ const d=db([imported]); const booking={id:392,startDate:start,endDate:end,status:'Booked',numberOfPods:4,groupSize:5};
+ assert.equal((await sync([booking])(d)).updated,1);
+ for(const field of ['starts_at','ends_at','buffer_until']) d.tables.race_bookings[0][field]=d.tables.race_bookings[0][field].replace('Z','+00:00');
+ const repeated=await sync([booking])(d);assert.equal(repeated.updated,0);assert.equal(repeated.skipped,1);
+ booking.groupSize=6;assert.equal((await sync([booking])(d)).updated,1);assert.equal(d.tables.race_bookings[0].party_size,6);
+});
+test('unchanged cancelled bookings retry resource cleanup', async()=>{
+ const d=db([imported]);const booking={id:392,startDate:start,endDate:end,status:'Cancelled'};await sync([booking])(d);
+ d.tables.race_booking_resources.push({booking_id:'party'});assert.equal((await sync([booking])(d)).updated,0);assert.equal(d.tables.race_booking_resources.length,0);
+});
+test('VMS booking list supplies a bounded abort signal', async()=>{
+ const {VmsClient}=loader({'@/lib/supabase/env':{env:{}}})('src/lib/vms/client.ts');const client=new VmsClient('unused');
+ client.request=async(path,init)=>{assert.ok(init.signal instanceof AbortSignal);return '<bookings></bookings>';};
+ assert.deepEqual(await client.listBookings(),[]);
+});

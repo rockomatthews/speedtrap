@@ -40,14 +40,14 @@ function database(initial = {}) {
 
 const request = (body) => new Request('http://localhost/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 const body = { customerName: 'Test Driver', customerEmail: 'driver@example.invalid', startsAt: '2027-01-11T18:00:00Z', durationMinutes: 30, partySize: 1 };
-function holdRoute(db, discount = ON, user = null) {
+function holdRoute(db, discount = ON, user = null, checkAvailability = async () => {}) {
   return loader({
     '@/lib/supabase/admin': { createSupabaseAdminClient: () => db },
     '@/lib/supabase/route-handler': { createRouteHandlerClient: async () => ({ auth: { getUser: async () => ({ data: { user } }) } }) },
     '@/lib/bookings/discount-server': { getRacingDiscount: async () => { if (discount instanceof Error) throw discount; return discount; } },
     '@/lib/bookings/advance-window': { validateBookingDateWithinWindow: () => ({ ok: true }) },
-    '@/lib/bookings/availability': { assertSlotAvailable: async () => {} },
-    '@/lib/bookings/vms-sync': { syncUpcomingVmsBookings: async () => {} },
+    '@/lib/bookings/availability': { assertSlotAvailable: checkAvailability },
+    '@/lib/bookings/vms-sync': { syncUpcomingVmsBookings: async () => { throw new Error('VMS unavailable'); } },
     '@/lib/bookings/race-request': { validateRaceRequest: async () => ({}), raceRequestDbFields: () => ({}) }
   })('src/app/api/bookings/hold/route.ts');
 }
@@ -281,4 +281,15 @@ test('hold eligibility changes at venue midnight using server time', async t => 
   t.mock.timers.setTime(new Date('2027-01-12T05:00:00Z').getTime());
   response = await holdRoute(database()).POST(request(future));
   assert.equal((await response.json()).hold.racing_discount_percent, 25);
+});
+
+
+test('checkout does not wait for VMS, but still rejects occupied capacity', async () => {
+  const open = database(); let checked = false;
+  const success = await holdRoute(open, OFF, null, async () => { checked = true; }).POST(request(body));
+  assert.equal(success.status, 200); assert.equal(checked, true);
+  assert.equal(open.tables.race_booking_holds.length, 1);
+  const full = database();
+  const rejected = await holdRoute(full, OFF, null, async () => { throw new Error('That slot is no longer available.'); }).POST(request(body));
+  assert.equal(rejected.status, 409); assert.equal(full.tables.race_booking_holds.length, 0);
 });

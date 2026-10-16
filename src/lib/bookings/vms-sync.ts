@@ -13,6 +13,7 @@ type LocalVmsBooking = {
   id: string;
   source: string;
   vms_booking_id: number | null;
+  [key: string]: unknown;
 };
 
 function parseVmsDate(value: string | undefined) {
@@ -101,7 +102,7 @@ export async function syncUpcomingVmsBookings(
   const existingRes = vmsIds.length
     ? await supabase
         .from('race_bookings')
-        .select('id,source,vms_booking_id')
+        .select('*')
         .in('vms_booking_id', vmsIds)
     : { data: [], error: null };
   if (existingRes.error) throw new Error(existingRes.error.message);
@@ -114,6 +115,7 @@ export async function syncUpcomingVmsBookings(
   let imported = 0;
   let updated = 0;
   let cancelled = 0;
+  const cancelledIds: string[] = [];
 
   for (const { booking, payload } of vmsBookings) {
     const existing = existingByVmsId.get(booking.id);
@@ -140,13 +142,26 @@ export async function syncUpcomingVmsBookings(
             error: null
           };
 
+    if (payload.status === 'cancelled') cancelledIds.push(existing.id);
+    const changed = Object.entries(updatePayload).some(([key, value]) => {
+      const previous = existing[key];
+      if (['starts_at', 'ends_at', 'buffer_until'].includes(key)) {
+        return Date.parse(String(previous)) !== Date.parse(String(value));
+      }
+      return previous !== value;
+    });
+    if (!changed) continue;
+
     const updateRes = await supabase.from('race_bookings').update(updatePayload).eq('id', existing.id);
     if (updateRes.error) throw new Error(updateRes.error.message);
-    if (payload.status === 'cancelled') {
-      const releaseRes = await supabase.from('race_booking_resources').delete().eq('booking_id', existing.id);
-      if (releaseRes.error) throw new Error(releaseRes.error.message);
-    }
+
     updated += 1;
+  }
+
+  // Also retry cleanup for unchanged cancelled rows after an earlier partial failure.
+  if (cancelledIds.length) {
+    const releaseRes = await supabase.from('race_booking_resources').delete().in('booking_id', cancelledIds);
+    if (releaseRes.error) throw new Error(releaseRes.error.message);
   }
 
   const missingImportedRes = await supabase

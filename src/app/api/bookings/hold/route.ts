@@ -17,7 +17,6 @@ import {
 } from '@/lib/bookings/config';
 import { raceRequestDbFields, validateRaceRequest } from '@/lib/bookings/race-request';
 import { addMinutes, utcToVenueDate } from '@/lib/bookings/time';
-import { syncUpcomingVmsBookings } from '@/lib/bookings/vms-sync';
 import { applyRacingDiscount } from '@/lib/bookings/discount';
 import { getRacingDiscount } from '@/lib/bookings/discount-server';
 import { isMembershipActive, membershipBookingPrice, type MembershipProfile } from '@/lib/membership';
@@ -110,7 +109,8 @@ export async function POST(request: Request) {
     const totalAmountCents = totalWithSalesTaxCents(racingPrice.amountCents);
     const raceRequest = await validateRaceRequest(parsed.data.raceRequest, start);
 
-    await syncUpcomingVmsBookings(supabase);
+    // VMS reconciliation runs in the protected background cron, never in checkout.
+    // Capacity still includes imported reservations, active holds, and blackouts.
 
     await assertSlotAvailable(supabase, {
       date: utcToVenueDate(start),

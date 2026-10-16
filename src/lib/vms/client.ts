@@ -461,8 +461,8 @@ export class VmsClient {
     return body;
   }
 
-  private async getParsed<T = any>(path: string) {
-    const xml = await this.request(path, { method: 'GET' });
+  private async getParsed<T = any>(path: string, signal?: AbortSignal) {
+    const xml = await this.request(path, { method: 'GET', signal });
     return parseXml<T>(xml);
   }
 
@@ -580,7 +580,8 @@ export class VmsClient {
       `/bookings${compactQuery({
         past: params?.past ?? 1,
         future: params?.future ?? 1
-      })}`
+      })}`,
+      AbortSignal.timeout(15_000)
     );
     if (!obj || (!Object.prototype.hasOwnProperty.call(obj, 'bookings') && !Object.prototype.hasOwnProperty.call(obj, 'booking'))) {
       throw new Error('VMS returned an invalid booking list; sync was not applied.');
