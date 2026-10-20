@@ -829,7 +829,7 @@ export function AdminLeaguesClient() {
                                         select
                                         size="small"
                                         fullWidth
-                                        label={`W${weekNumber}`}
+                                        label={`W${weekNumber} · ${formatMoney(due?.amount_cents ?? selectedLeague.weekly_fee_cents ?? 4000)}`}
                                         value={status}
                                         color={dueColor(status)}
                                         onChange={(event) => void markDue(member.id, weekNumber, event.target.value)}

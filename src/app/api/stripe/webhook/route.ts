@@ -1,3 +1,4 @@
+import { installmentDues } from '@/lib/leagues/winter-series';
 import Stripe from 'stripe';
 
 import { releaseBookingResources } from '@/lib/bookings/availability';
@@ -268,18 +269,24 @@ async function markLeagueRegistrationPaid(input: {
             notes: 'Full-season league registration payment'
           };
         })
-      : Array.from({ length: seasonWeeks }, (_, index) => ({
+      : installmentDues(seasonWeeks, weeklyFeeCents, Number(registration.amount_cents ?? 0)).map((due) => ({
+          ...due,
           league_id: registration.league_id,
           member_id: memberId,
-          week_number: index + 1,
-          amount_cents: weeklyFeeCents,
-          status: index === 0 ? 'paid' : 'pending',
-          stripe_payment_intent_id: index === 0 ? paymentIntentId ?? registration.stripe_payment_intent_id : null,
-          paid_at: index === 0 ? paidAt : null,
-          notes: index === 0 ? 'Week 1 league registration payment' : 'Future weekly league installment'
+          stripe_payment_intent_id: due.status === 'paid' ? paymentIntentId ?? registration.stripe_payment_intent_id : null,
+          paid_at: due.status === 'paid' ? paidAt : null
         }));
 
-  const { error: duesError } = await supabaseAdmin.from('league_dues').upsert(paidRows, { onConflict: 'member_id,week_number' });
+  const { data: existingDues, error: duesLookupError } = await supabaseAdmin.from('league_dues').select('week_number,status,notes').eq('member_id', memberId);
+  if (duesLookupError) throw new Error(duesLookupError.message);
+  const dueRowsToApply = paidRows.filter((row) => {
+    const existing = (existingDues ?? []).find((due) => due.week_number === row.week_number);
+    // Apply to new or staff-seeded rows, but never reset payments or credits on webhook retries.
+    return !existing || (existing.status === 'pending' && !existing.notes);
+  });
+  const { error: duesError } = dueRowsToApply.length
+    ? await supabaseAdmin.from('league_dues').upsert(dueRowsToApply, { onConflict: 'member_id,week_number' })
+    : { error: null };
   if (duesError) throw new Error(duesError.message);
 
   const prizeDescription = `League registration ${registration.id} (${registration.payment_option}) prize-pool contribution`;

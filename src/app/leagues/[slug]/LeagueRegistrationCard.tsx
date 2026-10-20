@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { isWinterSeries, WINTER_DEPOSIT_CENTS } from '@/lib/leagues/winter-series';
 import Link from 'next/link';
 
 import Alert from '@mui/material/Alert';
@@ -25,6 +26,7 @@ type Props = {
   seasonWeeks: number;
   defaultDriverName: string;
   success: boolean;
+  registrationClosed?: boolean;
   cancelled: boolean;
 };
 
@@ -33,8 +35,9 @@ function formatMoney(cents: number) {
 }
 
 export function LeagueRegistrationCard(props: Props) {
+  const winter = isWinterSeries(props.leagueSlug);
   const [driverName, setDriverName] = useState(props.defaultDriverName);
-  const [paymentOption, setPaymentOption] = useState<'installments' | 'full_season'>('full_season');
+  const [paymentOption, setPaymentOption] = useState<'installments' | 'full_season'>(winter ? 'installments' : 'full_season');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const remaining = Math.max(0, props.capacity - props.registeredCount);
@@ -70,14 +73,12 @@ export function LeagueRegistrationCard(props: Props) {
     >
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ md: 'flex-start' }}>
         <Box>
-          <Chip label="League Night Registration" sx={{ bgcolor: '#FFD200', color: '#000', fontWeight: 1000, mb: 1.5 }} />
+          <Chip label={winter ? "Winter Series Registration" : "League Night Registration"} sx={{ bgcolor: '#FFD200', color: '#000', fontWeight: 1000, mb: 1.5 }} />
           <Typography variant="h3" sx={{ fontWeight: 1000, fontSize: { xs: 34, md: 48 }, lineHeight: 0.98 }}>
-            Join the Tuesday grid.
+            {winter ? "Secure your Winter Series seat." : "Join the Tuesday grid."}
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 760 }}>
-            Eight teams of four drivers. Every driver races one 30-minute heat each Tuesday night. Team captains set their
-            team names after rosters are assigned. Your checkout registers your own driver seat only; teammates register or
-            get added separately by staff.
+            {winter ? "Teams of four. Race on your own schedule Monday–Thursday; your best valid lap counts for your team. Solo signups welcome. This checkout reserves one driver seat." : "Eight teams of four drivers. Every driver races one 30-minute heat each Tuesday night. Your checkout registers your own driver seat only; teammates register separately."}
           </Typography>
         </Box>
         <Box sx={{ minWidth: { md: 230 }, p: 2, border: '1px solid rgba(255,255,255,0.14)', bgcolor: 'rgba(0,0,0,0.45)' }}>
@@ -102,7 +103,8 @@ export function LeagueRegistrationCard(props: Props) {
         ) : null}
         {error ? <Alert severity="error">{error}</Alert> : null}
 
-        {!props.signedIn ? (
+        {winter ? <Alert severity="info">$40 per week × 8 weeks = $320 per driver. The $50 deposit is part of that total, leaving $270 in dues. It covers week one and $10 of week two. Applicable sales tax is added at checkout. Full-season payment includes your seat; no extra deposit.</Alert> : null}
+        {props.registrationClosed ? <Alert severity="info">Signups closed November 22.</Alert> : !props.signedIn ? (
           <Button component={Link} href={props.loginHref} variant="contained" size="large" sx={{ alignSelf: 'flex-start' }}>
             Sign in to register
           </Button>
@@ -125,10 +127,10 @@ export function LeagueRegistrationCard(props: Props) {
                   sx={{ justifyContent: 'space-between', p: 2.25, minHeight: 112 }}
                 >
                   <Box sx={{ textAlign: 'left' }}>
-                    <Typography sx={{ fontWeight: 1000 }}>Pay weekly</Typography>
-                    <Typography color="text.secondary">Your seat today; weekly dues tracked after that</Typography>
+                    <Typography sx={{ fontWeight: 1000 }}>{winter ? "Reserve with a deposit" : "Pay weekly"}</Typography>
+                    <Typography color="text.secondary">{winter ? "$50 today, credited toward season dues" : "Your seat today; weekly dues tracked after that"}</Typography>
                   </Box>
-                  <Typography sx={{ fontWeight: 1000 }}>{formatMoney(props.weeklyFeeCents)}/wk</Typography>
+                  <Typography sx={{ fontWeight: 1000 }}>{winter ? formatMoney(WINTER_DEPOSIT_CENTS) : `${formatMoney(props.weeklyFeeCents)}/wk`}</Typography>
                 </Button>
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>

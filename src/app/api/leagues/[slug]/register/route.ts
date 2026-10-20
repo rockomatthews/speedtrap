@@ -1,3 +1,4 @@
+import { isWinterSeries, leagueRegistrationAmount, WINTER_SIGNUP_CLOSE } from '@/lib/leagues/winter-series';
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { z } from 'zod';
@@ -85,6 +86,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     return NextResponse.json({ error: 'This league is not open for registration yet.' }, { status: 404 });
   }
 
+  if (isWinterSeries(slug) && Date.now() >= Date.parse(WINTER_SIGNUP_CLOSE)) {
+    return NextResponse.json({ error: 'Winter Series signups closed November 22.' }, { status: 409 });
+  }
+
   const capacity = Number(league.team_count ?? 8) * Number(league.roster_size ?? 4);
   const { data: reservedRows, error: countError } = await supabase
     .from('league_registrations')
@@ -138,8 +143,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
 
   const weeklyFeeCents = Number(league.weekly_fee_cents ?? 4000);
   const fullSeasonFeeCents = Number(league.full_season_fee_cents ?? 30000);
-  const amountCents = parsed.data.paymentOption === 'full_season' ? fullSeasonFeeCents : weeklyFeeCents;
-  const paymentLabel = parsed.data.paymentOption === 'full_season' ? 'Full season registration' : 'Week 1 registration';
+  const amountCents = leagueRegistrationAmount({ ...league, weekly_fee_cents: weeklyFeeCents, full_season_fee_cents: fullSeasonFeeCents }, parsed.data.paymentOption);
+  const paymentLabel = parsed.data.paymentOption === 'full_season' ? 'Full season registration' : isWinterSeries(slug) ? 'Seat deposit credited toward season dues' : 'Week 1 registration';
   if (amountCents < 50) {
     return NextResponse.json({ error: 'League registration price is not configured correctly.' }, { status: 500 });
   }
@@ -193,7 +198,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
           description:
             parsed.data.paymentOption === 'full_season'
               ? `${league.season_weeks ?? 8} week Speed Trap league season`
-              : 'Speed Trap league weekly installment'
+              : isWinterSeries(slug) ? '$50 deposit credited toward $320 season dues; $270 remaining before tax.' : 'Speed Trap league weekly installment'
         }
       }
     }

@@ -34,10 +34,10 @@ export default async function LeaguesPage() {
         <Box>
           <Chip label="Leagues" sx={{ mb: 2, fontWeight: 900 }} />
           <Typography variant="h2" sx={{ maxWidth: 920, fontSize: { xs: 46, md: 76 }, fontWeight: 1000, lineHeight: 0.92 }}>
-            Qualify, team up, then race for the table.
+            Find your league. Race with your team.
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 2, maxWidth: 760, fontSize: 20 }}>
-            Eight teams, four drivers each, Tuesday heat racing, and VMS-backed timing feeding a live season table.
+            Explore Speed Trap seasons, reserve your driver seat, and follow team standings.
           </Typography>
         </Box>
 
@@ -69,7 +69,7 @@ export default async function LeaguesPage() {
                       <b>{league.league_teams?.length ?? 0}</b> teams
                     </Typography>
                     <Typography>
-                      <b>{league.league_rounds?.length ?? 0}</b> rounds
+                      <b>{league.season_weeks ?? league.league_rounds?.length ?? 0}</b> weeks
                     </Typography>
                   </Stack>
                   <Button component={Link} href={`/leagues/${league.slug}`} variant="contained" sx={{ alignSelf: 'flex-start' }}>

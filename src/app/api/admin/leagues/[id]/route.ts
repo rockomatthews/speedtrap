@@ -388,7 +388,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         status: 'pending'
       }))
     );
-    const { error: duesError } = await supabase.from('league_dues').upsert(dues, { onConflict: 'member_id,week_number' });
+    const { error: duesError } = await supabase.from('league_dues').upsert(dues, { onConflict: 'member_id,week_number', ignoreDuplicates: true });
     if (duesError) return NextResponse.json({ error: duesError.message }, { status: 500 });
     return NextResponse.json({ dues: dues.length });
   }
@@ -461,6 +461,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (input.action === 'mark-due') {
     const { data: league, error: leagueError } = await supabase.from('leagues').select('*').eq('id', id).single();
     if (leagueError) return NextResponse.json({ error: leagueError.message }, { status: 500 });
+    const { data: existingDue, error: lookupError } = await supabase.from('league_dues').select('amount_cents,notes,status').eq('member_id', input.memberId).eq('league_id', id).eq('week_number', input.weekNumber).maybeSingle();
+    if (lookupError) return NextResponse.json({ error: lookupError.message }, { status: 500 });
     const { data: due, error: dueError } = await supabase
       .from('league_dues')
       .upsert(
@@ -468,10 +470,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           league_id: id,
           member_id: input.memberId,
           week_number: input.weekNumber,
-          amount_cents: Number(league.weekly_fee_cents ?? 4000),
+          amount_cents: existingDue?.amount_cents ?? Number(league.weekly_fee_cents ?? 4000),
           status: input.status,
           paid_at: input.status === 'paid' ? new Date().toISOString() : null,
-          notes: input.notes || null
+          notes: input.notes || existingDue?.notes || null
         },
         { onConflict: 'member_id,week_number' }
       )
@@ -479,7 +481,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .single();
     if (dueError) return NextResponse.json({ error: dueError.message }, { status: 500 });
 
-    if (input.status === 'paid') {
+    if (input.status === 'paid' && existingDue?.status !== 'paid') {
       const prizeAmount = Math.round(Number(due.amount_cents) * (Number(league.prize_pool_percent ?? 50) / 100));
       await supabase.from('league_prize_ledger').insert({
         league_id: id,

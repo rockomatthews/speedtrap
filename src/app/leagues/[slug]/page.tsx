@@ -1,3 +1,5 @@
+import { isWinterSeries, WINTER_SIGNUP_CLOSE } from '@/lib/leagues/winter-series';
+import { WinterSeriesOverview } from './WinterSeriesOverview';
 import Link from 'next/link';
 
 import Alert from '@mui/material/Alert';
@@ -50,6 +52,7 @@ export default async function LeagueDetailPage({
   const query = (await searchParams) ?? {};
   const standings = await getLeagueStandings(slug);
   const { league, rounds, teams, members, heats, heatEntries, dues, prizeLedger, driverStandings, teamStandings } = standings;
+  const winter = isWinterSeries(slug);
   const prizePoolCents = prizeLedger.reduce((sum, row) => sum + row.amount_cents, 0);
   const { user, profile } = await getAuthedProfile();
   const supabase = createSupabaseAdminClient();
@@ -87,7 +90,7 @@ export default async function LeagueDetailPage({
             <Chip label={`${formatDate(league.starts_at)} - ${formatDate(league.ends_at)}`} variant="outlined" />
             <Chip label={`${league.team_count} teams x ${league.roster_size} drivers`} variant="outlined" />
             <Chip label={`${formatMoney(league.weekly_fee_cents)} / week`} variant="outlined" />
-            <Chip label={`Prize pool ${formatMoney(prizePoolCents)}`} color="secondary" />
+            {!winter ? <Chip label={`Prize pool ${formatMoney(prizePoolCents)}`} color="secondary" /> : null}
           </Stack>
           <Typography variant="h2" sx={{ fontSize: { xs: 44, md: 72 }, fontWeight: 1000, lineHeight: 0.95 }}>
             {league.name}
@@ -110,14 +113,17 @@ export default async function LeagueDetailPage({
           seasonWeeks={league.season_weeks}
           defaultDriverName={defaultDriverName}
           success={registrationState === 'success'}
+          registrationClosed={winter && Date.now() >= Date.parse(WINTER_SIGNUP_CLOSE)}
           cancelled={registrationState === 'cancelled'}
         />
+
+        {winter ? <WinterSeriesOverview /> : null}
 
         <Grid container spacing={2}>
           {[
             ['Format', `${league.season_weeks} weeks · ${league.team_count} teams`],
-            ['Race Night', `${league.league_night} · ${league.league_start_time.slice(0, 5)}-${league.league_end_time.slice(0, 5)}`],
-            ['Heat Scoring', 'P1 4 pts · P2 3 · P3 2 · P4 1'],
+            winter ? ['Racing window', 'Monday–Thursday'] : ['Race Night', `${league.league_night} · ${league.league_start_time.slice(0, 5)}-${league.league_end_time.slice(0, 5)}`],
+            winter ? ['Weekly score', 'Your best valid lap'] : ['Heat Scoring', 'P1 4 pts · P2 3 · P3 2 · P4 1'],
             ['Drivers', `${reservedCount}/${league.team_count * league.roster_size} reserved`]
           ].map(([label, value]) => (
             <Grid key={label} size={{ xs: 12, sm: 6, lg: 3 }}>
@@ -184,7 +190,7 @@ export default async function LeagueDetailPage({
                   ))}
                   {driverStandings.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7}>No heat results yet.</TableCell>
+                      <TableCell colSpan={7}>No results yet.</TableCell>
                     </TableRow>
                   ) : null}
                 </TableBody>
@@ -242,7 +248,7 @@ export default async function LeagueDetailPage({
           </Grid>
         </Grid>
 
-        <Box sx={{ border: '1px solid rgba(255,255,255,0.14)', bgcolor: '#111', overflow: 'hidden' }}>
+        {!winter ? <Box sx={{ border: '1px solid rgba(255,255,255,0.14)', bgcolor: '#111', overflow: 'hidden' }}>
           <Box sx={{ p: 3, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
             <Typography variant="h4" sx={{ fontWeight: 1000 }}>
               Weekly Heat Schedule
@@ -294,7 +300,7 @@ export default async function LeagueDetailPage({
             })}
             {rounds.length === 0 ? <Box sx={{ p: 3 }}>No race weeks configured yet.</Box> : null}
           </Stack>
-        </Box>
+        </Box> : null}
       </Stack>
     </AppShell>
   );
