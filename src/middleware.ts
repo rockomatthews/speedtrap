@@ -19,7 +19,8 @@ type CookieOptions = {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
-  if (!isProtected) return NextResponse.next();
+  const isLeaguePage = pathname === '/leagues' || pathname.startsWith('/leagues/');
+  if (!isProtected && !isLeaguePage) return NextResponse.next();
 
   let response = NextResponse.next({ request });
 
@@ -29,9 +30,17 @@ export async function middleware(request: NextRequest) {
         return request.cookies.get(name)?.value;
       },
       set(name: string, value: string, options: CookieOptions) {
+        request.cookies.set(name, value);
+        const previousCookies = response.cookies.getAll();
+        response = NextResponse.next({ request });
+        previousCookies.forEach((cookie) => response.cookies.set(cookie));
         response.cookies.set({ name, value, ...options });
       },
       remove(name: string, options: CookieOptions) {
+        request.cookies.set(name, '');
+        const previousCookies = response.cookies.getAll();
+        response = NextResponse.next({ request });
+        previousCookies.forEach((cookie) => response.cookies.set(cookie));
         response.cookies.set({ name, value: '', ...options });
       }
     }
@@ -41,7 +50,7 @@ export async function middleware(request: NextRequest) {
     data: { user }
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (!user && isProtected) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('redirectTo', pathname);
