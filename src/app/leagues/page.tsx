@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 
 function formatWindow(startsAt: string | null, endsAt: string | null) {
   if (!startsAt && !endsAt) return 'Schedule coming soon';
-  const formatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+  const formatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' });
   return `${startsAt ? formatter.format(new Date(startsAt)) : 'TBD'} - ${endsAt ? formatter.format(new Date(endsAt)) : 'TBD'}`;
 }
 
