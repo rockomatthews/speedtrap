@@ -10,6 +10,7 @@ create table race_booking_holds(id uuid primary key,profile_id uuid,amount_cents
 create table race_bookings(id uuid primary key,profile_id uuid,customer_email text,amount_cents integer,status text default 'confirmed',starts_at timestamptz default now()-interval '2 hours',ends_at timestamptz default now()-interval '1 hour',payment_method text);
 `);
 await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261021174410_racing_rewards_wallet.sql',import.meta.url),'utf8'));
+await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261021210000_automatic_session_rewards.sql',import.meta.url),'utf8'));
 const q=async(sql,args=[]) => (await db.query(sql,args)).rows;
 const rpc=async(name,args)=>q(`select ${name}(${args.map((_,i)=>'$'+(i+1)).join(',')})`,args);
 const user=id(),other=id(),staff=id();
@@ -70,12 +71,30 @@ const referredBookings=[];
 for(let i=0;i<6;i++){const u=id();await q('insert into profiles values($1,$2)',[u,u+'@example.invalid']);await rpc('rewards_refer',[u,code,u+'@example.invalid']);await assert.rejects(rpc('rewards_refer',[u,code,u+'@example.invalid']),/already/);const h=await hold(u,3000);await prepare(h,u,false,false,3000);const b=await book(h,u);await rpc('rewards_complete',[b,staff]);await rpc('rewards_complete',[b,staff]);referredBookings.push(b);}
 assert.equal(Number((await wallet(referrer)).points_units),50000);
 await rpc('rewards_refund',[referredBookings[0],108,false]);assert.equal(Number((await wallet(referrer)).points_units),40000);await rpc('rewards_refund',[referredBookings[0],108,false]);assert.equal(Number((await wallet(referrer)).points_units),40000);
+// Automatic awards: ended eligible sessions only, booked rates honored while paused.
+await db.exec('update reward_promotions set enabled=false');
+const autoUser=id();await q('insert into profiles values($1,$2)',[autoUser,'auto@example.invalid']);
+const autoBookings=[];
+for(let i=0;i<6;i++){const h=await hold(autoUser,4000);await prepare(h,autoUser,false,false,4000);autoBookings.push(await book(h,autoUser));}
+await q("update race_bookings set ends_at=now()+interval '1 day' where id=$1",[autoBookings[1]]);
+await q("update race_bookings set status='cancelled' where id=$1",[autoBookings[2]]);
+await rpc('rewards_refund',[autoBookings[3],4320,true]);
+await rpc('rewards_refund',[autoBookings[4],1080,false]);
+await q('update race_bookings set rewards_rate=0 where id=$1',[autoBookings[5]]);
+await db.exec('update reward_settings set enabled=false');
+await Promise.all([rpc('rewards_complete_due',[]),rpc('rewards_complete_due',[])]);
+assert.equal(Number((await wallet(autoUser)).points_units),7000);
+assert.equal((await q('select count(*)::int as n from race_bookings where profile_id=$1 and rewards_completed_at is not null',[autoUser]))[0].n,2);
+assert.equal((await q('select count(*)::int as n from race_bookings where profile_id=$1 and rewards_completed_by is not null',[autoUser]))[0].n,0);
+await rpc('rewards_complete_due',[]);assert.equal(Number((await wallet(autoUser)).points_units),7000);
+await rpc('rewards_refund',[autoBookings[0],4320,true]);assert.equal(Number((await wallet(autoUser)).points_units),3000);
 // Browser roles cannot mutate or inspect wallets or call any wallet functions.
 for(const role of ['anon','authenticated']) {
  await db.exec('set role '+role);
  await assert.rejects(q('select * from racing_wallets'),/permission denied/);
  await assert.rejects(rpc('rewards_post',[user,'purchased',100000,'attack','attack']),/permission denied/);
  await assert.rejects(rpc('rewards_report',[]),/permission denied/);
+ await assert.rejects(rpc('rewards_complete_due',[]),/permission denied/);
  await db.exec('reset role');
 }
 for(const u of [user,other]) {const w=await wallet(u);for(const [bucket,col] of [['purchased','purchased_cents'],['promo','promo_cents'],['points','points_units']]){const sum=(await q('select coalesce(sum(amount),0) as n from racing_wallet_ledger where profile_id=$1 and bucket=$2',[u,bucket]))[0].n;assert.equal(Number(sum),Number(w[col]));}}

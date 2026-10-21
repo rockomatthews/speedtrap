@@ -34,3 +34,13 @@ test('retrying a completed credit purchase never creates another charge',async()
  const route=loader({'@/lib/supabase/route-handler':{createRouteHandlerClient:async()=>({auth:{getUser:async()=>({data:{user}})}})},'@/lib/supabase/admin':{createSupabaseAdminClient:()=>db},'@/lib/stripe/env':{getStripeEnv:()=>({STRIPE_SECRET_KEY:'test'})},'@/lib/supabase/env':{env:{}},stripe:class{checkout={sessions:{create:async()=>{creates++;}}}}})('src/app/api/rewards/topup/route.ts');
  assert.equal((await route.POST(request({amountCents:2500,key:user.id}))).status,409);assert.equal(creates,0);
 });
+
+test('automatic rewards cron requires secret and still awards when hold reconciliation fails',async()=>{
+ const prior=process.env.CRON_SECRET;process.env.CRON_SECRET='cron-test';let awards=0,holds=0;
+ const route=loader({'@/lib/supabase/admin':{createSupabaseAdminClient:()=>({})},'@/lib/rewards/server':{rewardsRpc:async(db,name)=>{assert.equal(name,'rewards_complete_due');awards++;return 2;},releaseExpiredWalletHolds:async()=>{holds++;throw Error('Stripe unavailable');}}})('src/app/api/cron/rewards/route.ts');
+ try {
+  assert.equal((await route.GET(new Request('https://example.invalid'))).status,401);assert.equal(awards,0);assert.equal(holds,0);
+  const response=await route.GET(new Request('https://example.invalid',{headers:{authorization:'Bearer cron-test'}}));
+  assert.equal(response.status,500);assert.equal((await response.json()).completed,2);assert.equal(awards,1);assert.equal(holds,1);
+ }finally{if(prior===undefined)delete process.env.CRON_SECRET;else process.env.CRON_SECRET=prior;}
+});
