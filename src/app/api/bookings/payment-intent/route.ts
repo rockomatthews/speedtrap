@@ -1,3 +1,5 @@
+import { rewardsRpc, createWalletBookingIntent } from '@/lib/rewards/server';
+import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { z } from 'zod';
@@ -36,6 +38,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Crypto payments are not enabled yet.' }, { status: 403 });
     }
 
+    const walletBooking = hold.rewards_subtotal_cents != null;
+    if (walletBooking) {
+      const auth = await createRouteHandlerClient(); const {data:{user}} = await auth.auth.getUser();
+      if(!user || user.id !== hold.profile_id) return NextResponse.json({error:'Sign in to use this booking wallet.'},{status:403});
+      await rewardsRpc(supabase,'rewards_lock_payment',{p_hold:hold.id,p_profile:user.id,p_method:requestedPaymentMethod});
+      hold.payment_method_requested=requestedPaymentMethod;
+    }
     if (hold.amount_cents === 0) {
       const booking = await confirmRaceBookingFromHold({
         supabase,
@@ -55,7 +64,7 @@ export async function POST(request: Request) {
     const simCount = Number(hold.sim_count ?? 1);
     const driverPodDescription = `${partySize} driver${partySize === 1 ? '' : 's'} / ${simCount} pod${simCount === 1 ? '' : 's'}`;
     let paymentIntent: Stripe.PaymentIntent;
-    const createPaymentIntent = () =>
+    const createPaymentIntent = () => walletBooking ? createWalletBookingIntent(stripe,hold) :
       stripe.paymentIntents.create({
         amount: hold.amount_cents,
         currency: hold.currency,
@@ -79,6 +88,7 @@ export async function POST(request: Request) {
     if (hold.stripe_payment_intent_id) {
       paymentIntent = await stripe.paymentIntents.retrieve(hold.stripe_payment_intent_id);
       const existingMethod = paymentIntent.metadata?.payment_method_requested === 'crypto' ? 'crypto' : 'card';
+      if(walletBooking && paymentIntent.status==='canceled') throw new Error('Checkout expired. Select the time again.');
       if (paymentIntent.status === 'canceled') {
         paymentIntent = await createPaymentIntent();
       } else if (existingMethod !== requestedPaymentMethod && paymentIntent.status !== 'succeeded') {

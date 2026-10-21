@@ -1,5 +1,8 @@
 'use client';
 
+import { walletEstimate } from '@/lib/rewards/pricing';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Checkbox from '@mui/material/Checkbox';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { loadStripe } from '@stripe/stripe-js';
@@ -10,10 +13,8 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
-import Checkbox from '@mui/material/Checkbox';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import Grid from '@mui/material/Grid2';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
@@ -35,7 +36,7 @@ import { applyRacingDiscount } from '@/lib/bookings/discount';
 import { useRacingDiscount } from '@/components/racing/RacingDiscountProvider';
 import { salesTaxCents, totalWithSalesTaxCents } from '@/lib/stripe/tax';
 
-type CheckoutQuote = { subtotal_cents: number; sales_tax_cents: number; amount_cents: number; base_amount_cents: number; membership_discount_cents: number; membership_credit_label: string | null; racing_discount_percent: number; racing_discount_cents: number };
+type CheckoutQuote = { wallet_purchased_cents?: number; wallet_promo_cents?: number; subtotal_cents: number; sales_tax_cents: number; amount_cents: number; base_amount_cents: number; membership_discount_cents: number; membership_credit_label: string | null; racing_discount_percent: number; racing_discount_cents: number };
 
 type Slot = {
   startsAt: string;
@@ -472,6 +473,10 @@ export function BookingClient({
   const discount = useRacingDiscount();
   const [checkoutQuote, setCheckoutQuote] = useState<CheckoutQuote | null>(null);
   const [signedInEmail, setSignedInEmail] = useState('');
+  const [wallet,setWallet]=useState<any>(null);
+  const [usePurchasedCredits,setUsePurchasedCredits]=useState(false);
+  const [useRewards,setUseRewards]=useState(false);
+  useEffect(()=>{if(signedInEmail) void fetch('/api/rewards',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>setWallet(j?.wallet??null)).catch(()=>setWallet(null));},[signedInEmail]);
   const normalizedInitialPartySize = normalizePartySize(initialPartySize);
   const safeInitialDurationMinutes = isRotationBooking(normalizedInitialPartySize) && initialDurationMinutes < 30 ? 30 : initialDurationMinutes;
   const initialBaseDurationMinutes: 15 | 30 = safeInitialDurationMinutes >= 30 ? 30 : 15;
@@ -720,6 +725,8 @@ export function BookingClient({
         body: JSON.stringify({
           customerName,
           customerEmail,
+          usePurchasedCredits,
+          useRewards: useRewards && (preview?.percent ?? 0)===0,
           customerPhone,
           smsConsent,
           startsAt: selectedSlot.startsAt,
@@ -761,9 +768,11 @@ export function BookingClient({
   const memberPrice = memberBookingPrice(durationMinutes, reservedSimCount, applicableMembership);
   const preview = discount ? applyRacingDiscount(memberPrice.amountCents, discount, date, discount.venueDate, Boolean(applicableMembership && applicableMembership.status !== 'inactive')) : null;
   const lockedQuote = clientSecret ? checkoutQuote : null;
-  const subtotalCents = lockedQuote?.subtotal_cents ?? preview?.amountCents ?? memberPrice.amountCents;
+  const walletEligible = signedInEmail && customerEmail.trim().toLowerCase()===signedInEmail;
+  const estimatedWallet=walletEstimate(preview?.amountCents ?? memberPrice.amountCents,walletEligible?Number(wallet?.purchased_cents??0):0,walletEligible&&Number(wallet?.points_units??0)>=0?Number(wallet?.promo_cents??0):0,usePurchasedCredits,useRewards,preview?.percent??0);
+  const subtotalCents = lockedQuote?.subtotal_cents ?? estimatedWallet.subtotal_cents;
   const taxCents = lockedQuote?.sales_tax_cents ?? salesTaxCents(subtotalCents);
-  const amountCents = lockedQuote?.amount_cents ?? totalWithSalesTaxCents(subtotalCents);
+  const amountCents = lockedQuote?.amount_cents ?? estimatedWallet.amount_cents;
   const racingDiscountPercent = lockedQuote?.racing_discount_percent ?? preview?.percent ?? 0;
   const racingDiscountCents = lockedQuote?.racing_discount_cents ?? preview?.discountCents ?? 0;
   const memberSavings = lockedQuote?.membership_discount_cents ?? memberPrice.discountCents;
@@ -792,7 +801,9 @@ export function BookingClient({
             <Typography color="text.secondary">
               {formatVenueBookingRange(booking.starts_at, booking.ends_at)} for {driverPodLabel(booking.party_size, booking.sim_count)}.
             </Typography>
-            <Typography sx={{ fontWeight: 900 }}>Total: {money(booking.amount_cents)}</Typography>
+            <Typography sx={{ fontWeight: 900 }}>Payment: {money(booking.amount_cents)}</Typography>
+            {booking.wallet_purchased_cents>0&&<Typography>Purchased credits used: {money(booking.wallet_purchased_cents)}</Typography>}
+            {booking.wallet_promo_cents>0&&<Typography>Racing reward used: {money(booking.wallet_promo_cents)}</Typography>}
             {booking.racing_discount_percent > 0 && <Typography color="primary">Racing discount: {booking.racing_discount_percent}% ({money(booking.racing_discount_cents)} saved before tax)</Typography>}
             {booking.vms_booking_id ? <Typography>VMS booking #{booking.vms_booking_id}</Typography> : null}
             {raceRequestSummary(booking) ? <Typography>Race request: {raceRequestSummary(booking)}</Typography> : null}
@@ -973,10 +984,20 @@ export function BookingClient({
                 <Typography color="text.secondary" sx={{ fontSize: 12 }}>
                   Sales tax (8%): {money(taxCents)}
                 </Typography>
-                <Typography sx={{ fontWeight: 950 }}>Total: {discount || lockedQuote ? money(amountCents) : 'Price unavailable'}</Typography>
+                {(lockedQuote?.wallet_promo_cents ?? estimatedWallet.wallet_promo_cents)>0&&<Typography>Racing reward: −{money(lockedQuote?.wallet_promo_cents ?? estimatedWallet.wallet_promo_cents)}</Typography>}
+                {(lockedQuote?.wallet_purchased_cents ?? estimatedWallet.wallet_purchased_cents)>0&&<Typography>Purchased credits: −{money(lockedQuote?.wallet_purchased_cents ?? estimatedWallet.wallet_purchased_cents)}</Typography>}
+                <Typography sx={{ fontWeight: 950 }}>Remaining payment: {discount || lockedQuote ? money(amountCents) : 'Price unavailable'}</Typography>
                 {!discount && !lockedQuote && <Alert severity="warning">Unable to load current prices. Please try again before checkout.</Alert>}
                 <Typography color="text.secondary">{selectedSlot ? formatVenueBookingRange(selectedSlot.startsAt, new Date(new Date(selectedSlot.startsAt).getTime() + durationMinutes * 60_000).toISOString()) : 'Choose a time slot'}</Typography>
               </Stack>
+              {walletEligible&&wallet&&<Box>
+                <Typography fontWeight={800}>Your racing wallet</Typography>
+                <Typography variant="body2">Purchased: {money(wallet.purchased_cents)} · Rewards: {money(wallet.promo_cents)}</Typography>
+                <FormControlLabel label="Use purchased credits" control={<Checkbox checked={usePurchasedCredits} disabled={Boolean(clientSecret)||startingPayment||wallet.purchased_cents<=0} onChange={e=>setUsePurchasedCredits(e.target.checked)}/>}/>
+                <FormControlLabel label="Use racing rewards (up to 25%)" control={<Checkbox checked={useRewards} disabled={Boolean(clientSecret)||startingPayment||wallet.promo_cents<=0||wallet.points_units<0||racingDiscountPercent>0} onChange={e=>setUseRewards(e.target.checked)}/>}/>
+                {racingDiscountPercent>0&&<Typography variant="caption">Racing rewards cannot combine with discount mode. Purchased credits can still be used.</Typography>}
+                <Button href="/dashboard/rewards">View rewards & add credits</Button>
+              </Box>}
               <Box>
                 <Typography color="text.secondary" sx={{ mb: 1 }}>
                   Drivers attending

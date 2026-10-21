@@ -1,3 +1,4 @@
+import { rewardsRpc } from '@/lib/rewards/server';
 import Stripe from 'stripe';
 
 import { allocateBookingResources, assertSlotAvailable } from '@/lib/bookings/availability';
@@ -93,6 +94,8 @@ function bookingPaymentNotes(booking: any, lines: Array<string | null | undefine
     `Package: ${bookingPackageLabel(booking.duration_minutes, bookingSimCount(booking))}`,
     `Drivers/pods: ${driverPodLine(booking)}`,
     `Total charged: ${formatMoneyFromBooking(booking)}`,
+    booking.wallet_purchased_cents ? `Prepaid racing credit: $${(booking.wallet_purchased_cents / 100).toFixed(2)}` : null,
+    booking.wallet_promo_cents ? `Racing reward: $${(booking.wallet_promo_cents / 100).toFixed(2)}` : null,
     booking.racing_discount_percent ? `Racing discount: ${booking.racing_discount_percent}% ($${((booking.racing_discount_cents ?? 0) / 100).toFixed(2)} before tax).` : null,
     ...lines
   ]
@@ -107,6 +110,7 @@ function paymentMethodFromStripeIntent(paymentIntent: Stripe.PaymentIntent) {
 function paymentMethodNote(paymentMethod: string | null | undefined) {
   if (paymentMethod === 'crypto') return 'Stripe payment method: Crypto stablecoin.';
   if (paymentMethod === 'card') return 'Stripe payment method: Card.';
+  if (paymentMethod === 'wallet') return 'Paid with prepaid racing credits.';
   if (paymentMethod === 'membership_credit') return 'Stripe payment method: Membership credit.';
   return null;
 }
@@ -138,6 +142,7 @@ async function refundStalePaidHold(input: { supabase: any; stripe: Stripe; payme
       }
     });
   }
+  if(input.hold.rewards_subtotal_cents != null) await rewardsRpc(input.supabase,'rewards_release_hold',{p_hold:input.hold.id});
 }
 
 export async function confirmRaceBookingFromPaymentIntent(input: {
@@ -170,9 +175,18 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
   if (existingBooking.error) throw new Error(existingBooking.error.message);
   if (existingBooking.data) return existingBooking.data;
 
+  if(paymentIntent.amount_received !== hold.amount_cents || paymentIntent.currency !== hold.currency) throw new Error('Payment does not match booking quote.');
   const charge = typeof paymentIntent.latest_charge === 'string' ? null : paymentIntent.latest_charge;
+  if(charge?.refunded) {
+    if(hold.rewards_subtotal_cents != null) await rewardsRpc(input.supabase,'rewards_release_hold',{p_hold:hold.id});
+    throw new Error('Payment was already refunded.');
+  }
   const paymentMethod = paymentMethodFromStripeIntent(paymentIntent);
   try {
+    if(hold.rewards_subtotal_cents != null) {
+      const {data:r,error:rError}=await input.supabase.from('racing_wallet_reservations').select('state').eq('hold_id',hold.id).single();
+      if(rError || !['reserved','payment'].includes(r?.state)) throw new Error('Wallet reservation has expired.');
+    }
     await assertHoldStillFits(input.supabase, hold);
   } catch (error) {
     await refundStalePaidHold({ supabase: input.supabase, stripe: input.stripe, paymentIntent, hold, charge });
@@ -184,7 +198,8 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
     .from('race_bookings')
     .insert({
       source: 'online_stripe',
-      profile_id: input.profileId ?? hold.profile_id ?? null,
+      profile_id: hold.profile_id ?? input.profileId ?? null,
+      wallet_hold_id: hold.rewards_subtotal_cents != null ? hold.id : null,
       customer_name: hold.customer_name,
       customer_email: hold.customer_email,
       customer_phone: hold.customer_phone,
@@ -213,7 +228,13 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
     })
     .select('*')
     .single();
-  if (bookingInsert.error) throw new Error(bookingInsert.error.message);
+  if (bookingInsert.error) {
+    if(hold.rewards_subtotal_cents != null && bookingInsert.error.code==='23505') {
+      const {data:existing}=await input.supabase.from('race_bookings').select('*').eq('wallet_hold_id',hold.id).maybeSingle();
+      if(existing) return existing;
+    }
+    throw new Error(bookingInsert.error.message);
+  }
 
   const booking = bookingInsert.data;
   await redeemMembershipCreditIfNeeded(input.supabase, hold);
@@ -310,12 +331,21 @@ export async function confirmRaceBookingFromHold(input: {
     .eq('status', 'active')
     .maybeSingle();
   if (holdError) throw new Error(holdError.message);
-  if (!hold) throw new Error('Booking hold was not found.');
+  if (!hold) {
+    const {data:existing}=await input.supabase.from('race_bookings').select('*').eq('wallet_hold_id',input.holdId).maybeSingle();
+    if(existing && existing.profile_id===input.profileId) return existing;
+    throw new Error('Booking hold was not found.');
+  }
   if (hold.amount_cents !== 0) throw new Error('This booking requires payment.');
   try {
+    if(hold.rewards_subtotal_cents != null) {
+      const {data:r,error:rError}=await input.supabase.from('racing_wallet_reservations').select('state').eq('hold_id',hold.id).single();
+      if(rError || !['reserved','payment'].includes(r?.state)) throw new Error('Wallet reservation has expired.');
+    }
     await assertHoldStillFits(input.supabase, hold);
   } catch (error) {
     await input.supabase.from('race_booking_holds').update({ status: 'cancelled' }).eq('id', hold.id);
+    if(hold.rewards_subtotal_cents != null) await rewardsRpc(input.supabase,'rewards_release_hold',{p_hold:hold.id});
     throw error;
   }
 
@@ -323,7 +353,8 @@ export async function confirmRaceBookingFromHold(input: {
     .from('race_bookings')
     .insert({
       source: 'online_stripe',
-      profile_id: input.profileId ?? hold.profile_id ?? null,
+      profile_id: hold.profile_id ?? input.profileId ?? null,
+      wallet_hold_id: hold.rewards_subtotal_cents != null ? hold.id : null,
       customer_name: hold.customer_name,
       customer_email: hold.customer_email,
       customer_phone: hold.customer_phone,
@@ -337,7 +368,7 @@ export async function confirmRaceBookingFromHold(input: {
       amount_cents: 0,
       currency: hold.currency,
       status: 'confirmed',
-      payment_method: 'membership_credit',
+      payment_method: hold.wallet_purchased_cents > 0 ? 'wallet' : 'membership_credit',
       membership_free_race_month: hold.membership_free_race_month ?? null,
       membership_free_race_applied: Boolean(hold.membership_free_race_applied),
       membership_discount_cents: hold.membership_discount_cents ?? 0,
@@ -350,7 +381,13 @@ export async function confirmRaceBookingFromHold(input: {
     })
     .select('*')
     .single();
-  if (bookingInsert.error) throw new Error(bookingInsert.error.message);
+  if (bookingInsert.error) {
+    if(hold.rewards_subtotal_cents != null && bookingInsert.error.code==='23505') {
+      const {data:existing}=await input.supabase.from('race_bookings').select('*').eq('wallet_hold_id',hold.id).maybeSingle();
+      if(existing) return existing;
+    }
+    throw new Error(bookingInsert.error.message);
+  }
 
   const booking = bookingInsert.data;
   await redeemMembershipCreditIfNeeded(input.supabase, hold);
@@ -400,7 +437,7 @@ export async function confirmRaceBookingFromHold(input: {
       participantIds: [customer.id],
       staffingNotes: bookingStaffingNotes(booking),
       notes: bookingNotes('Created automatically from a Speed Trap online booking.', booking),
-      paymentNotes: bookingPaymentNotes(booking, [paymentMethodNote('membership_credit'), membershipCreditPaymentNote(booking)])
+      paymentNotes: bookingPaymentNotes(booking, [paymentMethodNote(booking.payment_method), membershipCreditPaymentNote(booking)])
     });
     if (!vmsBooking?.id) throw new Error('VMS did not return a booking id.');
 

@@ -44,6 +44,7 @@ function holdRoute(db, discount = ON, user = null, checkAvailability = async () 
   return loader({
     '@/lib/supabase/admin': { createSupabaseAdminClient: () => db },
     '@/lib/supabase/route-handler': { createRouteHandlerClient: async () => ({ auth: { getUser: async () => ({ data: { user } }) } }) },
+    '@/lib/rewards/server': { rewardsRpc: async()=>({}) },
     '@/lib/bookings/discount-server': { getRacingDiscount: async () => { if (discount instanceof Error) throw discount; return discount; } },
     '@/lib/bookings/advance-window': { validateBookingDateWithinWindow: () => ({ ok: true }) },
     '@/lib/bookings/availability': { assertSlotAvailable: checkAvailability },
@@ -186,7 +187,7 @@ test('confirmation and webhook retries preserve discount and create only one boo
     '@/lib/bookings/availability': { assertSlotAvailable: async () => {}, allocateBookingResources: async () => {} },
     '@/lib/vms/client': { VmsClient: { fromEnv: () => ({ findCustomerByEmail: async () => ({ id: 1 }), createBooking: async value => { vmsBookings.push(value); return { id: 42 }; } }) } }
   })('src/lib/bookings/confirm.ts');
-  const stripe = { paymentIntents: { retrieve: async () => ({ id: 'pi_test', status: 'succeeded', metadata: { booking_hold_id: id }, latest_charge: { id: 'ch_test' } }) } };
+  const stripe = { paymentIntents: { retrieve: async () => ({ id: 'pi_test', status: 'succeeded', amount_received:2268, currency:'usd', metadata: { booking_hold_id: id }, latest_charge: { id: 'ch_test' } }) } };
   const input = { supabase: db, stripe, paymentIntentId: 'pi_test' };
   const booking = await route.confirmRaceBookingFromPaymentIntent(input);
   assert.equal(booking.amount_cents, 2268);
@@ -199,13 +200,13 @@ test('confirmation and webhook retries preserve discount and create only one boo
 });
 
 test('legacy holds without discount fields still confirm with zero discount', async () => {
-  const db = database({ race_booking_holds: [{ id, ...body, customer_name: body.customerName, customer_email: body.customerEmail, starts_at: body.startsAt, duration_minutes: 30, sim_count: 1, amount_cents: 3024, status: 'active' }] });
+  const db = database({ race_booking_holds: [{ id, ...body, customer_name: body.customerName, customer_email: body.customerEmail, starts_at: body.startsAt, duration_minutes: 30, sim_count: 1, amount_cents: 3024, currency:'usd', status: 'active' }] });
   const route = loader({
     '@/lib/supabase/env': { env: {} },
     '@/lib/bookings/availability': { assertSlotAvailable: async () => {}, allocateBookingResources: async () => {} },
     '@/lib/vms/client': { VmsClient: { fromEnv: () => ({ findCustomerByEmail: async () => ({ id: 1 }), createBooking: async () => ({ id: 42 }) }) } }
   })('src/lib/bookings/confirm.ts');
-  const stripe = { paymentIntents: { retrieve: async () => ({ id: 'pi_legacy', status: 'succeeded', metadata: { booking_hold_id: id }, latest_charge: null }) } };
+  const stripe = { paymentIntents: { retrieve: async () => ({ id: 'pi_legacy', status: 'succeeded', amount_received:3024, currency:'usd', metadata: { booking_hold_id: id }, latest_charge: null }) } };
   const result = await route.confirmRaceBookingFromPaymentIntent({ supabase: db, stripe, paymentIntentId: 'pi_legacy' });
   assert.equal(result.racing_discount_percent, 0);
   assert.equal(result.racing_discount_cents, 0);

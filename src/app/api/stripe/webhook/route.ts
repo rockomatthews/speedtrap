@@ -1,3 +1,4 @@
+import { syncWalletPayment, syncRewardRefund } from '@/lib/rewards/server';
 import { installmentDues } from '@/lib/leagues/winter-series';
 import Stripe from 'stripe';
 
@@ -332,6 +333,7 @@ export async function POST(request: Request) {
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        if(paymentIntent.metadata?.source === 'speedtrap_wallet_topup') { await syncWalletPayment(stripe,paymentIntent.id); break; }
         if (paymentIntent.metadata?.source === 'speedtrap_online_booking') {
           await confirmRaceBookingFromPaymentIntent({
             supabase: createSupabaseAdminClient(),
@@ -369,6 +371,7 @@ export async function POST(request: Request) {
       }
       case 'charge.refunded': {
         const charge = event.data.object as Stripe.Charge;
+        if(stripeId(charge.payment_intent)) await syncRewardRefund(stripe,stripeId(charge.payment_intent)!);
         if (charge.refunded) {
           await markPrivateEventDepositRefunded({
             supabaseAdmin: createSupabaseAdminClient(),
@@ -389,6 +392,7 @@ export async function POST(request: Request) {
       case 'refund.updated': {
         const refund = event.data.object as Stripe.Refund;
         if (refund.status === 'succeeded') {
+          if(stripeId(refund.payment_intent)) await syncRewardRefund(stripe,stripeId(refund.payment_intent)!);
           await markPrivateEventDepositRefunded({
             supabaseAdmin: createSupabaseAdminClient(),
             paymentIntentId: stripeId(refund.payment_intent),
@@ -408,6 +412,10 @@ export async function POST(request: Request) {
         const session = event.data.object as Stripe.Checkout.Session;
         const supabaseAdmin = createSupabaseAdminClient();
         const merchCartMeta = session.metadata?.merch_cart ?? '';
+        if(session.metadata?.source==='speedtrap_wallet_topup') {
+          if(session.payment_status==='paid' && stripeId(session.payment_intent)) await syncWalletPayment(stripe,stripeId(session.payment_intent)!);
+          break;
+        }
 
         if (session.mode === 'payment' && session.metadata?.source === 'speedtrap_private_event_deposit') {
           await markPrivateEventDepositPaid({
@@ -588,8 +596,9 @@ export async function POST(request: Request) {
       }
     }
   } catch (e) {
-    // Don't fail the webhook; Stripe will retry if we return non-2xx.
+    // Return a failure so Stripe retries incomplete financial updates.
     console.error('[stripe webhook] handler error', e);
+    return NextResponse.json({error:'Webhook processing failed.'},{status:500});
   }
 
   return NextResponse.json({ received: true });

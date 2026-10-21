@@ -1,3 +1,4 @@
+import { rewardsRpc } from '@/lib/rewards/server';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -49,6 +50,8 @@ const holdSchema = z.object({
     .refine(supportedBookingDuration, 'Unsupported booking duration.'),
   simCount: z.number().int().min(1).max(MAX_BOOKING_SIM_COUNT).optional(),
   partySize: z.number().int().min(1).max(MAX_NORMAL_BOOKING_PARTY_SIZE).optional(),
+  usePurchasedCredits: z.boolean().optional().default(false),
+  useRewards: z.boolean().optional().default(false),
   raceRequest: raceRequestSchema
 });
 
@@ -63,6 +66,7 @@ export async function POST(request: Request) {
     const {
       data: { user }
     } = await authClient.auth.getUser().catch(() => ({ data: { user: null } }));
+    if ((parsed.data.usePurchasedCredits || parsed.data.useRewards) && (!user || user.email?.toLowerCase()!==parsed.data.customerEmail)) return NextResponse.json({error:'Sign in with the booking email to use your wallet.'},{status:403});
     const start = new Date(parsed.data.startsAt);
     const end = addMinutes(start, parsed.data.durationMinutes);
     const bufferUntil = addMinutes(end, BOOKING_BUFFER_MINUTES);
@@ -150,7 +154,16 @@ export async function POST(request: Request) {
       .single();
     if (error) throw new Error(error.message);
 
-    return NextResponse.json({ hold: { ...data, subtotal_cents: racingPrice.amountCents, sales_tax_cents: taxCents, base_amount_cents: price.baseAmountCents, membership_credit_label: price.creditLabel } });
+    let walletQuote = {};
+    if (membershipProfile?.id) {
+      try {
+        walletQuote = await rewardsRpc(supabase,'rewards_prepare_hold',{p_hold:data.id,p_profile:membershipProfile.id,p_use_purchased:parsed.data.usePurchasedCredits,p_use_rewards:parsed.data.useRewards,p_subtotal:racingPrice.amountCents});
+      } catch (error) {
+        await supabase.from('race_booking_holds').update({status:'cancelled'}).eq('id',data.id);
+        throw error;
+      }
+    }
+    return NextResponse.json({ hold: { ...data, subtotal_cents: racingPrice.amountCents, sales_tax_cents: taxCents, base_amount_cents: price.baseAmountCents, membership_credit_label: price.creditLabel, ...walletQuote } });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to hold booking.' }, { status: 409 });
   }

@@ -24,6 +24,8 @@ type RaceBooking = {
   starts_at: string;
   ends_at: string;
   amount_cents: number;
+  wallet_purchased_cents: number;
+  wallet_promo_cents: number;
   racing_discount_percent: number;
   racing_discount_cents: number;
   currency: string;
@@ -139,6 +141,8 @@ export function RaceBookingsList() {
                     {formatVenueBookingRange(booking.starts_at, booking.ends_at)} ·{' '}
                     {booking.vms_booking_id ? `VMS booking #${booking.vms_booking_id}` : 'VMS sync pending'}
                   </Typography>
+                  {booking.wallet_purchased_cents>0&&<Typography>Purchased credits used: ${(booking.wallet_purchased_cents/100).toFixed(2)}</Typography>}
+                  {booking.wallet_promo_cents>0&&<Typography>Racing rewards used: ${(booking.wallet_promo_cents/100).toFixed(2)}</Typography>}
                   {booking.racing_discount_percent > 0 && <Typography color="primary" variant="body2">Racing discount: {booking.racing_discount_percent}% (${(booking.racing_discount_cents / 100).toFixed(2)} saved before tax)</Typography>}
                   {raceRequestLabel(booking) ? (
                     <Typography color="text.secondary">Race request: {raceRequestLabel(booking)}</Typography>

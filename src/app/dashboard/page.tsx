@@ -50,6 +50,8 @@ export default async function DashboardPage() {
 
         <MemberPassCard profile={currentProfile} email={user?.email} />
 
+        <Button component={Link} href="/dashboard/rewards" variant="outlined">My Rewards & Racing Credits</Button>
+
         <VmsProfileForm />
 
         <Grid container spacing={2}>

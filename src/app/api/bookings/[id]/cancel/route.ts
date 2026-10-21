@@ -28,7 +28,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (error) throw new Error(error.message);
     if (!booking) return NextResponse.json({ error: 'Booking not found.' }, { status: 404 });
 
-    const requesterEmail = parsed.data.email?.toLowerCase() ?? user?.email?.toLowerCase() ?? '';
+    const requesterEmail = user?.email?.toLowerCase() ?? '';
     const allowed =
       profile?.role === 'admin' ||
       booking.profile_id === user?.id ||
@@ -47,7 +47,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const refund = await stripe.refunds.create({
         payment_intent: booking.stripe_payment_intent_id,
         metadata: { race_booking_id: booking.id }
-      });
+      }, {idempotencyKey:`cancel-booking:${booking.id}`});
       refundId = refund.id;
     }
 
