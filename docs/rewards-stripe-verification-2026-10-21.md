@@ -27,7 +27,7 @@ The customer-facing hosted $25 checkout was completed manually with Stripe’s p
 
 All successful test payments were fully refunded. Final isolated purchased credit, promo credit and points balances were zero.
 
-Webhook payloads used real Stripe test objects with locally generated test signatures through the application webhook handler. This verifies signature handling and duplicate processing; it does not claim a production payment or live Stripe delivery was performed.
+Webhook payloads used real Stripe test objects with locally generated test signatures through the application webhook handler. This verifies signature handling and duplicate processing; it does not claim a production payment was performed. Live delivery was verified separately below.
 
 ## Repeating the test
 
@@ -38,3 +38,11 @@ Run `REWARDS_PGLITE_MODULE=/absolute/path/to/@electric-sql/pglite/dist/index.js 
 The old endpoint `we_1QddlcRrm3SnxLCwjQeQgMNk` was disabled and targeted the obsolete `/api/webhooks/stripe` route. It remains preserved and disabled.
 
 Created `we_1UT6OoRrm3SnxLCwVvXl36cL` at `https://www.speedtrapracing.com/api/stripe/webhook`, subscribed to the 12 event types handled by the application. Its signing secret was stored in Vercel and read back for equality without printing or saving it locally. API version: `2026-02-25.clover`.
+
+## Production verification and pilot activation
+
+Deployment `dpl_9MsWAXBSQtGpJdz1CMTdTW6d8EAg` became READY with the new webhook secret. The production endpoint returned HTTP 200 for a signed no-op and HTTP 400 for an invalid signature.
+
+Stripe Workbench confirmed HTTP 200 OK at 2026-10-21 16:51:37 Eastern for a manual resend of existing `payout.created` event `evt_1USnMuRrm3SnxLCwExyoy9Eh`. This notification is ignored by the application and changes no payment or customer balance. The initial resend failed before that event type was subscribed; it was temporarily subscribed for the successful transport check, then removed. Readback confirmed the endpoint remained enabled with the intended 12 application events.
+
+Admin saved earning, prepaid credit sales and referrals enabled at 2026-10-21 20:52:06 UTC. Production database readback confirmed all three true. Staff attendance confirmation remains required for points. No live purchase was made during verification.

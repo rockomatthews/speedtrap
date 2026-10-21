@@ -2,7 +2,7 @@
 
 ## Launch controls
 
-Admin → Racing rewards & credits (`/admin/rewards`). Earning, credit sales, and referrals ship OFF. Saving settings is required after changing switches. Turning earning off affects new bookings; already booked rates are honored. Existing balances remain redeemable.
+Admin → Racing rewards & credits (`/admin/rewards`). Earning, credit sales, and referrals default OFF on installation. The production pilot enabled all three on October 21, 2026 after isolated Stripe verification and live webhook delivery checks. See `rewards-stripe-verification-2026-10-21.md`. Saving settings is required after changing switches. Turning earning off affects new bookings; already booked rates are honored. Existing balances remain redeemable.
 
 Customer wallet: Dashboard → My Rewards (`/dashboard/rewards`). Website only; no POS integration or VMS telemetry dependency.
 
