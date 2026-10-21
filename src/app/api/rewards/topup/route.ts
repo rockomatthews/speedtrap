@@ -17,6 +17,13 @@ export async function POST(request:Request) {
   const {data:t}=await db.from('racing_wallet_topups').select('*').eq('id',parsed.data.key).single();
   if(t?.profile_id!==user.id || t.amount_cents!==parsed.data.amountCents) throw new Error('Credit purchase conflict.');
   const stripe=new Stripe(getStripeEnv().STRIPE_SECRET_KEY);
+  if(t.status!=='pending') return NextResponse.json({error:'This credit purchase is already processed. Refresh your wallet before starting another purchase.'},{status:409});
+  if(t.stripe_checkout_session_id) {
+   const existing=await stripe.checkout.sessions.retrieve(t.stripe_checkout_session_id);
+   if(existing.status==='open' && existing.url) return NextResponse.json({url:existing.url});
+   return NextResponse.json({error:'This checkout is closed. Refresh your wallet to start another purchase.'},{status:409});
+  }
+  if(Date.now()-Date.parse(t.created_at)>23*60*60*1000) return NextResponse.json({error:'This purchase request expired. Refresh your wallet to try again.'},{status:409});
   const metadata={source:'speedtrap_wallet_topup',topup_id:t.id,profile_id:user.id};
   const origin=env.NEXT_PUBLIC_SITE_URL || 'https://www.speedtrapracing.com';
   const session=await stripe.checkout.sessions.create({mode:'payment',customer_email:user.email,payment_method_types:['card'],

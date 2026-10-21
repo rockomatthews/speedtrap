@@ -19,7 +19,7 @@ export async function GET(request:Request) {
    db.from('reward_settings').select('*').eq('id',1).single(),
    db.from('reward_promotions').select('*').order('starts_at',{ascending:false}).limit(50),
    db.from('race_bookings').select('id,customer_name,customer_email,profile_id,starts_at,ends_at,rewards_subtotal_cents,rewards_rate').gt('rewards_rate',0).gt('rewards_subtotal_cents',0).is('rewards_completed_at',null).in('status',['confirmed','payment_succeeded_vms_failed']).lt('ends_at',new Date().toISOString()).order('ends_at').limit(100),
-   db.from('racing_wallets').select('*,profiles(display_name)').order('created_at',{ascending:false}).limit(100),
+   db.from('racing_wallets').select('*,profiles:profiles!racing_wallets_profile_id_fkey(display_name)').order('created_at',{ascending:false}).limit(100),
    db.from('racing_wallet_ledger').select('*').order('created_at',{ascending:false}).limit(100),
    db.rpc('rewards_report')
   ]);
@@ -30,7 +30,7 @@ export async function GET(request:Request) {
    const {data,error}=await db.from('racing_wallet_ledger').select('*').eq('profile_id',profileId).order('created_at',{ascending:false}).limit(200);if(error) throw error;customer=data;
   }
   return NextResponse.json({settings:queries[0].data,promotions:queries[1].data,pending:queries[2].data,wallets:queries[3].data,ledger:queries[4].data,report:queries[5].data,customer},{headers:{'Cache-Control':'no-store'}});
- }catch{return NextResponse.json({error:'Unable to load rewards administration.'},{status:503});}
+ }catch(e){console.error('Rewards admin read failed',e);return NextResponse.json({error:'Unable to load rewards administration.'},{status:503});}
 }
 export async function POST(request:Request) {
  const admin=await requireAdmin();if(!admin.ok) return admin.response;

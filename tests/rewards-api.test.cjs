@@ -28,3 +28,9 @@ test('credit package values are server-controlled and require authentication',as
  const load=who=>loader({'@/lib/supabase/route-handler':{createRouteHandlerClient:async()=>({auth:{getUser:async()=>({data:{user:who}})}})},'@/lib/supabase/admin':{createSupabaseAdminClient:()=>{throw Error('Must not reach database');}},'@/lib/stripe/env':{},'@/lib/supabase/env':{env:{}}})('src/app/api/rewards/topup/route.ts');
  assert.equal((await load(null).POST(request({amountCents:2500,key:user.id}))).status,401);assert.equal((await load(user).POST(request({amountCents:1,key:user.id}))).status,400);
 });
+test('retrying a completed credit purchase never creates another charge',async()=>{
+ let creates=0;
+ const db={from:table=>{const result={eq(){return result;},select(){return result;},upsert:async()=>({error:null}),single:async()=>({data:table==='reward_settings'?{wallet_sales_enabled:true}:{id:user.id,profile_id:user.id,amount_cents:2500,status:'paid'}})};return result;}};
+ const route=loader({'@/lib/supabase/route-handler':{createRouteHandlerClient:async()=>({auth:{getUser:async()=>({data:{user}})}})},'@/lib/supabase/admin':{createSupabaseAdminClient:()=>db},'@/lib/stripe/env':{getStripeEnv:()=>({STRIPE_SECRET_KEY:'test'})},'@/lib/supabase/env':{env:{}},stripe:class{checkout={sessions:{create:async()=>{creates++;}}}}})('src/app/api/rewards/topup/route.ts');
+ assert.equal((await route.POST(request({amountCents:2500,key:user.id}))).status,409);assert.equal(creates,0);
+});
