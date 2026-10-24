@@ -43,11 +43,11 @@ export function NavBar() {
 
   const navItems = [
     { href: '/pricing', label: 'Pricing' },
-    { href: '/race-radar', label: 'Race Radar' },
     ...(isAuthed ? [{ href: '/leaderboards', label: 'Leaderboards' }] : []),
     { href: '/leagues', label: 'Leagues' },
     { href: '/menu', label: 'Menu' },
-    { href: '/merch', label: 'Merch' }
+    { href: '/merch', label: 'Merch' },
+    { href: '/franchise', label: 'Franchise' }
   ];
 
   const authedItems = isAuthed ? [{ href: '/dashboard', label: 'Portal' }] : [];
