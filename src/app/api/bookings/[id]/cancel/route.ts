@@ -34,10 +34,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       booking.profile_id === user?.id ||
       (requesterEmail.length > 0 && requesterEmail === String(booking.customer_email).toLowerCase());
     if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (['cancelled', 'refunded'].includes(booking.status)) {
+      await releaseBookingResources(supabase, booking.id);
+      return NextResponse.json({ booking });
+    }
     if (!['confirmed', 'payment_succeeded_vms_failed'].includes(booking.status)) {
       return NextResponse.json({ error: `Booking cannot be cancelled from status ${booking.status}.` }, { status: 409 });
     }
-    if (!canAutoCancel(booking.starts_at)) {
+    if (profile?.role !== 'admin' && !canAutoCancel(booking.starts_at)) {
       return NextResponse.json({ error: 'Online cancellation is closed for this booking. Contact staff.' }, { status: 409 });
     }
 

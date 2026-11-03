@@ -132,20 +132,6 @@ async function assertHoldStillFits(supabase: any, hold: any) {
   });
 }
 
-async function refundStalePaidHold(input: { supabase: any; stripe: Stripe; paymentIntent: Stripe.PaymentIntent; hold: any; charge: Stripe.Charge | null }) {
-  await input.supabase.from('race_booking_holds').update({ status: 'cancelled' }).eq('id', input.hold.id);
-  if (!input.charge?.refunded) {
-    await input.stripe.refunds.create({
-      payment_intent: input.paymentIntent.id,
-      metadata: {
-        booking_hold_id: input.hold.id,
-        reason: 'booking_capacity_unavailable'
-      }
-    });
-  }
-  if(input.hold.rewards_subtotal_cents != null) await rewardsRpc(input.supabase,'rewards_release_hold',{p_hold:input.hold.id});
-}
-
 export async function confirmRaceBookingFromPaymentIntent(input: {
   supabase: any;
   stripe: Stripe;
@@ -190,9 +176,17 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
     }
     await assertHoldStillFits(input.supabase, hold);
   } catch (error) {
-    await refundStalePaidHold({ supabase: input.supabase, stripe: input.stripe, paymentIntent, hold, charge });
-    const reason = error instanceof Error ? error.message : 'That slot is no longer available.';
-    throw new Error(`${reason} The payment was refunded because the race time was no longer available.`);
+    // Browser confirmation and the Stripe webhook can overlap. A completed
+    // booking may now occupy this hold's pods or have consumed its wallet reservation.
+    const completed = await input.supabase.from('race_bookings').select('*')
+      .eq('stripe_payment_intent_id', paymentIntent.id).maybeSingle();
+    if (completed.error) throw new Error(completed.error.message);
+    if (completed.data) return completed.data;
+    // An availability/database failure is not evidence that a paid booking should
+    // be refunded. Leave the payment and hold intact for webhook reconciliation.
+    console.error('Paid booking needs confirmation retry', { paymentIntentId: paymentIntent.id, holdId: hold.id,
+      reason: error instanceof Error ? error.message : String(error) });
+    throw new Error('Payment received. Booking confirmation is still pending. Please do not pay again; contact staff if confirmation does not appear.');
   }
 
   const bookingInsert = await input.supabase
@@ -230,6 +224,12 @@ export async function confirmRaceBookingFromPaymentIntent(input: {
     .select('*')
     .single();
   if (bookingInsert.error) {
+    if (bookingInsert.error.code === '23505') {
+      const { data: completed, error: lookupError } = await input.supabase.from('race_bookings').select('*')
+        .eq('stripe_payment_intent_id', paymentIntent.id).maybeSingle();
+      if (lookupError) throw new Error(lookupError.message);
+      if (completed) return completed;
+    }
     if(hold.rewards_subtotal_cents != null && bookingInsert.error.code==='23505') {
       const {data:existing}=await input.supabase.from('race_bookings').select('*').eq('wallet_hold_id',hold.id).maybeSingle();
       if(existing) return existing;

@@ -350,13 +350,14 @@ export function AdminBookingsClient() {
   const [blackoutReason, setBlackoutReason] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [syncingVms, setSyncingVms] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const weekStart = useMemo(() => weekStartFor(selectedDate), [selectedDate]);
   const weekDates = useMemo(() => Array.from({ length: 7 }, (_item, index) => addDays(weekStart, index)), [weekStart]);
   const selectedBookings = useMemo(
-    () => raceBookings.filter((booking) => venueDate(booking.starts_at) === selectedDate),
+    () => raceBookings.filter((booking) => venueDate(booking.starts_at) === selectedDate && isBlockingBooking(booking)),
     [raceBookings, selectedDate]
   );
   const conflictSlots = useMemo(
@@ -398,6 +399,25 @@ export function AdminBookingsClient() {
       if (requestId === calendarRequest.current) setError(e instanceof Error ? e.message : 'Failed to load bookings admin.');
     } finally {
       if (requestId === calendarRequest.current) setLoading(false);
+    }
+  }
+
+  async function cancelBooking(booking: RaceBooking) {
+    const refund = booking.amount_cents > 0 ? ` This will refund ${money(booking.amount_cents, booking.currency)} through the original payment method.` : '';
+    if (!window.confirm(`Cancel ${booking.customer_name}'s booking and release the pods?${refund}`)) return;
+    setCancellingId(booking.id);
+    setError('');
+    setMessage('');
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? 'Cancellation failed.');
+      setMessage('Booking cancelled and pods released.');
+      await Promise.all([load(true), loadOperationsBoard()]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Cancellation failed.');
+    } finally {
+      setCancellingId(null);
     }
   }
 
@@ -593,7 +613,7 @@ export function AdminBookingsClient() {
 
             <Grid container spacing={1}>
               {weekDates.map((date) => {
-                const bookings = raceBookings.filter((booking) => venueDate(booking.starts_at) === date);
+                const bookings = raceBookings.filter((booking) => venueDate(booking.starts_at) === date && isBlockingBooking(booking));
                 const simCount = bookings.reduce((sum, booking) => sum + Number(booking.sim_count ?? 0), 0);
                 const revenue = bookings.reduce((sum, booking) => sum + Number(booking.amount_cents ?? 0), 0);
                 const active = date === selectedDate;
@@ -869,6 +889,9 @@ export function AdminBookingsClient() {
                         </Typography>
                       </Stack>
                       <Stack direction="row" spacing={0.75} flexWrap="wrap" justifyContent={{ xs: 'flex-start', lg: 'flex-end' }}>
+                        {isBlockingBooking(booking) && <Button size="small" color="error" variant="outlined" disabled={cancellingId !== null} onClick={() => cancelBooking(booking)}>
+                          {cancellingId === booking.id ? 'Cancelling…' : booking.amount_cents > 0 ? 'Cancel & refund' : 'Cancel booking'}
+                        </Button>}
                         {membershipCreditLabel(booking) ? <Chip size="small" color="primary" label={membershipCreditLabel(booking)} sx={{ fontWeight: 900 }} /> : null}
                         {Number(booking.membership_discount_cents ?? 0) > 0 ? (
                           <Chip size="small" color="success" label={`Member savings ${money(booking.membership_discount_cents, booking.currency)}`} sx={{ fontWeight: 900 }} />

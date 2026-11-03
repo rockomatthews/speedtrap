@@ -7,11 +7,11 @@ function db(rows) {
 }
 const start=new Date(Date.now()+5*86400000).toISOString();
 const end=new Date(Date.now()+5*86400000+3600000).toISOString();
-const imported={id:'party',source:'vms_import',vms_booking_id:392,status:'confirmed',starts_at:start,ends_at:end};
+const imported={id:'party',source:'vms_import',vms_booking_id:392,status:'confirmed',created_at:new Date(Date.now()-3600000).toISOString(),starts_at:start,ends_at:end};
 function sync(list){return loader({'@/lib/supabase/env':{env:{}},'@/lib/vms/client':{VmsClient:{fromEnv:()=>({listBookings:async()=>{if(list instanceof Error)throw list;return list}})}}})('src/lib/bookings/vms-sync.ts').syncUpcomingVmsBookings;}
-test('deleted staff party frees capacity even when VMS list is empty; paid bookings retained',async()=>{
+test('deleted staff party frees capacity even when VMS list is empty; website bookings also released',async()=>{
  const d=db([imported,{...imported,id:'paid',source:'website',vms_booking_id:500}]);const result=await sync([])(d);
- assert.equal(result.cancelled,1);assert.equal(d.tables.race_bookings[0].status,'cancelled');assert.equal(d.tables.race_bookings[1].status,'confirmed');assert.deepEqual(d.tables.race_booking_resources,[{booking_id:'paid'}]);
+ assert.equal(result.cancelled,2);assert.equal(d.tables.race_bookings[0].status,'cancelled');assert.equal(d.tables.race_bookings[1].status,'cancelled');assert.deepEqual(d.tables.race_booking_resources,[]);
 });
 test('moving a party updates its existing website reservation',async()=>{
  const d=db([imported]);const moved=new Date(Date.now()+7*86400000).toISOString();await sync([{id:392,startDate:moved,endDate:new Date(Date.parse(moved)+3600000).toISOString(),numberOfPods:4,status:'Booked'}])(d);
@@ -49,4 +49,11 @@ test('VMS booking list supplies a bounded abort signal', async()=>{
  const {VmsClient}=loader({'@/lib/supabase/env':{env:{}}})('src/lib/vms/client.ts');const client=new VmsClient('unused');
  client.request=async(path,init)=>{assert.ok(init.signal instanceof AbortSignal);return '<bookings></bookings>';};
  assert.deepEqual(await client.listBookings(),[]);
+});
+
+test('VMS does not resurrect cancelled or refunded website bookings',async()=>{
+ for(const status of ['cancelled','refunded']) {const d=db([{...imported,source:'online_stripe',status}]); await sync([{id:392,startDate:start,endDate:end,status:'Booked'}])(d); assert.equal(d.tables.race_bookings[0].status,status); assert.equal(d.tables.race_booking_resources.length,0);}
+});
+test('new website bookings are not cancelled by a VMS list fetched during creation',async()=>{
+ const d=db([{...imported,source:'online_stripe',created_at:new Date().toISOString()}]); await sync([])(d); assert.equal(d.tables.race_bookings[0].status,'confirmed');
 });

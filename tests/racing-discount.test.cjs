@@ -359,3 +359,33 @@ test('confirmation preserves shared and pre-change group holds and sends distinc
     assert.equal(vms.numberOfPods,simCount);
   }
 });
+
+for (const concurrent of [false,true]) test(`paid confirmation error never refunds; concurrent winner=${concurrent}`, async()=>{
+ const db=database(); await holdRoute(db).POST(request(body));
+ let refunds=0;
+ const route=loader({
+  '@/lib/supabase/env':{env:{}},
+  '@/lib/bookings/availability':{assertSlotAvailable:async()=>{if(concurrent) db.tables.race_bookings.push({id:'winner',stripe_payment_intent_id:'pi_race',status:'confirmed'});throw Error('That slot is not available (full).');}}
+ })('src/lib/bookings/confirm.ts');
+ const stripe={paymentIntents:{retrieve:async()=>({id:'pi_race',status:'succeeded',amount_received:2268,currency:'usd',metadata:{booking_hold_id:id},latest_charge:{id:'ch_race'}})},refunds:{create:async()=>{refunds++;}}};
+ const run=()=>route.confirmRaceBookingFromPaymentIntent({supabase:db,stripe,paymentIntentId:'pi_race'});
+ if(concurrent) assert.equal((await run()).id,'winner'); else await assert.rejects(run(),/Payment received.*do not pay again/);
+ assert.equal(refunds,0); assert.equal(db.tables.race_booking_holds[0].status,'active');
+});
+
+for (const role of ['admin','customer']) test(`late booking cancellation role=${role}`, async()=>{
+ const booking={id,profile_id:'owner',customer_email:'driver@example.invalid',status:'confirmed',starts_at:body.startsAt,amount_cents:0,vms_booking_id:42};
+ const db=database({race_bookings:[booking]});let released=0;
+ const {POST}=loader({
+  '@/lib/supabase/profile':{getAuthedProfile:async()=>({user:{id:'owner',email:'driver@example.invalid'},profile:{role}})},
+  '@/lib/supabase/admin':{createSupabaseAdminClient:()=>db},
+  '@/lib/bookings/confirm':{canAutoCancel:()=>false},
+  '@/lib/bookings/availability':{releaseBookingResources:async()=>{released++;}},
+  '@/lib/vms/client':{VmsClient:{fromEnv:()=>({updateBooking:async()=>{throw Error('Already removed from VMS');}})}}
+ })('src/app/api/bookings/[id]/cancel/route.ts');
+ const response=await POST(request({}),{params:Promise.resolve({id})});
+ assert.equal(response.status,role==='admin'?200:409);
+ assert.equal(released,role==='admin'?1:0);
+ assert.equal(booking.status,role==='admin'?'cancelled':'confirmed');
+ if(role==='admin'){const again=await POST(request({}),{params:Promise.resolve({id})});assert.equal(again.status,200);assert.equal(released,2);}
+});

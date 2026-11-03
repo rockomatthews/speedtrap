@@ -91,6 +91,7 @@ export async function syncUpcomingVmsBookings(
   supabase: SupabaseClient,
   options: { futureDays?: number } = {}
 ) {
+  const syncStartedAt = new Date();
   const future = options.futureDays ?? DEFAULT_SYNC_FUTURE_DAYS;
   const listedBookings = await VmsClient.fromEnv().listBookings({ past: 0, future });
   const vmsBookings = listedBookings
@@ -127,6 +128,12 @@ export async function syncUpcomingVmsBookings(
       continue;
     }
 
+    // A stale VMS record must never resurrect a locally cancelled/refunded booking.
+    if (['cancelled', 'refunded'].includes(String(existing.status))) {
+      cancelledIds.push(existing.id);
+      continue;
+    }
+
     const updatePayload =
       existing.source === 'vms_import'
         ? payload
@@ -152,7 +159,7 @@ export async function syncUpcomingVmsBookings(
     });
     if (!changed) continue;
 
-    const updateRes = await supabase.from('race_bookings').update(updatePayload).eq('id', existing.id);
+    const updateRes = await supabase.from('race_bookings').update(updatePayload).eq('id', existing.id).in('status', ['confirmed', 'payment_succeeded_vms_failed']);
     if (updateRes.error) throw new Error(updateRes.error.message);
 
     updated += 1;
@@ -164,34 +171,35 @@ export async function syncUpcomingVmsBookings(
     if (releaseRes.error) throw new Error(releaseRes.error.message);
   }
 
-  const missingImportedRes = await supabase
+  // Allow in-flight website creation to finish before interpreting a missing VMS ID.
+  const missingLinkedRes = await supabase
     .from('race_bookings')
     .select('id,vms_booking_id')
-    .eq('source', 'vms_import')
     .in('status', ['confirmed', 'payment_succeeded_vms_failed'])
     .not('vms_booking_id', 'is', null)
-    .gte('starts_at', new Date().toISOString())
+    .lte('created_at', addMinutes(syncStartedAt, -2).toISOString())
+    .gte('starts_at', syncStartedAt.toISOString())
     .lte('starts_at', addMinutes(new Date(), future * 24 * 60).toISOString());
-  if (missingImportedRes.error) throw new Error(missingImportedRes.error.message);
+  if (missingLinkedRes.error) throw new Error(missingLinkedRes.error.message);
 
   const liveVmsIds = new Set(listedBookings.map((booking) => Number(booking.id)));
-  const missingImportedIds = (missingImportedRes.data ?? [])
+  const missingLinkedIds = (missingLinkedRes.data ?? [])
     .filter((booking) => booking.vms_booking_id && !liveVmsIds.has(Number(booking.vms_booking_id)))
     .map((booking) => booking.id);
 
-  if (missingImportedIds.length) {
+  if (missingLinkedIds.length) {
     const cancelRes = await supabase
       .from('race_bookings')
       .update({
         status: 'cancelled',
-        error: 'Cancelled locally because this imported booking is no longer returned by VMS sync.'
+        error: 'Cancelled locally because this booking was removed from VMS.'
       })
-      .in('id', missingImportedIds);
+      .in('id', missingLinkedIds).in('status', ['confirmed', 'payment_succeeded_vms_failed']);
     if (cancelRes.error) throw new Error(cancelRes.error.message);
 
-    const releaseRes = await supabase.from('race_booking_resources').delete().in('booking_id', missingImportedIds);
+    const releaseRes = await supabase.from('race_booking_resources').delete().in('booking_id', missingLinkedIds);
     if (releaseRes.error) throw new Error(releaseRes.error.message);
-    cancelled = missingImportedIds.length;
+    cancelled = missingLinkedIds.length;
   }
 
   return { imported, updated, cancelled, skipped: Math.max(0, vmsBookings.length - imported - updated) };
