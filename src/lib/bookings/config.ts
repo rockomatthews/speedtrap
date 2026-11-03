@@ -31,8 +31,9 @@ export const MAX_CUSTOM_DURATION_MINUTES = 240;
 export const CUSTOM_DURATION_BLOCK_MINUTES = 30;
 export const CUSTOM_DURATION_BLOCK_PRICE_CENTS = 2800;
 export const MAX_BOOKING_SIM_COUNT = 4;
-export const MAX_NORMAL_BOOKING_PARTY_SIZE = 8;
-export const ROTATION_BOOKING_MIN_DURATION_MINUTES = 30;
+export const MAX_NORMAL_BOOKING_PARTY_SIZE = 9;
+export const MAX_DRIVERS_PER_POD = 4;
+export const ROTATION_BOOKING_MIN_DURATION_MINUTES = 60;
 
 const PACKAGE_PRICES_CENTS: Record<number, Record<number, number>> = {
   1: { 15: 1500, 30: 2800, 60: 5200 },
@@ -69,13 +70,29 @@ export function simCountForPartySize(partySize: number) {
   return normalizeSimCount(Math.min(normalizePartySize(partySize), MAX_BOOKING_SIM_COUNT));
 }
 
-export function isRotationBooking(partySize: number) {
-  return normalizePartySize(partySize) > MAX_BOOKING_SIM_COUNT;
+export function minimumPodsForPartySize(partySize: number) {
+  return Math.ceil(partySize / MAX_DRIVERS_PER_POD);
 }
 
-export function assertPartyDurationAllowed(partySize: number, durationMinutes: number) {
-  if (isRotationBooking(partySize) && durationMinutes < ROTATION_BOOKING_MIN_DURATION_MINUTES) {
-    throw new Error('Rotation bookings for 5-8 drivers require at least 30 minutes.');
+export function resolveBookingSimCount(partySize: number, requestedSimCount?: number) {
+  if (!Number.isInteger(partySize) || partySize < 1 || partySize > MAX_NORMAL_BOOKING_PARTY_SIZE) {
+    throw new Error('Online bookings allow 1-9 drivers. Groups of 10 or more should use private events.');
+  }
+  const pods = requestedSimCount ?? simCountForPartySize(partySize);
+  if (!Number.isInteger(pods) || pods < minimumPodsForPartySize(partySize) || pods > MAX_BOOKING_SIM_COUNT) {
+    throw new Error('Choose 1-4 pods, with no more than 4 drivers sharing each pod.');
+  }
+  return pods;
+}
+
+export function isRotationBooking(partySize: number, simCount = simCountForPartySize(partySize)) {
+  return partySize > simCount;
+}
+
+export function assertPartyDurationAllowed(partySize: number, durationMinutes: number, simCount?: number) {
+  const pods = resolveBookingSimCount(partySize, simCount);
+  if (isRotationBooking(partySize, pods) && durationMinutes < ROTATION_BOOKING_MIN_DURATION_MINUTES) {
+    throw new Error('Shared-pod bookings require at least 60 minutes. Choose more pods for a shorter session.');
   }
 }
 
@@ -112,6 +129,6 @@ export function bookingAmountCents(durationMinutes: number, simCount: number) {
 
 export function bookingPackageLabel(durationMinutes: number, simCount: number) {
   const sims = normalizeSimCount(simCount);
-  const podLabel = sims === 1 ? 'Solo Driver' : sims === 4 ? 'Full Venue / 4 Pods' : `${sims} Pods`;
+  const podLabel = sims === 1 ? '1 Pod' : sims === 4 ? 'Full Venue / 4 Pods' : `${sims} Pods`;
   return `${podLabel} - ${durationMinutes} min`;
 }

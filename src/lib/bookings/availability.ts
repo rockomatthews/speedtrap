@@ -6,7 +6,7 @@ import {
   assertPartyDurationAllowed,
   bookingAmountCents,
   normalizePartySize,
-  simCountForPartySize,
+  resolveBookingSimCount,
   supportedBookingDuration
 } from '@/lib/bookings/config';
 import { addMinutes, dayOfWeekForVenueDate, localDateTimeToUtc, overlaps, utcToVenueTime } from '@/lib/bookings/time';
@@ -108,8 +108,8 @@ export async function getBookingAvailability(
 ) {
   if (!supportedBookingDuration(input.durationMinutes)) throw new Error('Unsupported booking duration.');
   const partySize = normalizePartySize(input.partySize ?? input.simCount ?? 1);
-  assertPartyDurationAllowed(partySize, input.durationMinutes);
-  const simCount = simCountForPartySize(partySize);
+  const simCount = resolveBookingSimCount(partySize, input.simCount);
+  assertPartyDurationAllowed(partySize, input.durationMinutes, simCount);
   const amountCents = bookingAmountCents(input.durationMinutes, simCount);
   if (!amountCents) throw new Error('Unsupported booking product.');
 

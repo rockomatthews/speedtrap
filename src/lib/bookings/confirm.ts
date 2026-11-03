@@ -126,7 +126,8 @@ async function assertHoldStillFits(supabase: any, hold: any) {
     date: utcToVenueDate(new Date(hold.starts_at)),
     startsAt: hold.starts_at,
     durationMinutes: hold.duration_minutes,
-    partySize: hold.party_size ?? hold.sim_count,
+    // Recheck the stored pod allocation, including holds created before sharing rules changed.
+    simCount: hold.sim_count,
     excludeHoldId: hold.id
   });
 }

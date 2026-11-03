@@ -278,9 +278,10 @@ export default async function PricingPage() {
                   Reserve pods for the whole crew.
                 </Typography>
                 <Typography color="text.secondary" sx={{ mt: 0.75, maxWidth: 780 }}>
-                  Pick 2, 3, or all 4 rigs. The site books one operational VMS reservation with the right pod count and party notes for staff.
+                  Choose 1–4 pods and up to 9 drivers. On bookings of at least one hour, up to 4 drivers can share each pod and take turns. Four friends can share one pod; eight can share two. Groups of 10 or more should use private events.
                 </Typography>
               </Box>
+              <Button href="/book?duration=60&drivers=4&pods=1" variant="contained" sx={{ alignSelf: 'flex-start' }}>Book one shared pod for up to 4 drivers</Button>
               <Grid container spacing={2}>
                 {partyPricing.map((group) => (
                   <Grid key={group.name} size={{ xs: 12, md: 4 }}>
@@ -326,7 +327,7 @@ export default async function PricingPage() {
                               </Typography>
                               <Button
                                 component={Link}
-                                href={`/book?duration=${pkg.durationMinutes}&drivers=${group.simCount}`}
+                                href={`/book?duration=${pkg.durationMinutes}&drivers=${group.simCount}&pods=${group.simCount}`}
                                 variant="outlined"
                                 sx={{ gridColumn: '1 / -1' }}
                               >

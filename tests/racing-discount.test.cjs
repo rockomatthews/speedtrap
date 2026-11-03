@@ -16,6 +16,7 @@ function database(initial = {}) {
   return { tables, from(table) {
     let filters = [], op = 'select', payload, columns = '*';
     const query = {
+      order() { return query; },
       select(c = '*') { columns = c; return query; },
       eq(k, v) { filters.push(row => row[k] === v); return query; },
       gt(k, v) { filters.push(row => row[k] > v); return query; },
@@ -78,7 +79,7 @@ test('validates percentage bounds, enabled zero, decimals, nonnumbers and forged
 });
 
 test('hold recalculates trusted price, ignores submitted amounts, and snapshots discounts', async () => {
-  for (const partySize of [1, 2, 4, 8]) {
+  for (const partySize of [1, 2, 4]) {
     const db = database();
     const response = await holdRoute(db).POST(request({ ...body, partySize, amountCents: 1, discountPercent: 100 }));
     assert.equal(response.status, 200);
@@ -293,4 +294,68 @@ test('checkout does not wait for VMS, but still rejects occupied capacity', asyn
   const full = database();
   const rejected = await holdRoute(full, OFF, null, async () => { throw new Error('That slot is no longer available.'); }).POST(request(body));
   assert.equal(rejected.status, 409); assert.equal(full.tables.race_booking_holds.length, 0);
+});
+
+
+test('shared pods price and reserve the selected pods, not the number of drivers', async () => {
+  for (const [partySize, simCount] of [[4, 1], [8, 2], [9, 3], [4, 4]]) {
+    const db = database();
+    let checked;
+    const response = await holdRoute(db, OFF, null, async (_db, input) => { checked = input; }).POST(request({ ...body, durationMinutes: 60, partySize, simCount }));
+    assert.equal(response.status, 200);
+    const stored = db.tables.race_booking_holds[0];
+    const subtotal = bookingAmountCents(60, simCount);
+    assert.equal(checked.simCount, simCount);
+    assert.equal(stored.sim_count, simCount);
+    assert.equal(stored.party_size, partySize);
+    assert.equal(stored.amount_cents, subtotal + salesTaxCents(subtotal));
+  }
+});
+
+test('invalid group capacity, short shared sessions, and event-sized parties cannot create holds', async () => {
+  for (const [partySize, simCount, durationMinutes] of [[5, 1, 60], [9, 2, 60], [4, 1, 30], [8, 2, 15], [10, 3, 60]]) {
+    const db = database();
+    const response = await holdRoute(db, OFF).POST(request({ ...body, partySize, simCount, durationMinutes }));
+    assert.ok(response.status >= 400);
+    assert.equal(db.tables.race_booking_holds.length, 0);
+  }
+});
+
+
+test('shared groups use actual remaining pod capacity', async () => {
+  const db = database({
+    booking_resources: [1,2,3,4].map(id => ({id:String(id),active:true})),
+    venue_schedule_rules: [{day_of_week:1,opens_at:'12:00',closes_at:'20:00',max_sims:4,active:true}],
+    venue_blackouts: [],
+    race_bookings: [{status:'confirmed',starts_at:'2027-01-11T19:00:00Z',buffer_until:'2027-01-11T20:05:00Z',sim_count:2}]
+  });
+  const {getBookingAvailability} = loader()('src/lib/bookings/availability.ts');
+  for (const [partySize,simCount,expected] of [[4,1,true],[8,2,true],[9,3,false],[4,4,false]]) {
+    const result = await getBookingAvailability(db,{date:TODAY,durationMinutes:60,partySize,simCount});
+    const slot=result.slots.find(s=>s.startsAt==='2027-01-11T19:00:00.000Z');
+    assert.equal(slot.availableSims,2);
+    assert.equal(slot.available,expected);
+  }
+});
+
+test('confirmation preserves shared and pre-change group holds and sends distinct drivers and pods to VMS', async () => {
+  for (const [partySize,simCount,durationMinutes] of [[4,1,60],[8,2,60],[9,3,60],[8,4,30]]) {
+    const total=bookingAmountCents(durationMinutes,simCount)+salesTaxCents(bookingAmountCents(durationMinutes,simCount));
+    const db=database({race_booking_holds:[{id,customer_name:'Group test',customer_email:body.customerEmail,starts_at:body.startsAt,duration_minutes:durationMinutes,party_size:partySize,sim_count:simCount,amount_cents:total,currency:'usd',status:'active'}]});
+    let checked,allocated,vms;
+    const route=loader({
+      '@/lib/supabase/env':{env:{}},
+      '@/lib/bookings/availability':{assertSlotAvailable:async (_db,input)=>{checked=input;},allocateBookingResources:async (_db,input)=>{allocated=input;}},
+      '@/lib/vms/client':{VmsClient:{fromEnv:()=>({findCustomerByEmail:async()=>({id:1}),createBooking:async input=>{vms=input;return {id:42};}})}}
+    })('src/lib/bookings/confirm.ts');
+    const stripe={paymentIntents:{retrieve:async()=>({id:'pi_group',status:'succeeded',amount_received:total,currency:'usd',metadata:{booking_hold_id:id},latest_charge:null})}};
+    const result=await route.confirmRaceBookingFromPaymentIntent({supabase:db,stripe,paymentIntentId:'pi_group'});
+    assert.equal(result.party_size,partySize);
+    assert.equal(result.sim_count,simCount);
+    assert.equal(result.amount_cents,total);
+    assert.equal(checked.simCount,simCount);
+    assert.equal(allocated.simCount,simCount);
+    assert.equal(vms.groupSize,partySize);
+    assert.equal(vms.numberOfPods,simCount);
+  }
 });

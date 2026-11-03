@@ -13,7 +13,7 @@ import {
   MIN_CUSTOM_DURATION_MINUTES,
   assertPartyDurationAllowed,
   normalizePartySize,
-  simCountForPartySize,
+  resolveBookingSimCount,
   supportedBookingDuration
 } from '@/lib/bookings/config';
 import { raceRequestDbFields, validateRaceRequest } from '@/lib/bookings/race-request';
@@ -77,8 +77,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Enter a valid mobile phone number for the reminder text.' }, { status: 400 });
     }
     const partySize = normalizePartySize(parsed.data.partySize ?? parsed.data.simCount ?? 1);
-    assertPartyDurationAllowed(partySize, parsed.data.durationMinutes);
-    const simCount = simCountForPartySize(partySize);
+    const simCount = resolveBookingSimCount(partySize, parsed.data.simCount);
+    assertPartyDurationAllowed(partySize, parsed.data.durationMinutes, simCount);
 
     let signedInProfile: BookingProfile | null = null;
     let membershipProfile: MembershipProfile | null = null;
@@ -120,7 +120,8 @@ export async function POST(request: Request) {
       date: utcToVenueDate(start),
       startsAt: start.toISOString(),
       durationMinutes: parsed.data.durationMinutes,
-      partySize
+      partySize,
+      simCount
     });
 
     const { data, error } = await supabase

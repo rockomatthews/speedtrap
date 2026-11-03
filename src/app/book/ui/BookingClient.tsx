@@ -29,6 +29,7 @@ import {
   bookingAmountCents,
   isRotationBooking,
   normalizePartySize,
+  minimumPodsForPartySize,
   simCountForPartySize,
 } from '@/lib/bookings/config';
 import { formatVenueBookingRange } from '@/lib/bookings/time';
@@ -461,12 +462,14 @@ export function BookingClient({
   stripePublishableKey,
   initialDurationMinutes = 15,
   initialPartySize = 1,
+  initialSimCount,
   initialBookingWindow,
   cryptoPaymentsEnabled = false
 }: {
   stripePublishableKey: string;
   initialDurationMinutes?: number;
   initialPartySize?: number;
+  initialSimCount?: number;
   initialBookingWindow?: BookingWindow;
   cryptoPaymentsEnabled?: boolean;
 }) {
@@ -478,7 +481,8 @@ export function BookingClient({
   const [useRewards,setUseRewards]=useState(false);
   useEffect(()=>{if(signedInEmail) void fetch('/api/rewards',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>setWallet(j?.wallet??null)).catch(()=>setWallet(null));},[signedInEmail]);
   const normalizedInitialPartySize = normalizePartySize(initialPartySize);
-  const safeInitialDurationMinutes = isRotationBooking(normalizedInitialPartySize) && initialDurationMinutes < 30 ? 30 : initialDurationMinutes;
+  const normalizedInitialSimCount = initialSimCount ?? simCountForPartySize(normalizedInitialPartySize);
+  const safeInitialDurationMinutes = isRotationBooking(normalizedInitialPartySize, normalizedInitialSimCount) && initialDurationMinutes < 60 ? 60 : initialDurationMinutes;
   const initialBaseDurationMinutes: 15 | 30 = safeInitialDurationMinutes >= 30 ? 30 : 15;
   const initialExtraBlockCount = Math.max(0, Math.floor((safeInitialDurationMinutes - initialBaseDurationMinutes) / CUSTOM_DURATION_BLOCK_MINUTES));
   const stripePromise = useMemo(() => (stripePublishableKey ? loadStripe(stripePublishableKey) : null), [stripePublishableKey]);
@@ -488,6 +492,7 @@ export function BookingClient({
   const [extraBlockCount, setExtraBlockCount] = useState(initialExtraBlockCount);
   const [durationMode, setDurationMode] = useState<DurationMode>(() => durationModeFor(safeInitialDurationMinutes));
   const [partySize, setPartySize] = useState(normalizedInitialPartySize);
+  const [reservedSimCount, setReservedSimCount] = useState(normalizedInitialSimCount);
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [customerName, setCustomerName] = useState('');
@@ -509,8 +514,7 @@ export function BookingClient({
   const presetExtraBlockCount = selectionPresetExtraBlockCount;
   const plannedDurationMinutes = baseDurationMinutes + presetExtraBlockCount * CUSTOM_DURATION_BLOCK_MINUTES;
   const durationMinutes = selectedSlot ? baseDurationMinutes + extraBlockCount * CUSTOM_DURATION_BLOCK_MINUTES : plannedDurationMinutes;
-  const reservedSimCount = simCountForPartySize(partySize);
-  const rotationBooking = isRotationBooking(partySize);
+  const rotationBooking = isRotationBooking(partySize, reservedSimCount);
   const selectedWindowAvailableSims = useMemo(() => {
     if (!availability || !selectedSlot) return 0;
     return availableSimsForWindow(availability.slots, selectedSlot.startsAt, durationMinutes);
@@ -622,6 +626,20 @@ export function BookingClient({
     setError('');
   }
 
+  function changeGroup(drivers: number, pods: number) {
+    setPartySize(drivers);
+    setReservedSimCount(pods);
+    const sharing = isRotationBooking(drivers, pods);
+    const needsHour = sharing && plannedDurationMinutes < 60;
+    if (needsHour) {
+      setBaseDurationMinutes(30);
+      setDurationMode('60');
+      setSelectionPresetExtraBlockCount(1);
+    }
+    resetPaymentState(needsHour ? 1 : selectionPresetExtraBlockCount);
+    setCheckoutQuote(null);
+  }
+
   function resetRaceRequest() {
     setRaceRequestMode('none');
     setSelectedEvent(null);
@@ -629,8 +647,8 @@ export function BookingClient({
 
   function changeDurationMode(value: DurationMode | null) {
     if (!value) return;
-    if (value === '15' && rotationBooking) {
-      setError('Rotation bookings for 5-8 drivers require at least 30 minutes.');
+    if (value !== '60' && rotationBooking) {
+      setError('Shared-pod bookings require at least 60 minutes. Choose more pods for a shorter session.');
       return;
     }
     const nextBaseDurationMinutes = value === '15' ? 15 : 30;
@@ -689,7 +707,7 @@ export function BookingClient({
 
     if (clickedMs < selectedEndMs) {
       const clickedBlockIndex = Math.floor((clickedMs - baseEndMs) / (CUSTOM_DURATION_BLOCK_MINUTES * 60_000));
-      setExtraBlockCount(Math.max(0, clickedBlockIndex));
+      setExtraBlockCount(Math.max(rotationBooking ? 1 : 0, clickedBlockIndex));
       setClientSecret('');
       setPaymentIntentId('');
       resetRaceRequest();
@@ -852,7 +870,7 @@ export function BookingClient({
                     <ToggleButton value="15" disabled={rotationBooking}>
                       15 min
                     </ToggleButton>
-                    <ToggleButton value="30">30 min</ToggleButton>
+                    <ToggleButton value="30" disabled={rotationBooking}>30 min</ToggleButton>
                     <ToggleButton value="60">60 min</ToggleButton>
                   </ToggleButtonGroup>
                 </Grid>
@@ -965,7 +983,7 @@ export function BookingClient({
                 </Typography>
                 <Typography color="text.secondary" sx={{ fontSize: 13 }}>
                   {rotationBooking
-                    ? `Rotation booking: ${partySize} drivers cycling through 4 sims.`
+                    ? `Shared-pod booking: ${partySize} drivers rotating through ${reservedSimCount} pod${reservedSimCount === 1 ? '' : 's'}.`
                     : `Reserving ${reservedSimCount} sim${reservedSimCount === 1 ? '' : 's'}.`}
                 </Typography>
                 {memberSavings > 0 ? (
@@ -1003,51 +1021,35 @@ export function BookingClient({
                   Drivers attending
                 </Typography>
                 <Grid container spacing={1}>
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((count) => {
-                    const nextReservedSimCount = simCountForPartySize(count);
-                    const enabled = !selectedSlot || nextReservedSimCount <= selectedWindowAvailableSims;
-                    const selected = count === partySize;
-                    return (
-                      <Grid key={count} size={{ xs: 6, sm: 3 }}>
-                        <Button
-                          fullWidth
-                          disabled={!enabled || Boolean(clientSecret) || startingPayment}
-                          variant={selected ? 'contained' : 'outlined'}
-                          onClick={() => {
-                            const nextPartySize = normalizePartySize(count);
-                            setPartySize(nextPartySize);
-                            setClientSecret('');
-                            setPaymentIntentId('');
-                            resetRaceRequest();
-                            setError('');
-                            if (isRotationBooking(nextPartySize) && baseDurationMinutes === 15) {
-                              setBaseDurationMinutes(30);
-                              setDurationMode('30');
-                              setSelectionPresetExtraBlockCount(0);
-                              setExtraBlockCount(0);
-                              setSelectedSlot(null);
-                            } else if (selectedSlot && nextReservedSimCount > selectedWindowAvailableSims) {
-                              setSelectedSlot(null);
-                              setExtraBlockCount(selectionPresetExtraBlockCount);
-                              setError('That time does not have enough pods for this group size.');
-                            }
-                          }}
-                          sx={{ minHeight: 68, flexDirection: 'column' }}
-                        >
-                          {count} driver{count === 1 ? '' : 's'}
-                          <Typography component="span" sx={{ fontSize: 11, opacity: 0.7 }}>
-                            {count > 4 ? '4-sim rotation' : `Reserve ${count} sim${count === 1 ? '' : 's'}`}
-                          </Typography>
-                        </Button>
-                      </Grid>
-                    );
-                  })}
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((count) => (
+                    <Grid key={count} size={{ xs: 4, sm: 4 }}>
+                      <Button fullWidth disabled={Boolean(clientSecret) || startingPayment}
+                        variant={count === partySize ? 'contained' : 'outlined'}
+                        onClick={() => changeGroup(count, Math.max(reservedSimCount, minimumPodsForPartySize(count)))}>
+                        {count} driver{count === 1 ? '' : 's'}
+                      </Button>
+                    </Grid>
+                  ))}
                 </Grid>
-                {rotationBooking ? (
-                  <Alert severity="info" sx={{ mt: 1.5 }}>
-                    Groups of 5-8 drivers rotate through all 4 sims and require at least 30 minutes. Groups of 9+ should use private events.
-                  </Alert>
-                ) : null}
+                <Typography color="text.secondary" sx={{ mt: 2, mb: 1 }}>Pods to reserve</Typography>
+                <Grid container spacing={1}>
+                  {[1, 2, 3, 4].map((count) => (
+                    <Grid key={count} size={{ xs: 6, sm: 3 }}>
+                      <Button fullWidth disabled={count < minimumPodsForPartySize(partySize) || Boolean(clientSecret) || startingPayment}
+                        variant={count === reservedSimCount ? 'contained' : 'outlined'}
+                        onClick={() => changeGroup(partySize, count)} sx={{ minHeight: 68, flexDirection: 'column' }}>
+                        {count} pod{count === 1 ? '' : 's'}
+                        <Typography component="span" sx={{ fontSize: 11 }}>Up to {count * 4} drivers*</Typography>
+                      </Button>
+                    </Grid>
+                  ))}
+                </Grid>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+                  Up to 4 drivers can share each pod on sessions of at least one hour. Choose more pods to race at the same time. Pricing is per reserved pod package, not per person.
+                </Typography>
+                {rotationBooking && <Alert severity="info" sx={{ mt: 1.5 }}>Drivers take turns. Your shared-pod reservation is a minimum of 60 minutes.</Alert>}
+                <Button href="/pricing#private-events" sx={{ mt: 1 }}>10 or more drivers? Plan a private event</Button>
+                <Typography variant="caption" display="block">*Online reservations allow up to 9 drivers. Groups of 10+ use private events.</Typography>
               </Box>
               <TextField label="Full name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} disabled={Boolean(clientSecret) || startingPayment} fullWidth />
               <TextField label="Email" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} disabled={Boolean(clientSecret) || startingPayment} fullWidth />

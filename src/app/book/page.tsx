@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { RacingDiscountProvider } from '@/components/racing/RacingDiscountProvider';
 import { getRacingDiscountForDisplay } from '@/lib/bookings/discount-server';
 import Alert from '@mui/material/Alert';
@@ -13,6 +14,9 @@ import {
   MAX_NORMAL_BOOKING_PARTY_SIZE,
   MIN_CUSTOM_DURATION_MINUTES,
   normalizePartySize,
+  normalizeSimCount,
+  minimumPodsForPartySize,
+  simCountForPartySize,
   supportedBookingDuration
 } from '@/lib/bookings/config';
 import { getAuthedProfile } from '@/lib/supabase/profile';
@@ -55,10 +59,14 @@ export default async function BookPage({
 }) {
   const discount = await getRacingDiscountForDisplay().catch(() => null);
   const sp = (await searchParams) ?? {};
+  const requestedDrivers = sp.drivers ?? sp.partySize;
+  if (Number(Array.isArray(requestedDrivers) ? requestedDrivers[0] : requestedDrivers) >= 10) redirect('/pricing#private-events');
   const rawPublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
   const publishableKey = validateStripePublishableKey(rawPublishableKey);
   const initialDurationMinutes = parseInitialDuration(sp.duration ?? sp.minutes);
   const initialPartySize = parseInitialPartySize(sp.drivers ?? sp.partySize ?? sp.sims ?? sp.simCount ?? sp.pods);
+  const rawPods = sp.pods ?? sp.simCount ?? sp.sims;
+  const initialSimCount = Math.max(minimumPodsForPartySize(initialPartySize), rawPods === undefined ? simCountForPartySize(initialPartySize) : normalizeSimCount(Number(Array.isArray(rawPods) ? rawPods[0] : rawPods)));
   const { profile } = await getAuthedProfile();
   const initialBookingWindow = bookingDateWindow(profile);
 
@@ -95,6 +103,7 @@ export default async function BookPage({
               stripePublishableKey={publishableKey}
               initialDurationMinutes={initialDurationMinutes}
               initialPartySize={initialPartySize}
+              initialSimCount={initialSimCount}
               initialBookingWindow={initialBookingWindow}
               cryptoPaymentsEnabled={CRYPTO_PAYMENTS_ENABLED}
             />
