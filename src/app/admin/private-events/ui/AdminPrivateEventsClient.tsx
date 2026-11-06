@@ -538,9 +538,16 @@ export function AdminPrivateEventsClient() {
                       <Grid size={{ xs: 6, md: 3 }}>
                         <Box sx={{ border: '1px solid rgba(255,255,255,0.12)', p: 1.25 }}>
                           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
-                            Deposit due
+                            {quote.status === 'deposit_paid' ? 'Balance due' : quote.status === 'quote_sent' ? 'Deposit due' : 'Deposit amount'}
                           </Typography>
-                          <Typography sx={{ fontWeight: 950 }}>{money(quote.deposit_amount_cents, quote.currency)}</Typography>
+                          <Typography sx={{ fontWeight: 950 }}>
+                            {money(quote.status === 'deposit_paid' ? Math.max(0, quote.total_amount_cents - quote.deposit_amount_cents) : quote.deposit_amount_cents, quote.currency)}
+                          </Typography>
+                          {quote.status === 'deposit_paid' ? (
+                            <Typography variant="body2" color="text.secondary">
+                              Deposit paid: {money(quote.deposit_amount_cents, quote.currency)}. Balance before sales tax.
+                            </Typography>
+                          ) : null}
                         </Box>
                       </Grid>
                       <Grid size={{ xs: 12, md: 3 }}>

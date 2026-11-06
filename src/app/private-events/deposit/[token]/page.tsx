@@ -68,18 +68,20 @@ export default async function PrivateEventDepositPage({ params }: PrivateEventDe
                   <Stack spacing={0.5}>
                     <Chip label="50% deposit" color="primary" sx={{ alignSelf: 'flex-start', fontWeight: 950 }} />
                     <Typography variant="h3" sx={{ fontWeight: 950, maxWidth: 780 }}>
-                      {quote.customer_name}, your private event deposit is ready.
+                      {quote.customer_name}, {quote.status === 'deposit_paid' ? 'your private event deposit is paid.' : 'your private event deposit is ready.'}
                     </Typography>
                     <Typography color="text.secondary">
-                      This payment reserves the deposit against your full private-event quote.
+                      {quote.status === 'deposit_paid'
+                        ? `Deposit paid: ${money(quote.deposit_amount_cents, quote.currency)} toward your full private-event quote. Remaining balance is before sales tax.`
+                        : 'This payment reserves the deposit against your full private-event quote.'}
                     </Typography>
                   </Stack>
                   <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
                     <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 900, textTransform: 'uppercase' }}>
-                      Deposit due
+                      {quote.status === 'deposit_paid' ? 'Balance due' : quote.status === 'quote_sent' ? 'Deposit due' : 'Deposit amount'}
                     </Typography>
                     <Typography variant="h3" sx={{ fontWeight: 950, color: 'primary.main' }}>
-                      {money(quote.deposit_amount_cents, quote.currency)}
+                      {money(quote.status === 'deposit_paid' ? Math.max(0, quote.total_amount_cents - quote.deposit_amount_cents) : quote.deposit_amount_cents, quote.currency)}
                     </Typography>
                   </Box>
                 </Stack>
