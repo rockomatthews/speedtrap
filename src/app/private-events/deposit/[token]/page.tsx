@@ -35,7 +35,7 @@ export default async function PrivateEventDepositPage({ params }: PrivateEventDe
   const { data: quote, error } = await createSupabaseAdminClient()
     .from('private_event_deposit_quotes')
     .select(
-      'public_token,customer_name,event_starts_at,event_duration_minutes,guest_count,sim_count,total_amount_cents,deposit_percent,deposit_amount_cents,currency,notes,status,deposit_paid_at'
+      'public_token,customer_name,event_starts_at,event_duration_minutes,guest_count,sim_count,total_amount_cents,deposit_percent,deposit_amount_cents,currency,notes,status,deposit_paid_at,balance_paid_at,balance_paid_amount_cents'
     )
     .eq('public_token', token)
     .maybeSingle();
@@ -47,7 +47,7 @@ export default async function PrivateEventDepositPage({ params }: PrivateEventDe
           <Typography variant="h4" sx={{ fontWeight: 950 }}>
             Private Event Deposit
           </Typography>
-          <Typography color="text.secondary">Secure your Speed Trap private event with a 50% deposit.</Typography>
+          <Typography color="text.secondary">{quote?.status === 'deposit_paid' ? 'Your private event payment summary.' : 'Secure your Speed Trap private event with a 50% deposit.'}</Typography>
         </Stack>
 
         {error ? <Alert severity="error">{error.message}</Alert> : null}
@@ -66,13 +66,13 @@ export default async function PrivateEventDepositPage({ params }: PrivateEventDe
               <Stack spacing={2.5}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between">
                   <Stack spacing={0.5}>
-                    <Chip label="50% deposit" color="primary" sx={{ alignSelf: 'flex-start', fontWeight: 950 }} />
+                    <Chip label={quote.status === 'deposit_paid' && quote.balance_paid_at ? 'Fully paid' : '50% deposit'} color="primary" sx={{ alignSelf: 'flex-start', fontWeight: 950 }} />
                     <Typography variant="h3" sx={{ fontWeight: 950, maxWidth: 780 }}>
-                      {quote.customer_name}, {quote.status === 'deposit_paid' ? 'your private event deposit is paid.' : 'your private event deposit is ready.'}
+                      {quote.customer_name}, {quote.status === 'deposit_paid' ? (quote.balance_paid_at ? 'your private event is fully paid.' : 'your private event deposit is paid.') : 'your private event deposit is ready.'}
                     </Typography>
                     <Typography color="text.secondary">
                       {quote.status === 'deposit_paid'
-                        ? `Deposit paid: ${money(quote.deposit_amount_cents, quote.currency)} toward your full private-event quote. Remaining balance is before sales tax.`
+                        ? `Deposit paid: ${money(quote.deposit_amount_cents, quote.currency)} toward your full private-event quote. ${quote.balance_paid_at ? 'Your remaining balance was recorded as paid in store through Toast.' : 'Remaining balance is payable in store, plus applicable sales tax.'}`
                         : 'This payment reserves the deposit against your full private-event quote.'}
                     </Typography>
                   </Stack>
@@ -81,7 +81,7 @@ export default async function PrivateEventDepositPage({ params }: PrivateEventDe
                       {quote.status === 'deposit_paid' ? 'Balance due' : quote.status === 'quote_sent' ? 'Deposit due' : 'Deposit amount'}
                     </Typography>
                     <Typography variant="h3" sx={{ fontWeight: 950, color: 'primary.main' }}>
-                      {money(quote.status === 'deposit_paid' ? Math.max(0, quote.total_amount_cents - quote.deposit_amount_cents) : quote.deposit_amount_cents, quote.currency)}
+                      {money(quote.status === 'deposit_paid' ? Math.max(0, quote.total_amount_cents - quote.deposit_amount_cents - (quote.balance_paid_amount_cents ?? 0)) : quote.deposit_amount_cents, quote.currency)}
                     </Typography>
                   </Box>
                 </Stack>
@@ -126,7 +126,7 @@ export default async function PrivateEventDepositPage({ params }: PrivateEventDe
                 {quote.status === 'quote_sent' ? (
                   <PrivateEventDepositCheckoutButton token={quote.public_token} />
                 ) : quote.status === 'deposit_paid' ? (
-                  <Alert severity="success">Deposit received. Speed Trap has your private event deposit on file.</Alert>
+                  <Alert severity="success">{quote.balance_paid_at ? 'Fully paid: Stripe deposit received and remaining balance recorded as paid in Toast.' : 'Deposit received. Pay the remaining balance in store through Toast.'}</Alert>
                 ) : (
                   <Alert severity="warning">This deposit link is {quote.status.replaceAll('_', ' ')} and cannot be paid.</Alert>
                 )}

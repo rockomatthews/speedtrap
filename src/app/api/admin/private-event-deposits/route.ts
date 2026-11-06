@@ -138,6 +138,10 @@ function quoteSelect() {
     'stripe_payment_intent_id',
     'stripe_charge_id',
     'deposit_paid_at',
+    'balance_paid_at',
+    'balance_paid_by',
+    'balance_paid_amount_cents',
+    'toast_receipt_reference',
     'created_at',
     'updated_at'
   ].join(',');

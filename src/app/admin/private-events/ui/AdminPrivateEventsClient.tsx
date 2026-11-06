@@ -8,6 +8,8 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import Grid from '@mui/material/Grid2';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
@@ -33,6 +35,9 @@ type PrivateEventQuote = {
   stripe_payment_intent_id: string | null;
   stripe_charge_id: string | null;
   deposit_paid_at: string | null;
+  balance_paid_at: string | null;
+  balance_paid_amount_cents: number | null;
+  toast_receipt_reference: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -58,6 +63,8 @@ function money(cents: number, currency = 'usd') {
 function dateTime(value: string | null | undefined) {
   if (!value) return 'Not set';
   return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    timeZoneName: 'short',
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -105,6 +112,32 @@ export function AdminPrivateEventsClient() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [latestLink, setLatestLink] = useState('');
+  const [balanceQuoteId, setBalanceQuoteId] = useState('');
+  const [receiptReference, setReceiptReference] = useState('');
+  const [paymentCollected, setPaymentCollected] = useState(false);
+  const [recordingBalance, setRecordingBalance] = useState(false);
+
+  async function recordToastBalance(quote: PrivateEventQuote) {
+    setRecordingBalance(true);
+    setError('');
+    setMessage('');
+    try {
+      const response = await fetch(`/api/admin/private-event-deposits/${quote.id}/balance`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receiptReference, paymentCollected,
+          expectedBalanceCents: quote.total_amount_cents - quote.deposit_amount_cents })
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Failed to record balance payment.');
+      setBalanceQuoteId('');
+      await loadQuotes();
+      setMessage('Balance recorded as paid in Toast. No additional charge was made.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to record balance payment.');
+    } finally {
+      setRecordingBalance(false);
+    }
+  }
 
   const depositPreview = useMemo(() => {
     const value = Number(form.totalAmount);
@@ -398,7 +431,7 @@ export function AdminPrivateEventsClient() {
                       <Typography variant="h6" sx={{ fontWeight: 950 }}>
                         {quote.customer_name}
                       </Typography>
-                      <Chip size="small" color={statusColor(quote.status)} label={quote.status.replaceAll('_', ' ')} sx={{ fontWeight: 900 }} />
+                      <Chip size="small" color={statusColor(quote.status)} label={quote.status === 'deposit_paid' && quote.balance_paid_at ? 'Fully paid' : quote.status.replaceAll('_', ' ')} sx={{ fontWeight: 900 }} />
                     </Stack>
                     <Typography color="text.secondary">
                       {quote.customer_email}
@@ -406,6 +439,11 @@ export function AdminPrivateEventsClient() {
                     </Typography>
                   </Stack>
                   <Stack direction="row" spacing={1} flexWrap="wrap">
+                    {quote.status === 'deposit_paid' && !quote.balance_paid_at && quote.total_amount_cents > quote.deposit_amount_cents ? (
+                      <Button variant="contained" disabled={recordingBalance} onClick={() => {
+                        setBalanceQuoteId(quote.id); setReceiptReference(''); setPaymentCollected(false);
+                      }}>Record balance paid in Toast</Button>
+                    ) : null}
                     <Button variant="outlined" onClick={() => copyQuoteLink(quote)}>
                       Copy Link
                     </Button>
@@ -541,11 +579,11 @@ export function AdminPrivateEventsClient() {
                             {quote.status === 'deposit_paid' ? 'Balance due' : quote.status === 'quote_sent' ? 'Deposit due' : 'Deposit amount'}
                           </Typography>
                           <Typography sx={{ fontWeight: 950 }}>
-                            {money(quote.status === 'deposit_paid' ? Math.max(0, quote.total_amount_cents - quote.deposit_amount_cents) : quote.deposit_amount_cents, quote.currency)}
+                            {money(quote.status === 'deposit_paid' ? Math.max(0, quote.total_amount_cents - quote.deposit_amount_cents - (quote.balance_paid_amount_cents ?? 0)) : quote.deposit_amount_cents, quote.currency)}
                           </Typography>
                           {quote.status === 'deposit_paid' ? (
                             <Typography variant="body2" color="text.secondary">
-                              Deposit paid: {money(quote.deposit_amount_cents, quote.currency)}. Balance before sales tax.
+                              Stripe deposit paid: {money(quote.deposit_amount_cents, quote.currency)}. Balance before sales tax.
                             </Typography>
                           ) : null}
                         </Box>
@@ -576,6 +614,36 @@ export function AdminPrivateEventsClient() {
                 )}
                 {quote.deposit_paid_at ? (
                   <Alert severity="success">Deposit paid {dateTime(quote.deposit_paid_at)}.</Alert>
+                ) : null}
+                {quote.balance_paid_at ? (
+                  <Alert severity="info">
+                    Balance payment recorded in Toast: {money(quote.balance_paid_amount_cents ?? 0, quote.currency)} before tax.
+                    {' '}Recorded {dateTime(quote.balance_paid_at)}. Receipt/check: {quote.toast_receipt_reference}.
+                    {' '}This is a staff-recorded in-store payment, separate from the Stripe deposit.
+                  </Alert>
+                ) : null}
+                {balanceQuoteId === quote.id && !quote.balance_paid_at ? (
+                  <Box component="form" onSubmit={(event) => { event.preventDefault(); void recordToastBalance(quote); }}>
+                    <Stack spacing={1.5}>
+                      <Alert severity="info">
+                        Collect the remaining {money(quote.total_amount_cents - quote.deposit_amount_cents, quote.currency)} plus applicable sales tax in Toast first.
+                        {' '}Credit the Stripe deposit toward the quote; do not charge the full quote again.
+                      </Alert>
+                      <TextField label="Toast receipt / check number" value={receiptReference}
+                        onChange={(event) => setReceiptReference(event.target.value)} required
+                        disabled={recordingBalance} slotProps={{ htmlInput: { maxLength: 120 } }}
+                        helperText="Enter the receipt reference only—no card details." />
+                      <FormControlLabel control={<Checkbox checked={paymentCollected} disabled={recordingBalance}
+                        onChange={(event) => setPaymentCollected(event.target.checked)} />}
+                        label="I collected the full remaining balance and applicable tax in Toast." />
+                      <Stack direction="row" spacing={1}>
+                        <Button type="submit" variant="contained" disabled={recordingBalance || !paymentCollected || !receiptReference.trim()}>
+                          {recordingBalance ? 'Recording…' : 'Confirm balance paid'}
+                        </Button>
+                        <Button disabled={recordingBalance} onClick={() => setBalanceQuoteId('')}>Cancel</Button>
+                      </Stack>
+                    </Stack>
+                  </Box>
                 ) : null}
               </Stack>
             </CardContent>
