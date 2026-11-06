@@ -20,7 +20,7 @@ export const RACE_PRODUCTS = [
   {
     durationMinutes: 60,
     label: '60 min',
-    priceCents: 5200,
+    priceCents: 5500,
     description: 'Feature race session'
   }
 ] as const;
@@ -31,15 +31,15 @@ export const MAX_CUSTOM_DURATION_MINUTES = 240;
 export const CUSTOM_DURATION_BLOCK_MINUTES = 30;
 export const CUSTOM_DURATION_BLOCK_PRICE_CENTS = 2800;
 export const MAX_BOOKING_SIM_COUNT = 4;
-export const MAX_NORMAL_BOOKING_PARTY_SIZE = 9;
-export const MAX_DRIVERS_PER_POD = 4;
+export const MAX_NORMAL_BOOKING_PARTY_SIZE = 14;
+export const MAX_DRIVERS_PER_POD = 6;
 export const ROTATION_BOOKING_MIN_DURATION_MINUTES = 60;
 
 const PACKAGE_PRICES_CENTS: Record<number, Record<number, number>> = {
-  1: { 15: 1500, 30: 2800, 60: 5200 },
+  1: { 15: 1500, 30: 2800, 60: 5500 },
   2: { 15: 3000, 30: 6000, 60: 11000 },
-  3: { 15: 4500, 30: 8800, 60: 16200 },
-  4: { 15: 6000, 30: 11500, 60: 21000 }
+  3: { 15: 4500, 30: 8800, 60: 16500 },
+  4: { 15: 6000, 30: 11500, 60: 22000 }
 };
 
 export function raceProductForDuration(durationMinutes: number) {
@@ -76,11 +76,11 @@ export function minimumPodsForPartySize(partySize: number) {
 
 export function resolveBookingSimCount(partySize: number, requestedSimCount?: number) {
   if (!Number.isInteger(partySize) || partySize < 1 || partySize > MAX_NORMAL_BOOKING_PARTY_SIZE) {
-    throw new Error('Online bookings allow 1-9 drivers. Groups of 10 or more should use private events.');
+    throw new Error('Online bookings allow 1-14 drivers. Groups of 15 or more should use private events.');
   }
   const pods = requestedSimCount ?? simCountForPartySize(partySize);
   if (!Number.isInteger(pods) || pods < minimumPodsForPartySize(partySize) || pods > MAX_BOOKING_SIM_COUNT) {
-    throw new Error('Choose 1-4 pods, with no more than 4 drivers sharing each pod.');
+    throw new Error('Choose 1-4 pods, with no more than 6 drivers sharing each pod.');
   }
   return pods;
 }

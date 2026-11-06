@@ -64,8 +64,8 @@ type MembershipSummary = {
 
 type BookingWindow = {
   minDate: string;
-  maxDate: string;
-  advanceDays: number;
+  maxDate: string | null;
+  advanceDays: number | null;
 };
 
 type RaceOption = {
@@ -500,7 +500,7 @@ export function BookingClient({
   const [customerPhone, setCustomerPhone] = useState('');
   const [smsConsent, setSmsConsent] = useState(false);
   const [membership, setMembership] = useState<MembershipSummary | null>(null);
-  const [bookingWindow, setBookingWindow] = useState<BookingWindow>(() => initialBookingWindow ?? { minDate: todayDate(), maxDate: addDateDays(todayDate(), 30), advanceDays: 30 });
+  const [bookingWindow, setBookingWindow] = useState<BookingWindow>(() => initialBookingWindow ?? { minDate: todayDate(), maxDate: null, advanceDays: null });
   const [raceRequestMode, setRaceRequestMode] = useState<RaceRequestMode>('none');
   const [selectedEvent, setSelectedEvent] = useState<RaceOption | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<BookingPaymentMethod>('card');
@@ -532,7 +532,7 @@ export function BookingClient({
       if (email) setCustomerEmail(email);
       setSignedInEmail(String(json.user?.email ?? '').toLowerCase());
       if (json.membership) setMembership(json.membership);
-      if (json.bookingWindow?.minDate && json.bookingWindow?.maxDate) {
+      if (json.bookingWindow?.minDate) {
         setBookingWindow(json.bookingWindow);
       }
     }
@@ -574,7 +574,7 @@ export function BookingClient({
 
   useEffect(() => {
     if (date < bookingWindow.minDate) setDate(bookingWindow.minDate);
-    if (date > bookingWindow.maxDate) setDate(bookingWindow.maxDate);
+    if (bookingWindow.maxDate && date > bookingWindow.maxDate) setDate(bookingWindow.maxDate);
   }, [bookingWindow.maxDate, bookingWindow.minDate, date]);
 
   useEffect(() => {
@@ -853,10 +853,10 @@ export function BookingClient({
                     slotProps={{
                       htmlInput: {
                         min: bookingWindow.minDate,
-                        max: bookingWindow.maxDate
+                        max: bookingWindow.maxDate ?? undefined
                       }
                     }}
-                    helperText={`Book up to ${bookingWindow.advanceDays} days out.`}
+                    helperText="Choose any available date. Times are shown in Eastern Time."
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 7 }}>
@@ -1021,7 +1021,7 @@ export function BookingClient({
                   Drivers attending
                 </Typography>
                 <Grid container spacing={1}>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((count) => (
+                  {Array.from({ length: 14 }, (_, index) => index + 1).map((count) => (
                     <Grid key={count} size={{ xs: 4, sm: 4 }}>
                       <Button fullWidth disabled={Boolean(clientSecret) || startingPayment}
                         variant={count === partySize ? 'contained' : 'outlined'}
@@ -1039,17 +1039,17 @@ export function BookingClient({
                         variant={count === reservedSimCount ? 'contained' : 'outlined'}
                         onClick={() => changeGroup(partySize, count)} sx={{ minHeight: 68, flexDirection: 'column' }}>
                         {count} pod{count === 1 ? '' : 's'}
-                        <Typography component="span" sx={{ fontSize: 11 }}>Up to {count * 4} drivers*</Typography>
+                        <Typography component="span" sx={{ fontSize: 11 }}>Up to {Math.min(count * 6, 14)} drivers*</Typography>
                       </Button>
                     </Grid>
                   ))}
                 </Grid>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-                  Up to 4 drivers can share each pod on sessions of at least one hour. Choose more pods to race at the same time. Pricing is per reserved pod package, not per person.
+                  Up to 6 drivers can share each pod on sessions of at least one hour. Choose more pods to race at the same time. Pricing is per reserved pod package, not per person.
                 </Typography>
                 {rotationBooking && <Alert severity="info" sx={{ mt: 1.5 }}>Drivers take turns. Your shared-pod reservation is a minimum of 60 minutes.</Alert>}
-                <Button href="/pricing#private-events" sx={{ mt: 1 }}>10 or more drivers? Plan a private event</Button>
-                <Typography variant="caption" display="block">*Online reservations allow up to 9 drivers. Groups of 10+ use private events.</Typography>
+                <Button href="/pricing#private-events" sx={{ mt: 1 }}>15 or more drivers? Plan a private event</Button>
+                <Typography variant="caption" display="block">*Online reservations allow up to 14 drivers. Groups of 15+ use private events.</Typography>
               </Box>
               <TextField label="Full name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} disabled={Boolean(clientSecret) || startingPayment} fullWidth />
               <TextField label="Email" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} disabled={Boolean(clientSecret) || startingPayment} fullWidth />

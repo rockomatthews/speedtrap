@@ -60,7 +60,7 @@ export default async function BookPage({
   const discount = await getRacingDiscountForDisplay().catch(() => null);
   const sp = (await searchParams) ?? {};
   const requestedDrivers = sp.drivers ?? sp.partySize;
-  if (Number(Array.isArray(requestedDrivers) ? requestedDrivers[0] : requestedDrivers) >= 10) redirect('/pricing#private-events');
+  if (Number(Array.isArray(requestedDrivers) ? requestedDrivers[0] : requestedDrivers) >= 15) redirect('/pricing#private-events');
   const rawPublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
   const publishableKey = validateStripePublishableKey(rawPublishableKey);
   const initialDurationMinutes = parseInitialDuration(sp.duration ?? sp.minutes);

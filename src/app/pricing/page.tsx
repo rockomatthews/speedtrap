@@ -170,11 +170,119 @@ export default async function PricingPage() {
                   maxWidth: 980
                 }}
               >
-                Pick a session. Chase a faster lap.
+                Bring your crew. Share a pod.
               </Typography>
               <Typography color="text.secondary" sx={{ maxWidth: 680, fontSize: { xs: 18, md: 22 }, lineHeight: 1.45 }}>
-                Pick your pace with solo sessions, party pod packages, and a monthly membership built for regulars.
+                Book a pod for an hour, take turns behind the wheel, and make a night of it with friends, food, and racing.
               </Typography>
+            </Stack>
+          </Box>
+
+          <Box
+            component="section"
+            sx={{
+              p: { xs: 2.5, md: 4 },
+              border: '1px solid rgba(255,22,31,0.55)',
+              bgcolor: '#080808',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                opacity: 0.16,
+                background:
+                  'repeating-linear-gradient(135deg, rgba(255,210,0,0.26) 0 2px, transparent 2px 24px)'
+              }
+            }}
+          >
+            <Stack spacing={2.5} sx={{ position: 'relative', zIndex: 1 }}>
+              <Box>
+                <Chip label="Group Party" sx={{ bgcolor: '#FF161F', color: '#fff', fontWeight: 900, mb: 1.5 }} />
+                <Typography variant="h3" sx={{ fontWeight: 950 }}>
+                  One hour. Your friends. Your pod.
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 0.75, maxWidth: 780 }}>
+                  You’re booking the pod, so your group can take turns driving throughout the hour. Up to 6 friends share one pod; 7–12 friends share two. Choose more pods if you want to race side by side. Groups of 15 or more can plan a private event.
+                </Typography>
+              </Box>
+              <Typography sx={{ color: '#FFD200', fontSize: { xs: 28, md: 40 }, fontWeight: 950 }}>$55 per hour, per pod.</Typography>
+              <Typography color="text.secondary">Regular pricing before tax. Take turns throughout the hour—your whole group shares the pod price. Online payment secures your booking.</Typography>
+              <Grid container spacing={2}>
+                {[{ pods: 1, drivers: 6, label: 'Up to 6 friends · 1 shared pod' }, { pods: 2, drivers: 12, label: '7–12 friends · 2 shared pods' }, { pods: 3, drivers: 14, label: '13–14 friends · 3 shared pods' }].map((offer) => (
+                  <Grid key={offer.pods} size={{ xs: 12, md: 4 }}>
+                    <Card variant="outlined" sx={{ height: '100%', borderColor: '#FFD200', bgcolor: 'rgba(255,210,0,0.06)' }}>
+                      <CardContent><Stack spacing={2}>
+                        <Typography sx={{ fontWeight: 900 }}>{offer.label}</Typography>
+                        <Typography component="div" sx={{ fontSize: 42, color: '#FFD200', fontWeight: 950 }}><RacingPrice durationMinutes={60} simCount={offer.pods} /></Typography>
+                        <Typography color="text.secondary">One hour for the group · before tax</Typography>
+                        <Button variant="contained" href={`/book?duration=60&drivers=${offer.drivers}&pods=${offer.pods}`}>Book {offer.pods === 1 ? 'a shared pod' : `${offer.pods} shared pods`}</Button>
+                      </Stack></CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+              <Typography variant="h5" sx={{ pt: 2, fontWeight: 900 }}>Want more pods or a shorter session?</Typography>
+              <Grid container spacing={2}>
+                {partyPricing.map((group) => (
+                  <Grid key={group.name} size={{ xs: 12, md: 4 }}>
+                    <Card
+                      variant="outlined"
+                      sx={{
+                        height: '100%',
+                        borderColor: 'rgba(255,210,0,0.52)',
+                        bgcolor: 'rgba(255,255,255,0.055)'
+                      }}
+                    >
+                      <CardContent sx={{ p: { xs: 2.5, md: 3 } }}>
+                        <Stack spacing={2}>
+                          <Box>
+                            <Typography color="primary" sx={{ fontWeight: 950, textTransform: 'uppercase' }}>
+                              {group.name}
+                            </Typography>
+                            <Typography color="text.secondary" sx={{ mt: 0.75 }}>
+                              {group.description}
+                            </Typography>
+                          </Box>
+                          {group.packages.map((pkg) => (
+                            <Box
+                              key={`${group.simCount}-${pkg.durationMinutes}`}
+                              sx={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr auto',
+                                gap: 2,
+                                alignItems: 'center',
+                                p: 2,
+                                border: '1px solid rgba(255,255,255,0.12)',
+                                bgcolor: 'rgba(0,0,0,0.34)'
+                              }}
+                            >
+                              <Box>
+                                <Typography sx={{ fontWeight: 950 }}>{pkg.duration}</Typography>
+                                <Typography color="text.secondary" sx={{ fontSize: 13 }}>
+                                  Reserves {group.simCount} pod{group.simCount === 1 ? '' : 's'}
+                                </Typography>
+                              </Box>
+                              <Typography sx={{ color: '#FFD200', fontWeight: 950, fontSize: 30 }}>
+                                <RacingPrice durationMinutes={pkg.durationMinutes} simCount={group.simCount} />
+                              </Typography>
+                              <Button
+                                component={Link}
+                                href={`/book?duration=${pkg.durationMinutes}&drivers=${group.simCount}&pods=${group.simCount}`}
+                                variant="outlined"
+                                sx={{ gridColumn: '1 / -1' }}
+                              >
+                                Book {group.name}
+                              </Button>
+                            </Box>
+                          ))}
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
             </Stack>
           </Box>
 
@@ -252,97 +360,7 @@ export default async function PricingPage() {
             </Grid>
           </Stack>
 
-          <Box
-            component="section"
-            sx={{
-              p: { xs: 2.5, md: 4 },
-              border: '1px solid rgba(255,22,31,0.55)',
-              bgcolor: '#080808',
-              position: 'relative',
-              overflow: 'hidden',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                inset: 0,
-                pointerEvents: 'none',
-                opacity: 0.16,
-                background:
-                  'repeating-linear-gradient(135deg, rgba(255,210,0,0.26) 0 2px, transparent 2px 24px)'
-              }
-            }}
-          >
-            <Stack spacing={2.5} sx={{ position: 'relative', zIndex: 1 }}>
-              <Box>
-                <Chip label="Group Party" sx={{ bgcolor: '#FF161F', color: '#fff', fontWeight: 900, mb: 1.5 }} />
-                <Typography variant="h3" sx={{ fontWeight: 950 }}>
-                  Reserve pods for the whole crew.
-                </Typography>
-                <Typography color="text.secondary" sx={{ mt: 0.75, maxWidth: 780 }}>
-                  Choose 1–4 pods and up to 9 drivers. On bookings of at least one hour, up to 4 drivers can share each pod and take turns. Four friends can share one pod; eight can share two. Groups of 10 or more should use private events.
-                </Typography>
-              </Box>
-              <Button href="/book?duration=60&drivers=4&pods=1" variant="contained" sx={{ alignSelf: 'flex-start' }}>Book one shared pod for up to 4 drivers</Button>
-              <Grid container spacing={2}>
-                {partyPricing.map((group) => (
-                  <Grid key={group.name} size={{ xs: 12, md: 4 }}>
-                    <Card
-                      variant="outlined"
-                      sx={{
-                        height: '100%',
-                        borderColor: 'rgba(255,210,0,0.52)',
-                        bgcolor: 'rgba(255,255,255,0.055)'
-                      }}
-                    >
-                      <CardContent sx={{ p: { xs: 2.5, md: 3 } }}>
-                        <Stack spacing={2}>
-                          <Box>
-                            <Typography color="primary" sx={{ fontWeight: 950, textTransform: 'uppercase' }}>
-                              {group.name}
-                            </Typography>
-                            <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-                              {group.description}
-                            </Typography>
-                          </Box>
-                          {group.packages.map((pkg) => (
-                            <Box
-                              key={`${group.simCount}-${pkg.durationMinutes}`}
-                              sx={{
-                                display: 'grid',
-                                gridTemplateColumns: '1fr auto',
-                                gap: 2,
-                                alignItems: 'center',
-                                p: 2,
-                                border: '1px solid rgba(255,255,255,0.12)',
-                                bgcolor: 'rgba(0,0,0,0.34)'
-                              }}
-                            >
-                              <Box>
-                                <Typography sx={{ fontWeight: 950 }}>{pkg.duration}</Typography>
-                                <Typography color="text.secondary" sx={{ fontSize: 13 }}>
-                                  Reserves {group.simCount} pod{group.simCount === 1 ? '' : 's'}
-                                </Typography>
-                              </Box>
-                              <Typography sx={{ color: '#FFD200', fontWeight: 950, fontSize: 30 }}>
-                                <RacingPrice durationMinutes={pkg.durationMinutes} simCount={group.simCount} />
-                              </Typography>
-                              <Button
-                                component={Link}
-                                href={`/book?duration=${pkg.durationMinutes}&drivers=${group.simCount}&pods=${group.simCount}`}
-                                variant="outlined"
-                                sx={{ gridColumn: '1 / -1' }}
-                              >
-                                Book {group.name}
-                              </Button>
-                            </Box>
-                          ))}
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
-            </Stack>
-          </Box>
+
 
           <Box
             component="section"

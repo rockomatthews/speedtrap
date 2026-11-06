@@ -298,7 +298,7 @@ test('checkout does not wait for VMS, but still rejects occupied capacity', asyn
 
 
 test('shared pods price and reserve the selected pods, not the number of drivers', async () => {
-  for (const [partySize, simCount] of [[4, 1], [8, 2], [9, 3], [4, 4]]) {
+  for (const [partySize, simCount] of [[6, 1], [12, 2], [14, 3], [4, 4]]) {
     const db = database();
     let checked;
     const response = await holdRoute(db, OFF, null, async (_db, input) => { checked = input; }).POST(request({ ...body, durationMinutes: 60, partySize, simCount }));
@@ -313,7 +313,7 @@ test('shared pods price and reserve the selected pods, not the number of drivers
 });
 
 test('invalid group capacity, short shared sessions, and event-sized parties cannot create holds', async () => {
-  for (const [partySize, simCount, durationMinutes] of [[5, 1, 60], [9, 2, 60], [4, 1, 30], [8, 2, 15], [10, 3, 60]]) {
+  for (const [partySize, simCount, durationMinutes] of [[7, 1, 60], [13, 2, 60], [4, 1, 30], [8, 2, 15], [15, 3, 60]]) {
     const db = database();
     const response = await holdRoute(db, OFF).POST(request({ ...body, partySize, simCount, durationMinutes }));
     assert.ok(response.status >= 400);
@@ -339,8 +339,8 @@ test('shared groups use actual remaining pod capacity', async () => {
 });
 
 test('confirmation preserves shared and pre-change group holds and sends distinct drivers and pods to VMS', async () => {
-  for (const [partySize,simCount,durationMinutes] of [[4,1,60],[8,2,60],[9,3,60],[8,4,30]]) {
-    const total=bookingAmountCents(durationMinutes,simCount)+salesTaxCents(bookingAmountCents(durationMinutes,simCount));
+  for (const [partySize,simCount,durationMinutes,oldQuote] of [[6,1,60],[12,2,60],[14,3,60],[8,4,30],[4,1,60,5616]]) {
+    const total=oldQuote ?? bookingAmountCents(durationMinutes,simCount)+salesTaxCents(bookingAmountCents(durationMinutes,simCount));
     const db=database({race_booking_holds:[{id,customer_name:'Group test',customer_email:body.customerEmail,starts_at:body.startsAt,duration_minutes:durationMinutes,party_size:partySize,sim_count:simCount,amount_cents:total,currency:'usd',status:'active'}]});
     let checked,allocated,vms;
     const route=loader({
@@ -388,4 +388,17 @@ for (const role of ['admin','customer']) test(`late booking cancellation role=${
  assert.equal(released,role==='admin'?1:0);
  assert.equal(booking.status,role==='admin'?'cancelled':'confirmed');
  if(role==='admin'){const again=await POST(request({}),{params:Promise.resolve({id})});assert.equal(again.status,200);assert.equal(released,2);}
+});
+
+test('hourly pod prices are $55 each for one to four hours, while short prices stay intact',()=>{
+ for(const pods of [1,2,3,4]) for(const hours of [1,2,3,4]) assert.equal(bookingAmountCents(hours*60,pods),5500*pods*hours);
+ assert.equal(bookingAmountCents(15,1),1500);assert.equal(bookingAmountCents(30,1),2800);
+});
+test('booking dates beyond thirty days are accepted for all profiles, past and invalid dates rejected',()=>{
+ const {validateBookingDateWithinWindow,bookingDateWindow}=loader()('src/lib/bookings/advance-window.ts');
+ for(const profile of [null,{role:'customer'},{role:'admin'},{membership_status:'active'}]){
+  assert.equal(bookingDateWindow(profile).maxDate,null);
+  for(const date of ['2027-02-12','2027-12-31','2028-06-01'])assert.equal(validateBookingDateWithinWindow(date,profile).ok,true);
+  for(const date of ['2027-01-10','2027-02-30','invalid'])assert.equal(validateBookingDateWithinWindow(date,profile).ok,false);
+ }
 });
