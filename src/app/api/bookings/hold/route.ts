@@ -37,6 +37,7 @@ const raceRequestSchema = z
   .optional();
 
 const holdSchema = z.object({
+  promoCode: z.string().trim().min(6).max(40).optional(),
   customerName: z.string().trim().min(3).max(120),
   customerEmail: z.string().trim().email().max(180).transform((value) => value.toLowerCase()),
   customerPhone: z.string().trim().max(40).optional().default(''),
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
     const {
       data: { user }
     } = await authClient.auth.getUser().catch(() => ({ data: { user: null } }));
-    if ((parsed.data.usePurchasedCredits || parsed.data.useRewards) && (!user || user.email?.toLowerCase()!==parsed.data.customerEmail)) return NextResponse.json({error:'Sign in with the booking email to use your wallet.'},{status:403});
+    if ((parsed.data.usePurchasedCredits || parsed.data.useRewards || parsed.data.promoCode) && (!user || user.email?.toLowerCase()!==parsed.data.customerEmail)) return NextResponse.json({error:'Sign in with the booking email to use credits or promo codes.'},{status:403});
     const start = new Date(parsed.data.startsAt);
     const end = addMinutes(start, parsed.data.durationMinutes);
     const bufferUntil = addMinutes(end, BOOKING_BUFFER_MINUTES);
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
       const { data: profile } = await supabase
         .from('profiles')
         .select(
-          'id,role,membership_status,membership_current_period_end,birthday,membership_free_race_month,membership_free_race_redeemed_at,membership_monthly_15_race_month,membership_monthly_15_race_redeemed_at,membership_birthday_30_race_year,membership_birthday_30_race_redeemed_at'
+          'id,role,membership_status,membership_current_period_end,gift_membership_until,gift_membership_lifetime,birthday,membership_free_race_month,membership_free_race_redeemed_at,membership_monthly_15_race_month,membership_monthly_15_race_redeemed_at,membership_birthday_30_race_year,membership_birthday_30_race_redeemed_at'
         )
         .eq('id', user.id)
         .maybeSingle<BookingProfile>();
@@ -97,6 +98,7 @@ export async function POST(request: Request) {
       }
     }
 
+    if (parsed.data.promoCode && !membershipProfile?.id) return NextResponse.json({error:'Your account profile could not be loaded. Sign in again before using a promo code.'},{status:409});
     const windowCheck = validateBookingDateWithinWindow(utcToVenueDate(start), signedInProfile);
     if (!windowCheck.ok) return NextResponse.json({ error: windowCheck.error }, { status: 403 });
 
@@ -158,11 +160,17 @@ export async function POST(request: Request) {
     let walletQuote = {};
     if (membershipProfile?.id) {
       try {
-        walletQuote = await rewardsRpc(supabase,'rewards_prepare_hold',{p_hold:data.id,p_profile:membershipProfile.id,p_use_purchased:parsed.data.usePurchasedCredits,p_use_rewards:parsed.data.useRewards,p_subtotal:racingPrice.amountCents});
+        walletQuote = parsed.data.promoCode
+          ? await rewardsRpc(supabase,'promo_prepare_hold',{p_hold:data.id,p_profile:membershipProfile.id,p_code:parsed.data.promoCode,p_subtotal:price.baseAmountCents,p_use_purchased:parsed.data.usePurchasedCredits})
+          : await rewardsRpc(supabase,'rewards_prepare_hold',{p_hold:data.id,p_profile:membershipProfile.id,p_use_purchased:parsed.data.usePurchasedCredits,p_use_rewards:parsed.data.useRewards,p_subtotal:racingPrice.amountCents});
       } catch (error) {
         await supabase.from('race_booking_holds').update({status:'cancelled'}).eq('id',data.id);
         throw error;
       }
+    }
+    if (parsed.data.promoCode && 'amount_cents' in walletQuote && Number(walletQuote.amount_cents)>0 && Number(walletQuote.amount_cents)<50) {
+      await rewardsRpc(supabase,'rewards_release_hold',{p_hold:data.id});
+      throw new Error('This code leaves a payment below the card minimum. Choose a longer session or a different code.');
     }
     return NextResponse.json({ hold: { ...data, subtotal_cents: racingPrice.amountCents, sales_tax_cents: taxCents, base_amount_cents: price.baseAmountCents, membership_credit_label: price.creditLabel, ...walletQuote } });
   } catch (error) {

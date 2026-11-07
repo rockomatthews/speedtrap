@@ -9,6 +9,8 @@ export type MembershipProfile = {
   id?: string | null;
   membership_status?: MembershipStatus | null;
   membership_current_period_end?: string | null;
+  gift_membership_until?: string | null;
+  gift_membership_lifetime?: boolean;
   birthday?: string | null;
   membership_free_race_month?: string | null;
   membership_free_race_redeemed_at?: string | null;
@@ -48,7 +50,7 @@ export function membershipState(profile: MembershipProfile | null | undefined, n
     birthday30Available,
     birthdayOnFile: Boolean(profile?.birthday),
     birthdayMonthActive: isBirthdayMonth(profile, now),
-    status: active ? profile?.membership_status ?? 'inactive' : 'inactive',
+    status: active ? 'active' : 'inactive',
     label: active ? 'Active Apex Pass' : 'Not an Apex Pass member',
     creditLabel: !active
       ? 'No member credit'
@@ -87,6 +89,7 @@ export function venueMembershipMonthNumber(date = new Date()) {
 
 export function isMembershipActive(profile: MembershipProfile | null | undefined, now = new Date()) {
   if (!profile) return false;
+  if (profile.gift_membership_lifetime || (profile.gift_membership_until && new Date(profile.gift_membership_until).getTime() > now.getTime())) return true;
   if (profile.membership_status !== 'active-start' && profile.membership_status !== 'active') return false;
   if (!profile.membership_current_period_end) return true;
   return new Date(profile.membership_current_period_end).getTime() > now.getTime();

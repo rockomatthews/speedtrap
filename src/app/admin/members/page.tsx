@@ -31,6 +31,8 @@ type MemberProfile = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   membership_current_period_start: string | null;
+  gift_membership_until: string | null;
+  gift_membership_lifetime: boolean;
   membership_current_period_end: string | null;
   membership_free_race_month: string | null;
   membership_free_race_redeemed_at: string | null;
@@ -65,7 +67,7 @@ export default async function AdminMembersPage() {
         supabase
           .from('profiles')
           .select(
-            'id,display_name,phone,avatar_url,membership_status,birthday,stripe_customer_id,stripe_subscription_id,membership_current_period_start,membership_current_period_end,membership_free_race_month,membership_free_race_redeemed_at,membership_monthly_15_race_month,membership_monthly_15_race_redeemed_at,membership_birthday_30_race_year,membership_birthday_30_race_redeemed_at,updated_at'
+            'id,display_name,phone,avatar_url,membership_status,gift_membership_until,gift_membership_lifetime,birthday,stripe_customer_id,stripe_subscription_id,membership_current_period_start,membership_current_period_end,membership_free_race_month,membership_free_race_redeemed_at,membership_monthly_15_race_month,membership_monthly_15_race_redeemed_at,membership_birthday_30_race_year,membership_birthday_30_race_redeemed_at,updated_at'
           )
           .order('updated_at', { ascending: false })
           .limit(250),

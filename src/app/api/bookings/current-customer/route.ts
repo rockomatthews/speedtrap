@@ -25,7 +25,7 @@ export async function GET() {
     },
     membership: profile
       ? {
-          status: isMembershipActive(profile) ? profile.membership_status : 'inactive',
+          status: isMembershipActive(profile) ? 'active' : 'inactive',
           freeRaceAvailable: hasUnusedMonthlyRace(profile),
           monthly15Available: hasUnusedMonthlyRace(profile),
           birthday30Available: hasUnusedBirthdayRace(profile),

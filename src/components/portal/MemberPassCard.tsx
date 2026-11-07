@@ -102,7 +102,7 @@ export function MemberPassCard({ profile, email }: { profile: Profile | null; em
               </Box>
             </Stack>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-              <MembershipCheckoutButton manage>Manage membership</MembershipCheckoutButton>
+              {profile?.stripe_subscription_id ? <MembershipCheckoutButton manage>Manage membership</MembershipCheckoutButton> : <Chip label="Gifted membership · No recurring charge" />}
             </Stack>
           </Stack>
 
@@ -145,7 +145,7 @@ export function MemberPassCard({ profile, email }: { profile: Profile | null; em
             </Grid>
           </Grid>
           <Typography color="text.secondary" sx={{ fontSize: 13 }}>
-            Current period ends {formatDate(profile?.membership_current_period_end)}.
+            {profile?.gift_membership_lifetime ? 'Ongoing complimentary membership. No recurring charge.' : profile?.gift_membership_until && new Date(profile.gift_membership_until) > new Date() ? `Gifted membership ends ${formatDate(profile.gift_membership_until)}. No recurring charge.` : `Current period ends ${formatDate(profile?.membership_current_period_end)}.`}
           </Typography>
         </Stack>
       </CardContent>

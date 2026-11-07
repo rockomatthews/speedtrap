@@ -1,3 +1,4 @@
+import {GiftRedemption} from '@/components/promos/GiftRedemption';
 import Stripe from 'stripe';
 
 import Typography from '@mui/material/Typography';
@@ -49,6 +50,7 @@ export default async function DashboardPage() {
         <DriverPortalHeader email={user?.email} />
 
         <MemberPassCard profile={currentProfile} email={user?.email} />
+        <GiftRedemption />
 
         <Button component={Link} href="/dashboard/rewards" variant="outlined">My Rewards & Racing Credits</Button>
 

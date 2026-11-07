@@ -9,6 +9,8 @@ export type Profile = {
   phone: string | null;
   avatar_url: string | null;
   vms_customer_id: number | null;
+  gift_membership_until: string | null;
+  gift_membership_lifetime: boolean;
   membership_status: 'inactive' | 'active-start' | 'active';
   birthday: string | null;
   stripe_customer_id: string | null;
@@ -24,7 +26,7 @@ export type Profile = {
 };
 
 const PROFILE_SELECT =
-  'id, role, username, display_name, phone, avatar_url, vms_customer_id, membership_status, birthday, stripe_customer_id, stripe_subscription_id, membership_current_period_start, membership_current_period_end, membership_free_race_month, membership_free_race_redeemed_at, membership_monthly_15_race_month, membership_monthly_15_race_redeemed_at, membership_birthday_30_race_year, membership_birthday_30_race_redeemed_at';
+  'id, role, username, display_name, phone, avatar_url, vms_customer_id, membership_status, gift_membership_until, gift_membership_lifetime, birthday, stripe_customer_id, stripe_subscription_id, membership_current_period_start, membership_current_period_end, membership_free_race_month, membership_free_race_redeemed_at, membership_monthly_15_race_month, membership_monthly_15_race_redeemed_at, membership_birthday_30_race_year, membership_birthday_30_race_redeemed_at';
 const LEGACY_PROFILE_SELECT = 'id, role, display_name, phone, vms_customer_id';
 
 function withDefaults(
@@ -34,6 +36,8 @@ function withDefaults(
     ...profile,
     username: profile.username ?? null,
     avatar_url: profile.avatar_url ?? null,
+    gift_membership_until: profile.gift_membership_until ?? null,
+    gift_membership_lifetime: profile.gift_membership_lifetime ?? false,
     membership_status: profile.membership_status ?? 'inactive',
     birthday: profile.birthday ?? null,
     stripe_customer_id: profile.stripe_customer_id ?? null,

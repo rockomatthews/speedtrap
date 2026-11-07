@@ -37,7 +37,7 @@ import { applyRacingDiscount } from '@/lib/bookings/discount';
 import { useRacingDiscount } from '@/components/racing/RacingDiscountProvider';
 import { salesTaxCents, totalWithSalesTaxCents } from '@/lib/stripe/tax';
 
-type CheckoutQuote = { wallet_purchased_cents?: number; wallet_promo_cents?: number; subtotal_cents: number; sales_tax_cents: number; amount_cents: number; base_amount_cents: number; membership_discount_cents: number; membership_credit_label: string | null; racing_discount_percent: number; racing_discount_cents: number };
+type CheckoutQuote = { promo_code?: string; promo_discount_cents?: number; wallet_purchased_cents?: number; wallet_promo_cents?: number; subtotal_cents: number; sales_tax_cents: number; amount_cents: number; base_amount_cents: number; membership_discount_cents: number; membership_credit_label: string | null; racing_discount_percent: number; racing_discount_cents: number };
 
 type Slot = {
   startsAt: string;
@@ -479,6 +479,9 @@ export function BookingClient({
   const [wallet,setWallet]=useState<any>(null);
   const [usePurchasedCredits,setUsePurchasedCredits]=useState(false);
   const [useRewards,setUseRewards]=useState(false);
+  const [promoCode,setPromoCode]=useState('');
+  const [promoBusy,setPromoBusy]=useState(false);
+  const [promoApplied,setPromoApplied]=useState<{code:string;discount_cents:number;subtotal_cents:number;duration:number;pods:number;email:string}|null>(null);
   useEffect(()=>{if(signedInEmail) void fetch('/api/rewards',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>setWallet(j?.wallet??null)).catch(()=>setWallet(null));},[signedInEmail]);
   const normalizedInitialPartySize = normalizePartySize(initialPartySize);
   const normalizedInitialSimCount = initialSimCount ?? simCountForPartySize(normalizedInitialPartySize);
@@ -743,6 +746,7 @@ export function BookingClient({
         body: JSON.stringify({
           customerName,
           customerEmail,
+          promoCode: activePromo?.code,
           usePurchasedCredits,
           useRewards: useRewards && (preview?.percent ?? 0)===0,
           customerPhone,
@@ -782,23 +786,24 @@ export function BookingClient({
   }
 
   const baseAmountCents = bookingPrice(durationMinutes, reservedSimCount);
+  const activePromo = promoApplied && promoApplied.code===promoCode.trim().toUpperCase() && promoApplied.duration===durationMinutes && promoApplied.pods===reservedSimCount && promoApplied.email===customerEmail.trim().toLowerCase() && promoApplied.email===signedInEmail ? promoApplied : null;
   const applicableMembership = signedInEmail && customerEmail.trim().toLowerCase() === signedInEmail ? membership : null;
   const memberPrice = memberBookingPrice(durationMinutes, reservedSimCount, applicableMembership);
   const preview = discount ? applyRacingDiscount(memberPrice.amountCents, discount, date, discount.venueDate, Boolean(applicableMembership && applicableMembership.status !== 'inactive')) : null;
   const lockedQuote = clientSecret ? checkoutQuote : null;
   const walletEligible = signedInEmail && customerEmail.trim().toLowerCase()===signedInEmail;
-  const estimatedWallet=walletEstimate(preview?.amountCents ?? memberPrice.amountCents,walletEligible?Number(wallet?.purchased_cents??0):0,walletEligible&&Number(wallet?.points_units??0)>=0?Number(wallet?.promo_cents??0):0,usePurchasedCredits,useRewards,preview?.percent??0);
+  const estimatedWallet=walletEstimate(activePromo?.subtotal_cents ?? preview?.amountCents ?? memberPrice.amountCents,walletEligible?Number(wallet?.purchased_cents??0):0,walletEligible&&Number(wallet?.points_units??0)>=0?Number(wallet?.promo_cents??0):0,usePurchasedCredits,useRewards && !activePromo,preview?.percent??0);
   const subtotalCents = lockedQuote?.subtotal_cents ?? estimatedWallet.subtotal_cents;
   const taxCents = lockedQuote?.sales_tax_cents ?? salesTaxCents(subtotalCents);
   const amountCents = lockedQuote?.amount_cents ?? estimatedWallet.amount_cents;
-  const racingDiscountPercent = lockedQuote?.racing_discount_percent ?? preview?.percent ?? 0;
-  const racingDiscountCents = lockedQuote?.racing_discount_cents ?? preview?.discountCents ?? 0;
-  const memberSavings = lockedQuote?.membership_discount_cents ?? memberPrice.discountCents;
-  const creditLabel = lockedQuote ? lockedQuote.membership_credit_label : memberPrice.creditLabel;
+  const racingDiscountPercent = lockedQuote?.racing_discount_percent ?? (activePromo ? 0 : preview?.percent ?? 0);
+  const racingDiscountCents = lockedQuote?.racing_discount_cents ?? (activePromo ? 0 : preview?.discountCents ?? 0);
+  const memberSavings = lockedQuote?.membership_discount_cents ?? (activePromo ? 0 : memberPrice.discountCents);
+  const creditLabel = lockedQuote ? lockedQuote.membership_credit_label : activePromo ? null : memberPrice.creditLabel;
   const raceRequestReady = raceRequestMode === 'none' || (raceRequestMode === 'hotlap_event' && Boolean(selectedEvent));
   const reminderPhoneReady = !smsConsent || customerPhone.replace(/\D/g, '').length >= 10;
   const canStartPayment = Boolean(
-    discount && selectedSlot &&
+    !promoBusy && discount && selectedSlot &&
       reservedSimCount >= 1 &&
       reservedSimCount <= selectedWindowAvailableSims &&
       customerName.trim().length >= 3 &&
@@ -821,6 +826,7 @@ export function BookingClient({
             </Typography>
             <Typography sx={{ fontWeight: 900 }}>Payment: {money(booking.amount_cents)}</Typography>
             {booking.wallet_purchased_cents>0&&<Typography>Purchased credits used: {money(booking.wallet_purchased_cents)}</Typography>}
+            {booking.promo_discount_cents>0&&<Typography>Promo {booking.promo_code}: {money(booking.promo_discount_cents)} off</Typography>}
             {booking.wallet_promo_cents>0&&<Typography>Racing reward used: {money(booking.wallet_promo_cents)}</Typography>}
             {booking.racing_discount_percent > 0 && <Typography color="primary">Racing discount: {booking.racing_discount_percent}% ({money(booking.racing_discount_cents)} saved before tax)</Typography>}
             {booking.vms_booking_id ? <Typography>VMS booking #{booking.vms_booking_id}</Typography> : null}
@@ -1008,11 +1014,21 @@ export function BookingClient({
                 {!discount && !lockedQuote && <Alert severity="warning">Unable to load current prices. Please try again before checkout.</Alert>}
                 <Typography color="text.secondary">{selectedSlot ? formatVenueBookingRange(selectedSlot.startsAt, new Date(new Date(selectedSlot.startsAt).getTime() + durationMinutes * 60_000).toISOString()) : 'Choose a time slot'}</Typography>
               </Stack>
+              <Box>
+                <Typography fontWeight={800}>Promo code</Typography>
+                <TextField label="Racing promo code" value={promoCode} disabled={Boolean(clientSecret)||startingPayment||promoBusy} inputProps={{maxLength:40}} onChange={e=>{setPromoCode(e.target.value.toUpperCase());setPromoApplied(null);}} />
+                <Button disabled={!walletEligible||!promoCode.trim()||Boolean(clientSecret)||startingPayment||promoBusy} onClick={async()=>{
+                  setPromoBusy(true);setError('');setPromoApplied(null);
+                  try {const r=await fetch('/api/promos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'quote',code:promoCode,durationMinutes,pods:reservedSimCount})});const j=await r.json();if(!r.ok)throw new Error(j.error);setPromoApplied({...j,duration:durationMinutes,pods:reservedSimCount,email:customerEmail.trim().toLowerCase()});setUseRewards(false);}catch(e){setError(e instanceof Error?e.message:'Code could not be applied');}finally{setPromoBusy(false);}
+                }}>{promoBusy?'Checking…':'Apply code'}</Button>
+                <Typography variant="body2">Sign in with the booking email to use a code. Codes replace other racing discounts and member credits. Redeem membership gifts in your account.</Typography>
+                {(lockedQuote?.promo_discount_cents || activePromo) ? <Alert severity="success">Promo {lockedQuote?.promo_code ?? activePromo?.code}: −{money(lockedQuote?.promo_discount_cents ?? activePromo?.discount_cents ?? 0)}</Alert> : null}
+              </Box>
               {walletEligible&&wallet&&<Box>
                 <Typography fontWeight={800}>Your racing wallet</Typography>
                 <Typography variant="body2">Purchased: {money(wallet.purchased_cents)} · Rewards: {money(wallet.promo_cents)}</Typography>
                 <FormControlLabel label="Use purchased credits" control={<Checkbox checked={usePurchasedCredits} disabled={Boolean(clientSecret)||startingPayment||wallet.purchased_cents<=0} onChange={e=>setUsePurchasedCredits(e.target.checked)}/>}/>
-                <FormControlLabel label="Use racing rewards (up to 25%)" control={<Checkbox checked={useRewards} disabled={Boolean(clientSecret)||startingPayment||wallet.promo_cents<=0||wallet.points_units<0||racingDiscountPercent>0} onChange={e=>setUseRewards(e.target.checked)}/>}/>
+                <FormControlLabel label="Use racing rewards (up to 25%)" control={<Checkbox checked={useRewards} disabled={Boolean(clientSecret)||startingPayment||wallet.promo_cents<=0||wallet.points_units<0||racingDiscountPercent>0||Boolean(activePromo)} onChange={e=>setUseRewards(e.target.checked)}/>}/>
                 {racingDiscountPercent>0&&<Typography variant="caption">Racing rewards cannot combine with discount mode. Purchased credits can still be used.</Typography>}
                 <Button href="/dashboard/rewards">View rewards & add credits</Button>
               </Box>}

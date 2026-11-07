@@ -23,7 +23,6 @@ async function redeemMembershipCreditIfNeeded(supabase: any, hold: any) {
           membership_birthday_30_race_redeemed_at: redeemedAt
         }
       : {
-          membership_status: 'active',
           membership_free_race_month: hold.membership_free_race_month,
           membership_free_race_redeemed_at: redeemedAt,
           membership_monthly_15_race_month: hold.membership_credit_month ?? hold.membership_free_race_month,
@@ -95,6 +94,7 @@ function bookingPaymentNotes(booking: any, lines: Array<string | null | undefine
     `Drivers/pods: ${driverPodLine(booking)}`,
     `Total charged: ${formatMoneyFromBooking(booking)}`,
     booking.wallet_purchased_cents ? `Prepaid racing credit: $${(booking.wallet_purchased_cents / 100).toFixed(2)}` : null,
+    booking.promo_code ? `Promo ${booking.promo_code}: $${((booking.promo_discount_cents ?? 0) / 100).toFixed(2)} off` : null,
     booking.wallet_promo_cents ? `Racing reward: $${(booking.wallet_promo_cents / 100).toFixed(2)}` : null,
     booking.racing_discount_percent ? `Racing discount: ${booking.racing_discount_percent}% ($${((booking.racing_discount_cents ?? 0) / 100).toFixed(2)} before tax).` : null,
     ...lines

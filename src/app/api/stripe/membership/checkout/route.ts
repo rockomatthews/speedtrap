@@ -43,6 +43,9 @@ export async function POST(request: Request) {
     const stripeEnv = getStripeMembershipEnv();
     const stripe = new Stripe(stripeEnv.STRIPE_SECRET_KEY);
     const admin = createSupabaseAdminClient();
+    const {data:gift,error:giftError}=await admin.from('profiles').select('gift_membership_until,gift_membership_lifetime').eq('id',user.id).maybeSingle();
+    if(giftError) throw giftError;
+    if(gift?.gift_membership_lifetime || (gift?.gift_membership_until && new Date(gift.gift_membership_until)>new Date())) return NextResponse.json({error:'Your gifted Apex Pass is already active with no recurring charge.'},{status:409});
     const membershipPrice = await stripe.prices.retrieve(stripeEnv.STRIPE_MEMBERSHIP_PRICE_ID);
     // Never advertise $25 and accidentally charge an older configured Stripe price.
     if (!membershipPrice.active || membershipPrice.currency !== 'usd' || membershipPrice.unit_amount !== 2500
