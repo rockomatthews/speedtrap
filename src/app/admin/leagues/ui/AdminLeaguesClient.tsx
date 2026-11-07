@@ -93,6 +93,7 @@ export function AdminLeaguesClient() {
   const [leagues, setLeagues] = useState<AdminLeague[]>([]);
   const [events, setEvents] = useState<HotlapEvent[]>([]);
   const [selectedLeagueId, setSelectedLeagueId] = useState('');
+  const [showRemoved, setShowRemoved] = useState(false);
   const [leagueForm, setLeagueForm] = useState(defaultLeague);
   const [teamForm, setTeamForm] = useState({ name: '', color: '#FFD200' });
   const [memberForm, setMemberForm] = useState({ driverName: '', vmsCustomerId: '', teamId: '', role: 'driver' });
@@ -112,7 +113,10 @@ export function AdminLeaguesClient() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedLeague = useMemo(() => leagues.find((league) => league.id === selectedLeagueId) ?? leagues[0], [leagues, selectedLeagueId]);
+  const selectedLeague = useMemo(() => {
+    const visible = leagues.filter((league) => showRemoved || league.status !== 'archived');
+    return visible.find((league) => league.id === selectedLeagueId) ?? visible[0];
+  }, [leagues, selectedLeagueId, showRemoved]);
   const selectedRound = useMemo(() => {
     const rounds = selectedLeague?.league_rounds ?? [];
     return rounds.find((round) => round.id === selectedRoundId) ?? rounds[0] ?? null;
@@ -148,6 +152,26 @@ export function AdminLeaguesClient() {
     setLeagues(leagueJson.leagues ?? []);
     setEvents(eventJson.events ?? []);
     if (!selectedLeagueId && leagueJson.leagues?.[0]) setSelectedLeagueId(leagueJson.leagues[0].id);
+  }
+
+  async function deleteLeague() {
+    if (!selectedLeague) return;
+    if (!window.confirm(`Delete "${selectedLeague.name}" from the website? Registration will close and the public page will be removed. Registrations, dues and results will be preserved in removed leagues.`)) return;
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const response = await fetch(`/api/admin/leagues/${selectedLeague.id}`, { method: 'DELETE' });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || 'Could not delete league');
+      setLeagues((current) => current.map((league) => league.id === selectedLeague.id ? { ...league, status: 'archived', visibility: 'private' } : league));
+      setSelectedLeagueId(leagues.find((league) => league.id !== selectedLeague.id && league.status !== 'archived')?.id ?? '');
+      setMessage('League removed from the website. Its registrations, dues and results have been preserved.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not delete league');
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -435,12 +459,15 @@ export function AdminLeaguesClient() {
               </Typography>
               <Stack spacing={2}>
                 <TextField select label="League" value={selectedLeague?.id ?? ''} onChange={(e) => setSelectedLeagueId(e.target.value)}>
-                  {leagues.map((league) => (
+                  {leagues.filter((league) => showRemoved || league.status !== 'archived').map((league) => (
                     <MenuItem key={league.id} value={league.id}>
-                      {league.name}
+                      {league.name}{league.status === 'archived' ? ' (removed)' : ''}
                     </MenuItem>
                   ))}
                 </TextField>
+                <Button size="small" onClick={() => { setShowRemoved(!showRemoved); setSelectedLeagueId(''); }}>
+                  {showRemoved ? 'Hide removed leagues' : 'Show removed leagues'}
+                </Button>
                 {selectedLeague ? (
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                     <Chip label={selectedLeague.status} />
@@ -450,9 +477,12 @@ export function AdminLeaguesClient() {
                     <Chip label={`${selectedLeague.season_weeks ?? 8} weeks`} />
                     <Chip label={`${formatMoney(selectedLeague.weekly_fee_cents ?? 4000)}/week`} />
                     <Chip label={`Prize pool ${formatMoney(prizePoolCents)}`} color="primary" />
-                    <Button component={Link} href={`/leagues/${selectedLeague.slug}`} size="small">
+                    <Button component={Link} href={`/leagues/${selectedLeague.slug}`} size="small" disabled={selectedLeague.status === 'archived'}>
                       View public page
                     </Button>
+                    {selectedLeague.status !== 'archived' ? (
+                      <Button color="error" variant="outlined" disabled={loading} onClick={deleteLeague}>Delete league</Button>
+                    ) : null}
                   </Stack>
                 ) : null}
               </Stack>

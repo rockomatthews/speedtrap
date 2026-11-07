@@ -72,7 +72,7 @@ export async function getLeagueStandings(slug: string): Promise<LeagueStandings>
   const { data: leagueRow, error: leagueError } = await supabase.from('leagues').select('*').eq('slug', slug).maybeSingle();
 
   if (leagueError) throw new Error(leagueError.message);
-  if (!leagueRow) notFound();
+  if (!leagueRow || leagueRow.status === 'archived') notFound();
 
   const league = normalizeLeague(leagueRow);
   const [{ data: teamsData, error: teamsError }, { data: membersData, error: membersError }, { data: roundsData, error: roundsError }] =

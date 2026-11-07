@@ -23,7 +23,7 @@ export default async function LeaguesPage() {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from('leagues')
-    .select('*, league_teams(id), league_rounds(id)')
+    .select('*, league_rounds(id)')
     .in('status', ['active', 'completed'])
     .eq('visibility', 'public')
     .order('starts_at', { ascending: false, nullsFirst: false });
@@ -65,9 +65,6 @@ export default async function LeaguesPage() {
                   </Typography>
                   <Typography color="text.secondary">{league.description || 'League details are being staged.'}</Typography>
                   <Stack direction="row" spacing={3} sx={{ color: 'text.secondary' }}>
-                    <Typography>
-                      <b>{league.league_teams?.length ?? 0}</b> teams
-                    </Typography>
                     <Typography>
                       <b>{league.season_weeks ?? league.league_rounds?.length ?? 0}</b> weeks
                     </Typography>

@@ -88,7 +88,7 @@ export default async function LeagueDetailPage({
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
             <Chip label={league.status} color={league.status === 'active' ? 'primary' : 'default'} />
             <Chip label={`${formatDate(league.starts_at)} - ${formatDate(league.ends_at)}`} variant="outlined" />
-            <Chip label={`${league.team_count} teams x ${league.roster_size} drivers`} variant="outlined" />
+            <Chip label={`${league.roster_size} drivers per team`} variant="outlined" />
             <Chip label={`${formatMoney(league.weekly_fee_cents)} / week`} variant="outlined" />
             {!winter ? <Chip label={`Prize pool ${formatMoney(prizePoolCents)}`} color="secondary" /> : null}
           </Stack>
@@ -121,7 +121,7 @@ export default async function LeagueDetailPage({
 
         <Grid container spacing={2}>
           {[
-            ['Format', `${league.season_weeks} weeks · ${league.team_count} teams`],
+            ['Format', `${league.season_weeks} weeks · Team racing`],
             winter ? ['Racing window', 'Monday–Thursday'] : ['Race Night', `${league.league_night} · ${league.league_start_time.slice(0, 5)}-${league.league_end_time.slice(0, 5)}`],
             winter ? ['Weekly score', 'Your best valid lap'] : ['Heat Scoring', 'P1 4 pts · P2 3 · P3 2 · P4 1'],
             ['Drivers', `${reservedCount}/${league.team_count * league.roster_size} reserved`]

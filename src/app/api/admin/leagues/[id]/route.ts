@@ -527,7 +527,10 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
   const { id } = await params;
   const supabase = createSupabaseAdminClient();
-  const { error } = await supabase.from('leagues').delete().eq('id', id);
+  // Remove the season from public use without cascading away payment/history records.
+  const { data, error } = await supabase.from('leagues')
+    .update({ status: 'archived', visibility: 'private' }).eq('id', id).select('id').maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ error: 'League not found' }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
