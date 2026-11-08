@@ -13,9 +13,9 @@ Provisioned 2026-11-08 UTC (November 7 local venue evening).
 
 ## Important scope
 
-The review database contains only minimal private profiles (empty), the three shadow tables, and scheduler infrastructure. Production migration replay failed because its historical migrations were not a complete blank-database bootstrap. The required shadow schema was then applied separately. A migration-history warning may remain in the branch dashboard; this is not a copy of the full production website database. Do not merge this database branch to production.
+The review database contains only minimal private staff profiles, the three shadow tables, and scheduler infrastructure. Production migration replay failed because its historical migrations were not a complete blank-database bootstrap. The required shadow schema was then applied separately. A migration-history warning may remain in the branch dashboard; this is not a copy of the full production website database. Do not merge this database branch to production.
 
-Existing customer accounts were not copied. Website-profile linkage is therefore unverified here. Review initially through the Supabase dashboard/table editor or queries below. The Next.js admin review screen is code-complete but is not yet provisioned with isolated staff sign-in. Do not point its normal Supabase variables back at production to shortcut that setup.
+Existing customer accounts were not copied. Website-profile linkage is therefore unverified here. Staff review is available at https://speedtrap-shadow-review.vercel.app in its own Vercel project. Do not point this application at production.
 
 ## Review queries (only on the review project)
 
@@ -52,3 +52,19 @@ At 2026-11-08 04:29 UTC: historical baseline complete, 30,838 laps imported (30,
 The first scheduled invocation returned HTTP 200 and advanced the cursor. A request with the branch JWT but missing the private scheduler token returned HTTP 401. Live grants checks show no anonymous or authenticated SELECT permissions on any shadow table. Production has no `racing_shadow_sources` table. Local verification: 75 tests pass, TypeScript check passes, production build passes.
 
 Intentional advisor informational notice: [RLS enabled with no policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy). These are service-only tables, not publicly accessible customer data.
+
+## Isolated staff website
+
+- URL: https://speedtrap-shadow-review.vercel.app
+- Dedicated Vercel project: `prj_rdEmbg7AmniJOQ7C0y93jgETyB86`, root `apps/shadow-review`
+- Approved staff: Andrew and Rob at their SpeedTrap addresses. These are separate accounts and passwords, not copied production accounts.
+- The site has only sign-in/setup/sign-out and alert review endpoints. No payments, bookings, VMS credentials or email SDK.
+- Project credentials: only `SHADOW_SUPABASE_URL`, `SHADOW_ANON_KEY`, `SHADOW_SERVICE_ROLE_KEY`; fixed review database URL checked at runtime.
+- The extra Vercel team-login gate was removed with the user's explicit approval; application-level staff authorization remains mandatory on every private read/write.
+- Cookies are HttpOnly, Secure, SameSite=Strict; mutations require same-origin requests. Staff role comes from the database, never editable user metadata.
+- Global Auth signup is disabled. `auth.email.enable_signup=true` is required for password login: the CLI maps it to `external_email_enabled`, while the separate `auth.enable_signup=false` maps to `disable_signup=true`. An explicit test confirmed unauthorized signup fails.
+- `shadow_block_email` is a Postgres Auth Send Email hook returning a 403, with EXECUTE granted only to `supabase_auth_admin`. This prevents Auth email delivery as well as the absence of racing-email delivery code.
+- Supabase CLI config push applies Auth changes successfully but subsequently reports an unrelated Storage schema-read error. Live login, hook rejection, and signup denial were verified directly; do not interpret that CLI exit code as rollback of Auth changes.
+- Private recovery/setup links are generated through Admin `generateLink`, which does not send mail. They are single-use, expire in one hour, and use the website URL fragment; the page removes the fragment from browser history after loading. Each recipient chooses their own password. Never commit these links.
+
+Verification: 78 local tests pass; isolated app production build passes. Live HTTPS QA passed initial password setup, login, cookie protection, private alert retrieval, audited review saving, refresh, logout, cross-origin rejection, immediate role revocation, non-staff denial, blocked email and disabled signup. Temporary QA account and fixture records were removed. Use `node scripts/racing-engagement/verify-staff-site.cjs https://speedtrap-shadow-review.vercel.app` for an explicit repeat; it is review-project-only.
