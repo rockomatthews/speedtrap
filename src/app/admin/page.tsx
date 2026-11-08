@@ -40,6 +40,7 @@ export default async function AdminPage() {
               Racing Discount Mode
             </Button>
             <Button component={Link} href="/admin/promos" variant="contained">Promo Codes</Button>
+            <Button component={Link} href="/admin/racing-engagement" variant="outlined">Racing Alert Review</Button>
             <Button component={Link} href="/admin/rewards" variant="contained">Rewards & Racing Credits</Button>
             <Button component={Link} href="/admin/members" variant="contained">
               Manage Members
