@@ -1,0 +1,1 @@
+{"name":"speedtrap-shadow-review","private":true,"version":"1.0.0","scripts":{"build":"next build","dev":"next dev","start":"next start"},"dependencies":{"next":"15.5.13","react":"19.0.0","react-dom":"19.0.0","@supabase/supabase-js":"2.49.1"},"devDependencies":{"typescript":"5.7.3","@types/node":"22.10.5","@types/react":"19.0.3","@types/react-dom":"19.0.2"}}

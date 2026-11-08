@@ -1,0 +1,18 @@
+project_id = "speedtrap-shadow-review"
+[auth]
+site_url = "https://speedtrap-shadow-review.vercel.app"
+additional_redirect_urls = []
+enable_signup = false
+minimum_password_length = 12
+[auth.email]
+max_frequency = "1m"
+otp_length = 8
+enable_signup = false
+enable_confirmations = true
+[auth.hook.send_email]
+enabled = true
+uri = "pg-functions://postgres/public/shadow_block_email"
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
