@@ -44,3 +44,11 @@ VMS API key resides in review Edge Function secrets. The scheduler's branch JWT 
 5. Delivery cannot be enabled by either flag. It requires a separate reviewed implementation.
 
 The persistent branch incurs the Supabase branch charges accepted at creation. Retire it after review rather than leaving unused infrastructure running.
+
+## Verified startup snapshot
+
+At 2026-11-08 04:29 UTC: historical baseline complete, 30,838 laps imported (30,820 eligible), latest lap ID 30,864, zero proposed losses. Baseline boundary was ID 30,862. This is a snapshot, not a permanent count. Historical import produced no alerts. Full reconciliation has begun but its first complete sweep is still pending.
+
+The first scheduled invocation returned HTTP 200 and advanced the cursor. A request with the branch JWT but missing the private scheduler token returned HTTP 401. Live grants checks show no anonymous or authenticated SELECT permissions on any shadow table. Production has no `racing_shadow_sources` table. Local verification: 75 tests pass, TypeScript check passes, production build passes.
+
+Intentional advisor informational notice: [RLS enabled with no policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy). These are service-only tables, not publicly accessible customer data.

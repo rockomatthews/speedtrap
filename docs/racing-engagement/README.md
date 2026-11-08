@@ -1,6 +1,6 @@
 # Racing engagement: shadow pilot
 
-Branch: `codex/racing-engagement-shadow`. No production rollout is included.
+Branch: `codex/racing-engagement-shadow`. The isolated collector is now running; see [review environment](review-environment.md) for its dashboard, schedule and verification. No production rollout is included.
 
 ## Operating contract
 
