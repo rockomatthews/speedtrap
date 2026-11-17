@@ -34,9 +34,9 @@ const experienceHighlights = [
 const emptyLeaderboardRows = [{ rank: '--', driver: 'NO TIMES YET', lap: '--', delta: 'weekly' }];
 
 const mediaTiles = [
-  { title: 'Restaurant and bar', image: '/home/speedtrap-restaurant-bar.jpg', objectPosition: '52% 50%' },
-  { title: 'Simulator bays', image: '/home/speedtrap-lone-sims.jpg', objectPosition: '50% 56%' },
-  { title: 'Group nights', image: '/home/speedtrap-happy-eaters.jpg', objectPosition: '50% 44%' }
+  { title: 'Restaurant and bar', image: '/home/venue-bar-2026.webp', objectPosition: '52% 50%' },
+  { title: 'Simulator bays', image: '/home/venue-simulators-2026.webp', objectPosition: '50% 56%' },
+  { title: 'Race together', image: '/home/venue-racing-still-2026.webp', objectPosition: '50% 62%' }
 ];
 
 const footerLinks = ['How It Works', 'Pricing', 'Race Radar', 'Menu', 'Merch'];
@@ -82,7 +82,7 @@ export default async function HomePage({
               pt: { xs: 12, md: 16 },
               borderBottom: '1px solid rgba(255,255,255,0.12)',
               backgroundImage:
-                'linear-gradient(90deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.68) 43%, rgba(0,0,0,0.22) 70%, rgba(0,0,0,0.88) 100%), url(/home/speedtrap-hero-bar.jpg)',
+                'linear-gradient(90deg, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.52) 43%, rgba(0,0,0,0.12) 70%, rgba(0,0,0,0.3) 100%), url(/home/venue-bar-2026.webp)',
               backgroundSize: 'cover',
               backgroundPosition: 'center 46%',
               isolation: 'isolate',
@@ -108,34 +108,6 @@ export default async function HomePage({
               }
             }}
           >
-            <Box
-              component="video"
-              src="/home/smallerTEMPHERO.mp4"
-              autoPlay
-              muted
-              loop
-              playsInline
-              aria-hidden
-              sx={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                objectPosition: 'center',
-                zIndex: 0
-              }}
-            />
-            <Box
-              aria-hidden
-              sx={{
-                position: 'absolute',
-                inset: 0,
-                zIndex: 1,
-                background:
-                  'linear-gradient(90deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.68) 43%, rgba(0,0,0,0.22) 70%, rgba(0,0,0,0.88) 100%)'
-              }}
-            />
             <Box
               aria-hidden
               sx={{
@@ -367,7 +339,7 @@ export default async function HomePage({
                   minHeight: 420,
                   border: '1px solid rgba(255,255,255,0.12)',
                   backgroundImage:
-                    'linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.74)), url(/home/speedtrap-active-sims.jpg)',
+                    'linear-gradient(180deg, rgba(0,0,0,0.02) 45%, rgba(0,0,0,0.82)), url(/home/venue-simulators-2026.webp)',
                   backgroundSize: 'cover',
                   backgroundPosition: 'center 48%',
                   display: 'flex',
