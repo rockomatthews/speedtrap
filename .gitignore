@@ -10,3 +10,9 @@ pnpm-debug.log*
 tsconfig.tsbuildinfo
 .DS_Store
 
+race-control/desk/bin/
+race-control/desk/obj/
+race-control/artifacts/
+race-control/competition/.vercel/
+race-control/competition/supabase/.temp/
+!race-control/competition/.env.example

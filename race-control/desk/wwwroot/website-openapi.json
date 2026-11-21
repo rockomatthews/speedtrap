@@ -1,0 +1,317 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Speed Trap Venue Website API",
+    "version": "1.0.0",
+    "description": "Private server-to-server booking capacity on the venue's desk hub."
+  },
+  "servers": [
+    {
+      "url": "/site/v1"
+    }
+  ],
+  "security": [
+    {
+      "WebsiteKey": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "WebsiteKey": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "parameters": {
+      "BookingId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        }
+      }
+    },
+    "schemas": {
+      "Hold": {
+        "type": "object",
+        "required": [
+          "externalId",
+          "rigIds",
+          "start",
+          "end"
+        ],
+        "properties": {
+          "externalId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,80}$"
+          },
+          "rigIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "minItems": 1,
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "preset": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional verified venue preset ID"
+          }
+        }
+      },
+      "Booking": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Hold"
+          },
+          {
+            "type": "object",
+            "required": [
+              "status",
+              "expires"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "held",
+                  "confirmed",
+                  "released",
+                  "expired"
+                ]
+              },
+              "expires": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "responses": {
+      "Booking": {
+        "description": "Booking state",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Booking"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Reservation conflict or invalid state"
+      },
+      "Unauthorized": {
+        "description": "Website credential required"
+      }
+    }
+  },
+  "paths": {
+    "/availability": {
+      "get": {
+        "summary": "List rigs free through the full window",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "preset",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Free rigs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/holds": {
+      "post": {
+        "summary": "Atomically hold specific rigs for 10 minutes",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Hold"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Booking"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/bookings/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/BookingId"
+        }
+      ],
+      "get": {
+        "summary": "Read actual reservation state",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Booking"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/bookings/{id}/confirm": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/BookingId"
+        }
+      ],
+      "post": {
+        "summary": "Confirm a held reservation, idempotently",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Booking"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/bookings/{id}/release": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/BookingId"
+        }
+      ],
+      "post": {
+        "summary": "Release a hold or inactive reservation, idempotently",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Booking"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/catalog": {
+      "get": {
+        "summary": "List presets verified on at least one rig",
+        "responses": {
+          "200": {
+            "description": "Bookable venue presets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "game",
+                      "label"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "game": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    }
+  }
+}

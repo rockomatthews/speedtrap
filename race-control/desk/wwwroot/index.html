@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speed Trap Race Control</title>
+<link rel="stylesheet" href="/desk.css">
+<script type="module" src="/desk.js"></script>
+</head>
+<body>
+<header><b>Speed Trap</b><span>Race Control / Desk</span></header>
+<main>
+<h1>Run the room</h1>
+<p id="notice" role="status" aria-live="polite"></p>
+<form id="login"><label>Operator key <input name="key" type="password" required autocomplete="current-password"></label><button>Unlock desk</button></form>
+<section id="operations" hidden>
+<div class="toolbar">
+<button id="pair" type="button">Pair a rig</button>
+<button id="diagnostics" type="button">Export diagnostics</button>
+<button id="refresh" type="button">Refresh</button>
+</div>
+<p id="pair-code" aria-live="polite"></p>
+<form id="start" class="panel">
+<h2>Start a session</h2>
+<div class="toolbar"><label>Preset <select id="preset" name="preset"></select></label>
+<label>Minutes <input name="minutes" type="number" min="1" max="240" value="30" required></label>
+<button>Start selected rigs</button></div>
+<p id="instructions"></p>
+<label>Competition event ID (optional) <input id="event-id" name="eventId" placeholder="Leave blank for ordinary sessions"></label>
+<div id="servers" class="toolbar"></div>
+<div id="rigs" class="rigs" aria-label="Simulator rigs"></div>
+</form>
+<form id="booking" class="panel">
+<h2>Reserve a rig</h2>
+<div class="toolbar"><label>Rig <select name="rigId" id="reserve-rig"></select></label>
+<label>Reservation <input name="label" maxlength="80" required></label>
+<label>Start <input name="start" type="datetime-local" required></label>
+<label>End <input name="end" type="datetime-local" required></label>
+<button>Save reservation</button></div>
+</form>
+<details class="panel"><summary>Competition results</summary>
+<p>Use the competition entry ID from the event portal. The desk checks the recorded driver assignment before queuing a result.</p>
+<div class="toolbar"><button id="sessions" type="button">Export driver assignments</button><button id="queue-status" type="button">View result queue</button></div>
+<form id="result-upload"><label>Result JSON file <input name="result" type="file" accept=".json,application/json" required></label><button>Queue result</button></form>
+<pre id="queue-info"></pre>
+</details>
+</section>
+</main></body></html>

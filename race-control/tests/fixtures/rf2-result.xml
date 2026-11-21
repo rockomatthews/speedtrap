@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rFactorXML version="1.0">
+  <RaceResults>
+    <TrackVenue>Fixture Raceway</TrackVenue>
+    <TrackCourse>North Layout</TrackCourse>
+    <Race>
+      <Driver><Name>Fixture Driver</Name><SteamID>123456789</SteamID><VehName>Fixture GT</VehName><Position>2</Position><BestLapTime>65.321</BestLapTime><FinishStatus>Finished Normally</FinishStatus></Driver>
+    </Race>
+  </RaceResults>
+</rFactorXML>
