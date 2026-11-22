@@ -4,6 +4,7 @@ param(
     [string] $RigName,
     [string] $SteamApps,
     [string[]] $VerifiedPresets,
+    [switch] $Cloud,
     [switch] $UsePrevious
 )
 $ErrorActionPreference = 'Stop'
@@ -51,7 +52,7 @@ if ($Role -eq 'Rig') {
             $VerifiedPresets = @((Read-Host 'Verified presets, separated by commas').Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
         }
         $code = Read-Host 'One-time code from the desk'
-        @{ desk=$DeskUrl; name=$RigName; code=$code; verifiedPresets=@($VerifiedPresets); steamApps=$SteamApps; simulated=$false } |
+        @{ desk=$DeskUrl; name=$RigName; code=$code; verifiedPresets=@($VerifiedPresets); steamApps=$SteamApps; simulated=$false; cloud=[bool]$Cloud } |
             ConvertTo-Json | Set-Content $configFile -Encoding UTF8
         Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue |
             Where-Object { $_.Class -eq 'HIDClass' } | Select-Object FriendlyName,Status |

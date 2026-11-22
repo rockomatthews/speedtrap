@@ -8,7 +8,7 @@ const json = (value, status = 200) => Response.json(value, { status, headers: { 
 const first = ({ rows }) => rows[0];
 const publicEvent = "id,name,game,track,car,build,rules,starts_at,ends_at,phase";
 
-async function body(request, schema) {
+export async function body(request, schema) {
   if (!request.headers.get("content-type")?.startsWith("application/json")) throw problem(415, "Use application/json.");
   const reader = request.body?.getReader();
   if (!reader) throw problem(400, "A JSON request body is required.");
@@ -36,7 +36,7 @@ async function body(request, schema) {
   return result.data;
 }
 
-async function identity(request) {
+export async function identity(request) {
   const token = request.headers.get("authorization")?.match(/^Bearer ([A-Za-z0-9_-]{32,128})$/)?.[1];
   if (!token) throw problem(401, "A bearer credential is required.");
   const secret = process.env.RACE_ADMIN_KEY;

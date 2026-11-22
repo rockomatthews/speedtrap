@@ -3,7 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
-sealed record RigConfig(string Desk, string Name, string? Code, string[] VerifiedPresets, string? SteamApps, bool Simulated, string? IRacingRoot = null);
+sealed record RigConfig(string Desk, string Name, string? Code, string[] VerifiedPresets, string? SteamApps, bool Simulated, string? IRacingRoot = null, bool Cloud = false);
 sealed record RigIdentity(string Id, string Key);
 sealed record PollReply(Command? Command);
 static class RigWorker
@@ -16,19 +16,23 @@ static class RigWorker
         var config = JsonSerializer.Deserialize<RigConfig>(File.ReadAllText(configPath), Json)
             ?? throw new InvalidOperationException("Rig configuration is missing.");
         var url = new Uri(config.Desk);
-        if (url.Scheme != "https" && !(url.Scheme == "http" && url.IsLoopback))
+        if (url.UserInfo.Length > 0 || (url.Scheme != "https" && !(url.Scheme == "http" && url.IsLoopback)))
             throw new InvalidOperationException("Remote desks require HTTPS with a trusted certificate.");
         if (config.Simulated && !url.IsLoopback)
             throw new InvalidOperationException("Simulated rigs are allowed only on loopback.");
         using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
             { BaseAddress = url, Timeout = TimeSpan.FromSeconds(5) };
-        var keyPath = configPath + ".identity";
+        var prefix = config.Cloud ? "/api/desk/v1" : "";
+        var bypass = config.Cloud ? Environment.GetEnvironmentVariable("RACE_PREVIEW_BYPASS") : null;
+        if (!string.IsNullOrWhiteSpace(bypass))
+            client.DefaultRequestHeaders.Add("x-vercel-protection-bypass", bypass);
+        var keyPath = configPath + (config.Cloud ? ".cloud.identity" : ".identity");
         RigIdentity key;
         if (File.Exists(keyPath))
             key = JsonSerializer.Deserialize<RigIdentity>(File.ReadAllText(keyPath), Json)!;
         else
         {
-            using var response = await client.PostAsJsonAsync("/rig/pair", new Pair(config.Code!, config.Name));
+            using var response = await client.PostAsJsonAsync(prefix + "/rig/pair", new Pair(config.Code!, config.Name));
             if (!response.IsSuccessStatusCode) throw new InvalidOperationException("Pairing failed. Check the desk URL and get a fresh pairing code.");
             key = await response.Content.ReadFromJsonAsync<RigIdentity>() ?? throw new InvalidOperationException("Desk pairing failed.");
             var temporary = keyPath + ".new";
@@ -46,7 +50,7 @@ static class RigWorker
                 var detail = config.Simulated ? "Simulated rig" : presets.Length == 0
                     ? "No verified game preset. Check installation and configured content."
                     : "Local install checked. Confirm actual car, track, and controller on the rig.";
-                using var response = await client.PostAsJsonAsync($"/rig/{key.Id}/poll", new Poll(presets, detail));
+                using var response = await client.PostAsJsonAsync($"{prefix}/rig/{key.Id}/poll", new Poll(presets, detail));
                 if (response.StatusCode == HttpStatusCode.Unauthorized)
                     throw new InvalidOperationException("This rig credential is invalid. Pair again using a new configuration.");
                 response.EnsureSuccessStatusCode();
@@ -54,7 +58,7 @@ static class RigWorker
                 if (poll?.Command is { } command)
                 {
                     var ack = Execute(config, presets, command);
-                    using var receipt = await client.PostAsJsonAsync($"/rig/{key.Id}/ack", ack);
+                    using var receipt = await client.PostAsJsonAsync($"{prefix}/rig/{key.Id}/ack", ack);
                     receipt.EnsureSuccessStatusCode();
                 }
             }
@@ -62,7 +66,7 @@ static class RigWorker
             {
                 Console.Error.WriteLine($"Desk connection unavailable: {ex.GetType().Name}");
             }
-            await Task.Delay(TimeSpan.FromSeconds(2));
+            await Task.Delay(TimeSpan.FromSeconds(config.Cloud ? 5 : 2));
         }
     }
 
@@ -94,6 +98,16 @@ static class RigWorker
         if (appId is null) return new(command.Id, false, preset.Instructions);
         try
         {
+            if (preset.Id == "rf2-practice")
+            {
+                var running = Process.GetProcessesByName("rFactor2");
+                try
+                {
+                    if (running.Length > 0)
+                        return new(command.Id, true, "rFactor 2 is already open. Verify Single Player, the preset car and track, then press Drive.");
+                }
+                finally { foreach (var process in running) process.Dispose(); }
+            }
             using var launch = Process.Start(new ProcessStartInfo($"steam://run/{appId}") { UseShellExecute = true });
             return new(command.Id, true, preset.Instructions);
         }

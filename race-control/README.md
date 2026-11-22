@@ -48,3 +48,7 @@ Set `RACE_DATABASE_URL` and `RACE_ADMIN_KEY` in `competition`. Use a dedicated P
 - On venue hardware, verify session setup, launching and joining, timing, controls, result mapping, three consecutive four-rig runs, a disconnected rig, restart and handback. Repeat the tournament test with a real partner and an authorized provider feed before calling the network venue-ready.
 
 After pilot sign-off, add Wreckfest 2 dedicated cups, World of Outlaws staff sessions, original AC drift, Assetto Corsa EVO, ACC, JDM and Rally in that order. Kiosk, live spectator controls, round and league scoring, signed outbound webhooks, provider-native imports and opt-in engagement follow their separate test gates.
+
+## Serverless rFactor 2 pilot
+
+The hosted preview now has a browser desk at `/desk` and a separate outbound rig polling API. Start with the browser simulation and follow the [operator guide](docs/OPERATOR.md) for an on-site rig. See the [engineering handoff](docs/IMPLEMENTATION.md) for the competitor evidence, rollout sequence, traffic API, iRacing account policy, and replacement gates. The original LAN workflow above remains available.

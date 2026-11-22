@@ -88,6 +88,7 @@ export default function Home() {
 
   return <main>
     <section className="hero"><div><h1>Race Control</h1><p>Event entry, race review, and official standings.</p></div>
+      <p><a href="/desk">Try the rFactor 2 desk</a></p>
       <button onClick={() => run(() => refresh(), "Updated.")} disabled={busy}>Refresh</button></section>
     <p className="notice" role="status" aria-live="polite">{notice}</p>
     <section className="panel">

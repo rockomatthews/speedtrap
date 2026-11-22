@@ -1,0 +1,750 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Speed Trap Serverless Practice Desk",
+    "version": "1.0.0",
+    "description": "Isolated practice pilot. All timestamps are UTC. Browser demo is independent of this API."
+  },
+  "servers": [
+    {
+      "url": "/api/desk/v1"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "VenueDeskKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Competition API credential with provider desk."
+      },
+      "RigKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Credential issued to one rig at pairing."
+      }
+    }
+  },
+  "paths": {
+    "/state": {
+      "get": {
+        "summary": "Read venue desk state",
+        "security": [
+          {
+            "VenueDeskKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "venueId",
+                    "now",
+                    "rigs"
+                  ],
+                  "properties": {
+                    "venueId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "now": {
+                      "type": "integer",
+                      "description": "Unix milliseconds"
+                    },
+                    "rigs": {
+                      "type": "array",
+                      "maxItems": 4,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          },
+                          "online": {
+                            "type": "boolean"
+                          },
+                          "status": {
+                            "enum": [
+                              "ready",
+                              "offline",
+                              "needs_config",
+                              "launching",
+                              "awaiting_drive",
+                              "launch_unconfirmed",
+                              "racing",
+                              "time_up"
+                            ]
+                          },
+                          "session": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "driver": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80
+                              },
+                              "minutes": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 240
+                              },
+                              "endsAt": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ],
+                                "description": "Unix milliseconds. Null until Drive confirmation."
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credential"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Route or rig unavailable"
+          },
+          "409": {
+            "description": "Rig, ticket, or session state conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/pair-code": {
+      "post": {
+        "summary": "Issue a single-use 5-minute pairing code",
+        "security": [
+          {
+            "VenueDeskKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credential"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Route or rig unavailable"
+          },
+          "409": {
+            "description": "Rig, ticket, or session state conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/start": {
+      "post": {
+        "summary": "Reserve and request rFactor 2 solo launch on ready rigs",
+        "security": [
+          {
+            "VenueDeskKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "seats": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "rigId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "driver": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        }
+                      },
+                      "required": [
+                        "rigId",
+                        "driver"
+                      ]
+                    }
+                  },
+                  "minutes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 240
+                  }
+                },
+                "required": [
+                  "seats",
+                  "minutes"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "venueId",
+                    "now",
+                    "rigs"
+                  ],
+                  "properties": {
+                    "venueId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "now": {
+                      "type": "integer",
+                      "description": "Unix milliseconds"
+                    },
+                    "rigs": {
+                      "type": "array",
+                      "maxItems": 4,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          },
+                          "online": {
+                            "type": "boolean"
+                          },
+                          "status": {
+                            "enum": [
+                              "ready",
+                              "offline",
+                              "needs_config",
+                              "launching",
+                              "awaiting_drive",
+                              "launch_unconfirmed",
+                              "racing",
+                              "time_up"
+                            ]
+                          },
+                          "session": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "driver": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80
+                              },
+                              "minutes": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 240
+                              },
+                              "endsAt": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ],
+                                "description": "Unix milliseconds. Null until Drive confirmation."
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credential"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Route or rig unavailable"
+          },
+          "409": {
+            "description": "Rig, ticket, or session state conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/session/{rigId}": {
+      "post": {
+        "summary": "Confirm Drive, rotate, extend, finish or unpair",
+        "security": [
+          {
+            "VenueDeskKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rigId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "action": {
+                    "enum": [
+                      "confirm",
+                      "rotate",
+                      "extend",
+                      "finish",
+                      "revoke"
+                    ]
+                  },
+                  "driver": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "minutes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 240
+                  },
+                  "confirmed": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "venueId",
+                    "now",
+                    "rigs"
+                  ],
+                  "properties": {
+                    "venueId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "now": {
+                      "type": "integer",
+                      "description": "Unix milliseconds"
+                    },
+                    "rigs": {
+                      "type": "array",
+                      "maxItems": 4,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          },
+                          "online": {
+                            "type": "boolean"
+                          },
+                          "status": {
+                            "enum": [
+                              "ready",
+                              "offline",
+                              "needs_config",
+                              "launching",
+                              "awaiting_drive",
+                              "launch_unconfirmed",
+                              "racing",
+                              "time_up"
+                            ]
+                          },
+                          "session": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "driver": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80
+                              },
+                              "minutes": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 240
+                              },
+                              "endsAt": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ],
+                                "description": "Unix milliseconds. Null until Drive confirmation."
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credential"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Route or rig unavailable"
+          },
+          "409": {
+            "description": "Rig, ticket, or session state conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/rig/pair": {
+      "post": {
+        "summary": "Exchange a pairing code for one rig credential",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "code",
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "key": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "key"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credential"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Route or rig unavailable"
+          },
+          "409": {
+            "description": "Rig, ticket, or session state conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/rig/{rigId}/poll": {
+      "post": {
+        "summary": "Report readiness and claim at most one pending launch",
+        "security": [
+          {
+            "RigKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rigId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "presets": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 16
+                  },
+                  "detail": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 240
+                  }
+                },
+                "required": [
+                  "presets"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "command": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "action": {
+                          "const": "start"
+                        },
+                        "preset": {
+                          "const": "rf2-practice"
+                        },
+                        "expires": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "command"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credential"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Route or rig unavailable"
+          },
+          "409": {
+            "description": "Rig, ticket, or session state conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/rig/{rigId}/ack": {
+      "post": {
+        "summary": "Acknowledge dispatch without starting the driver timer",
+        "security": [
+          {
+            "RigKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rigId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "ok": {
+                    "type": "boolean"
+                  },
+                  "detail": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 240
+                  }
+                },
+                "required": [
+                  "id",
+                  "ok"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Missing or invalid credential"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Route or rig unavailable"
+          },
+          "409": {
+            "description": "Rig, ticket, or session state conflict"
+          },
+          "422": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    }
+  }
+}
